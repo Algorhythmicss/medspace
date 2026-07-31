@@ -1,0 +1,178 @@
+// medSpace information model — memory-first.
+// Postgres (Supabase). String pseudo-enums rather than native enums to keep
+// migrations simple.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Single-row clinic/doctor settings. Reg number is legally required on every
+// electronic prescription (Telemedicine Practice Guidelines 2020).
+model Clinic {
+  id         String  @id @default("clinic")
+  clinicName String
+  doctorName String
+  regNumber  String
+  degrees    String?
+  phone      String?
+  address    String?
+}
+
+model Patient {
+  id         String    @id @default(cuid())
+  fileNumber Int       @unique // short human id — the "barcode" answer: instant lookup key
+  name       String
+  phone      String?
+  sex        String? // M | F | O
+  dob        DateTime?
+  ageYears   Int? // fallback when DOB unknown (common in Indian OPD)
+  address    String?
+  abhaId     String?
+  stickyNote String? // durable context: language, caregiver, temperament
+
+  conditions   Condition[]
+  allergies    Allergy[]
+  visits       Visit[]
+  observations Observation[]
+  reports      Report[]
+  tasks        CarePlanTask[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phone])
+  @@index([name])
+}
+
+// Problem list — the spine of the memory card.
+model Condition {
+  id        String    @id @default(cuid())
+  patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String
+  name      String // "Type 2 Diabetes", "Hypertension"
+  status    String    @default("active") // active | resolved
+  since     DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+
+  @@index([patientId, status])
+}
+
+model Allergy {
+  id        String  @id @default(cuid())
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String
+  substance String
+  reaction  String?
+
+  @@index([patientId])
+}
+
+model Visit {
+  id           String    @id @default(cuid())
+  patient      Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId    String
+  visitDate    DateTime  @default(now())
+  complaint    String? // presenting complaint
+  diagnosis    String?
+  clinicalNote String?
+  followUpDate DateTime? // drives the follow-up loop
+
+  prescription Prescription?
+  observations Observation[]
+  tasks        CarePlanTask[]
+
+  createdAt DateTime @default(now())
+
+  @@index([patientId, visitDate])
+  @@index([followUpDate])
+}
+
+model Prescription {
+  id        String             @id @default(cuid())
+  visit     Visit              @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  visitId   String             @unique
+  advice    String? // non-drug advice printed on Rx
+  items     PrescriptionItem[]
+  createdAt DateTime           @default(now())
+}
+
+model PrescriptionItem {
+  id             String       @id @default(cuid())
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  prescriptionId String
+  sortOrder      Int          @default(0)
+  drugName       String // "Tab Metformin 500mg"
+  frequency      String // "1-0-1" | "OD" | "BD" | "SOS"
+  duration       String? // "30 days" | "5 days"
+  instructions   String? // "after food"
+}
+
+// Structured measurements — clinic vitals and lab values. Trend source.
+model Observation {
+  id         String   @id @default(cuid())
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId  String
+  visit      Visit?   @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  visitId    String?
+  type       String // BP_SYS | BP_DIA | PULSE | WEIGHT | HBA1C | FBS | PPBS | CREATININE | LDL | TSH ...
+  value      Float
+  unit       String?
+  measuredAt DateTime @default(now())
+  source     String   @default("clinic") // clinic | lab | patient
+
+  @@index([patientId, type, measuredAt])
+}
+
+// Foreign-born documents (lab PDFs, outside Rx) — the "layer" half of the model.
+model Report {
+  id         String   @id @default(cuid())
+  patient    Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId  String
+  title      String
+  kind       String   @default("lab") // lab | imaging | outside_rx | other
+  reportDate DateTime @default(now())
+  summary    String? // human/AI summary; source of memory-card lines later
+
+  // Attachments live in the database, not on disk: serverless hosting has no
+  // persistent filesystem, and this keeps files behind the same auth gate as
+  // the rest of the record instead of on a public URL.
+  fileName String?
+  fileMime String?
+  fileData Bytes?
+
+  @@index([patientId, reportDate])
+}
+
+// The executable half of continuity: what should happen between visits.
+model CarePlanTask {
+  id          String    @id @default(cuid())
+  patient     Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId   String
+  visit       Visit?    @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  visitId     String?
+  kind        String // FOLLOW_UP | LAB_TEST | OTHER
+  title       String // "HbA1c + lipid profile", "Review BP in 2 weeks"
+  dueDate     DateTime?
+  status      String    @default("pending") // pending | done | cancelled
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([patientId, status])
+  @@index([status, dueDate])
+}
+
+// Seed formulary for autosuggest; also learns the doctor's habits via useCount.
+model Drug {
+  id                  String  @id @default(cuid())
+  name                String  @unique // "Tab Metformin 500mg"
+  defaultFrequency    String?
+  defaultDuration     String?
+  defaultInstructions String?
+  useCount            Int     @default(0)
+}

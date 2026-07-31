@@ -1,0 +1,299 @@
+"use client";
+
+import { useEffect, useRef, useState, useTransition } from "react";
+import { X, Paperclip, AlertTriangle } from "lucide-react";
+import { createReport } from "@/app/actions";
+import { REPORT_METRICS } from "@/lib/metrics";
+
+const KINDS = [
+  { value: "lab", label: "Lab" },
+  { value: "imaging", label: "Imaging" },
+  { value: "outside_rx", label: "Outside Rx" },
+  { value: "other", label: "Other" },
+];
+
+const fieldCls =
+  "w-full rounded-xl bg-fillinput px-3.5 py-2.5 text-[17px] outline-none placeholder:text-label2";
+
+type MetricValue = { type: string; label: string; unit: string; value: string };
+type Draft = {
+  title: string;
+  reportDate: string;
+  kind: string;
+  summary: string;
+  values: MetricValue[];
+};
+
+export default function ReportForm({ patientId }: { patientId: string }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const draftKey = `medspace:report-draft:${patientId}`;
+
+  const [draft, setDraft] = useState<Draft>({
+    title: "",
+    reportDate: today,
+    kind: "lab",
+    summary: "",
+    values: [],
+  });
+  const [restored, setRestored] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pending, startTransition] = useTransition();
+  const hydrated = useRef(false);
+
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
+
+  const isEmpty = (d: Draft) =>
+    !d.title.trim() && !d.summary.trim() && d.values.length === 0;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Draft;
+        if (!isEmpty(parsed)) {
+          setDraft({
+            ...{ title: "", reportDate: today, kind: "lab", summary: "", values: [] },
+            ...parsed,
+          });
+          setRestored(true);
+        }
+      }
+    } catch {
+      // corrupt draft — ignore
+    }
+    hydrated.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const t = setTimeout(() => {
+      try {
+        if (isEmpty(draft)) localStorage.removeItem(draftKey);
+        else localStorage.setItem(draftKey, JSON.stringify(draft));
+      } catch {
+        /* storage blocked */
+      }
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, draftKey]);
+
+  function addMetric(m: (typeof REPORT_METRICS)[number]) {
+    if (draft.values.some((v) => v.type === m.type)) return;
+    set("values", [...draft.values, { ...m, value: "" }]);
+  }
+
+  function discardDraft() {
+    setDraft({ title: "", reportDate: today, kind: "lab", summary: "", values: [] });
+    setRestored(false);
+    setSaveError(false);
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function submit(formData: FormData) {
+    setSaveError(false);
+    formData.set(
+      "values",
+      JSON.stringify(
+        draft.values
+          .filter((v) => v.value.trim() !== "" && Number.isFinite(Number(v.value)))
+          .map((v) => ({ type: v.type, value: Number(v.value) }))
+      )
+    );
+    startTransition(async () => {
+      // dropped optimistically; a successful save redirects away
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await createReport(formData);
+      } catch (err) {
+        const digest = (err as { digest?: string })?.digest ?? "";
+        if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) throw err;
+        try {
+          localStorage.setItem(draftKey, JSON.stringify(draft));
+        } catch {
+          /* ignore */
+        }
+        setSaveError(true);
+      }
+    });
+  }
+
+  return (
+    <form action={submit} className="space-y-5 pb-10">
+      <input type="hidden" name="patientId" value={patientId} />
+
+      {restored && (
+        <div className="flex items-center gap-2 rounded-2xl bg-accent/10 px-4 py-3">
+          <p className="flex-1 text-[13px] text-accent">
+            Restored the report you were entering.
+          </p>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="shrink-0 text-[13px] font-semibold text-accent active:opacity-60"
+          >
+            Start fresh
+          </button>
+        </div>
+      )}
+
+      <div className="space-y-2.5">
+        <input
+          name="title"
+          required
+          value={draft.title}
+          onChange={(e) => set("title", e.target.value)}
+          placeholder="Report name (e.g. Thyrocare full panel)"
+          className={fieldCls}
+        />
+        <div className="grid grid-cols-2 gap-2.5">
+          <input
+            name="reportDate"
+            type="date"
+            value={draft.reportDate}
+            onChange={(e) => set("reportDate", e.target.value)}
+            max={today}
+            className={fieldCls}
+          />
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            {KINDS.map((k) => (
+              <button
+                key={k.value}
+                type="button"
+                onClick={() => set("kind", k.value)}
+                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium ${
+                  draft.kind === k.value ? "bg-accent text-white" : "bg-fillinput text-label"
+                }`}
+              >
+                {k.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <input type="hidden" name="kind" value={draft.kind} />
+      </div>
+
+      <div>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-fillinput py-3 text-[15px] font-medium text-label active:opacity-70"
+        >
+          <Paperclip size={16} />
+          {fileName ?? "Attach photo / PDF (optional)"}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          name="file"
+          accept="image/*,.pdf"
+          className="hidden"
+          onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+        />
+        {restored && (
+          <p className="mt-1.5 px-1 text-[12px] text-label2">
+            Browsers can’t restore a chosen file — re-attach it if you had one.
+          </p>
+        )}
+      </div>
+
+      <div>
+        <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-label2">
+          Key values — feed the trends
+        </h3>
+        {draft.values.length > 0 && (
+          <ul className="mb-2.5 space-y-2">
+            {draft.values.map((v, i) => (
+              <li
+                key={v.type}
+                className="flex items-center gap-2.5 rounded-xl bg-card p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+              >
+                <span className="w-28 shrink-0 text-[15px]">{v.label}</span>
+                <input
+                  value={v.value}
+                  onChange={(e) =>
+                    set(
+                      "values",
+                      draft.values.map((x, idx) =>
+                        idx === i ? { ...x, value: e.target.value } : x
+                      )
+                    )
+                  }
+                  inputMode="decimal"
+                  placeholder="value"
+                  className="min-w-0 flex-1 rounded-lg bg-fillinput px-3 py-2 text-[17px] outline-none"
+                />
+                <span className="w-14 shrink-0 text-[13px] text-label2">{v.unit}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    set(
+                      "values",
+                      draft.values.filter((_, idx) => idx !== i)
+                    )
+                  }
+                  className="shrink-0 rounded-full bg-fillinput p-1 text-label2"
+                >
+                  <X size={13} strokeWidth={2.5} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap gap-1.5">
+          {REPORT_METRICS.filter((m) => !draft.values.some((v) => v.type === m.type)).map((m) => (
+            <button
+              key={m.type}
+              type="button"
+              onClick={() => addMetric(m)}
+              className="rounded-full bg-fillinput px-3 py-1.5 text-[13px] font-medium text-label active:opacity-70"
+            >
+              + {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <input
+        name="summary"
+        value={draft.summary}
+        onChange={(e) => set("summary", e.target.value)}
+        placeholder="Summary note (optional)"
+        className={fieldCls}
+      />
+
+      {saveError && (
+        <div className="rounded-2xl bg-ios-red/10 p-4">
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-ios-red">
+            <AlertTriangle size={16} strokeWidth={2.4} />
+            Couldn’t save
+          </p>
+          <p className="mt-1 text-[13px] text-label2">
+            Nothing is lost — the values above are kept on this device. Check the connection and try
+            again.
+          </p>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-full rounded-2xl bg-accent py-3.5 text-[17px] font-semibold text-white active:opacity-80 disabled:opacity-50"
+      >
+        {pending ? "Saving…" : saveError ? "Try saving again" : "Save report"}
+      </button>
+    </form>
+  );
+}

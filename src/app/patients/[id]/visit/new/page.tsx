@@ -34,7 +34,7 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
     })) ?? [];
 
   return (
-    <div className="pt-3">
+    <div className="mx-auto w-full max-w-[720px] pt-3">
       <header className="mb-3 flex items-center justify-between">
         <Link
           href={`/patients/${patient.id}`}

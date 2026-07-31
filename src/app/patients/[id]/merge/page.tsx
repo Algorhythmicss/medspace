@@ -62,7 +62,7 @@ export default async function MergePatients({
   );
 
   return (
-    <div className="pt-3">
+    <div className="mx-auto w-full max-w-[560px] pt-3">
       <header className="mb-4 flex items-center gap-1">
         <Link href={`/patients/${id}`} className="-ml-2 p-1.5 text-orange active:opacity-60">
           <ChevronLeft size={26} />

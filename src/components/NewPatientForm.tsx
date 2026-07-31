@@ -43,8 +43,8 @@ export default function NewPatientForm() {
   return (
     <>
       {matches.length > 0 && (
-        <div className="mb-3 rounded-2xl bg-warnsoft p-3">
-          <p className="mb-1.5 px-1 text-[13px] font-semibold text-warn">
+        <div className="mb-3 rounded-2xl bg-sunnysoft p-3">
+          <p className="mb-1.5 px-1 text-[13px] font-semibold text-sunny">
             Already on this number
           </p>
           <div className="rows overflow-hidden rounded-xl bg-surface">
@@ -60,7 +60,7 @@ export default function NewPatientForm() {
                     {[m.ageYears, m.sex].filter(Boolean).join(" ")}
                   </span>
                 </span>
-                <span className="text-[13px] font-medium text-primary">Open</span>
+                <span className="text-[13px] font-medium text-orange">Open</span>
               </Link>
             ))}
           </div>
@@ -94,7 +94,7 @@ export default function NewPatientForm() {
         </div>
         <button
           type="submit"
-          className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-[17px] font-semibold text-white active:opacity-80"
+          className="mt-2 w-full rounded-2xl bg-orange py-3.5 text-[17px] font-semibold text-white active:opacity-80"
         >
           Add patient
         </button>

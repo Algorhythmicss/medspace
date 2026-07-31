@@ -7,12 +7,14 @@ export default function Sparkline({
   minDelta,
   width = 72,
   height = 22,
+  onDark = false,
 }: {
   points: number[]; // chronological
   higherIsWorse: boolean;
   minDelta: number;
   width?: number;
   height?: number;
+  onDark?: boolean;
 }) {
   if (points.length < 2) return null;
 
@@ -31,7 +33,18 @@ export default function Sparkline({
   const delta = points[points.length - 1] - points[0];
   const flat = Math.abs(delta) < minDelta;
   const worsening = higherIsWorse ? delta > 0 : delta < 0;
-  const stroke = flat ? "#9c978c" : worsening ? "#b3261e" : "#2e6b45";
+  // brighter hues hold up against the night-blue hero
+  const stroke = onDark
+    ? flat
+      ? "#9db2d4"
+      : worsening
+        ? "#ff8a75"
+        : "#5fd6bd"
+    : flat
+      ? "#a29b91"
+      : worsening
+        ? "#e5533d"
+        : "#17a087";
   const gradId = `sg-${stroke.slice(1)}-${points.length}-${Math.round(points[0] * 100)}`;
 
   const [lastX, lastY] = coords[coords.length - 1];

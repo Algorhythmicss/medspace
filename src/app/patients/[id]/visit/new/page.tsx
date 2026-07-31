@@ -35,24 +35,27 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="px-4 pt-3">
-      <header className="mb-4 flex items-center gap-1.5">
+      <header className="mb-3 flex items-center justify-between">
         <Link
           href={`/patients/${patient.id}`}
           aria-label="Back to chart"
-          className="-ml-2 rounded-full p-1.5 text-ink3 transition-colors active:bg-sunk"
+          className="-ml-2 rounded-full p-2 text-ink3 transition-opacity active:opacity-60"
         >
           <ChevronLeft size={24} />
         </Link>
-        <div className="min-w-0">
-          <h1 className="truncate font-display text-[24px] font-bold leading-tight tracking-[-0.02em]">
-            {patient.name}
-          </h1>
-          <p className="text-[12.5px] text-ink3">New visit</p>
-        </div>
+        <span className="rounded-full bg-sunk px-3 py-1.5 text-[13px] font-semibold text-ink2">
+          New visit
+        </span>
       </header>
 
       <div className="mb-5">
-        <Briefing card={card} patientId={patient.id} note={patient.stickyNote} />
+        <Briefing
+          card={card}
+          patientId={patient.id}
+          note={patient.stickyNote}
+          name={patient.name}
+          fileNumber={patient.fileNumber}
+        />
       </div>
 
       <VisitForm patientId={patient.id} lastRxItems={lastRxItems} />

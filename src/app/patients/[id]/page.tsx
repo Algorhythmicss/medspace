@@ -59,36 +59,36 @@ export default async function PatientChart({
 
   return (
     <div className="px-4 pt-3">
-      <header className="mb-4 flex items-center gap-1.5">
+      <header className="mb-3 flex items-center justify-between">
         <Link
           href="/"
           aria-label="Back"
-          className="-ml-2 rounded-full p-1.5 text-ink3 transition-colors active:bg-sunk"
+          className="-ml-2 rounded-full p-2 text-ink3 transition-opacity active:opacity-60"
         >
           <ChevronLeft size={24} />
         </Link>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-[24px] font-bold leading-tight tracking-[-0.02em]">
-            {patient.name}
-          </h1>
-          <Link
-            href={`/patients/${patient.id}/edit`}
-            className="tnum inline-flex items-center gap-0.5 text-[12.5px] text-ink3 active:opacity-60"
-          >
-            #{patient.fileNumber}
-            {patient.phone ? ` · ${patient.phone}` : ""}
-            <ChevronRight size={12} />
-          </Link>
-        </div>
         <Link
-          href={`/patients/${patient.id}/visit/new`}
-          className="btn shrink-0 bg-primary px-4 py-2.5 text-[14px] text-white"
+          href={`/patients/${patient.id}/edit`}
+          className="rounded-full px-3 py-1.5 text-[13px] font-medium text-ink3 transition-opacity active:opacity-60"
         >
-          New visit
+          Edit details
         </Link>
       </header>
 
-      <Briefing card={card} patientId={patient.id} note={patient.stickyNote} />
+      <Briefing
+        card={card}
+        patientId={patient.id}
+        note={patient.stickyNote}
+        name={patient.name}
+        fileNumber={patient.fileNumber}
+      />
+
+      <Link
+        href={`/patients/${patient.id}/visit/new`}
+        className="btn btn-primary mt-4 block w-full py-4 text-center text-[17px]"
+      >
+        Start a visit
+      </Link>
 
       {/* ── open items: what is owed, in one place ───────────── */}
       {(patient.tasks.length > 0 || patient.reports.length > 0) && (
@@ -97,7 +97,7 @@ export default async function PatientChart({
             <h2 className="label">Open items</h2>
             <Link
               href={`/patients/${patient.id}/report/new`}
-              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-primary active:opacity-60"
+              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-orange active:opacity-60"
             >
               <Plus size={13} strokeWidth={2.5} /> Report
             </Link>
@@ -108,7 +108,7 @@ export default async function PatientChart({
               const overdue = t.dueDate && t.dueDate < now;
               return (
                 <div key={t.id} className="flex items-center gap-3 px-4 py-3">
-                  <span className={overdue ? "text-alert" : "text-ink3"}>
+                  <span className={overdue ? "text-coral" : "text-ink3"}>
                     {t.kind === "FOLLOW_UP" ? (
                       <RefreshCw size={15} />
                     ) : (
@@ -118,7 +118,7 @@ export default async function PatientChart({
                   <span className="min-w-0 flex-1 truncate text-[15px]">{t.title}</span>
                   {t.dueDate && (
                     <span
-                      className={`shrink-0 text-[12.5px] ${overdue ? "font-medium text-alert" : "text-ink3"}`}
+                      className={`shrink-0 text-[12.5px] ${overdue ? "font-medium text-coral" : "text-ink3"}`}
                     >
                       {overdue ? relDay(t.dueDate) : `due ${relDay(t.dueDate)}`}
                     </span>
@@ -170,7 +170,7 @@ export default async function PatientChart({
             <span className="text-[14px] text-ink3">Nothing pending for this patient.</span>
             <Link
               href={`/patients/${patient.id}/report/new`}
-              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-primary active:opacity-60"
+              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-orange active:opacity-60"
             >
               <Plus size={13} strokeWidth={2.5} /> Report
             </Link>
@@ -221,7 +221,7 @@ export default async function PatientChart({
                   ))}
                   <Link
                     href={`/visits/${v.id}/rx`}
-                    className="ml-auto inline-flex items-center text-[12.5px] font-medium text-primary active:opacity-60"
+                    className="ml-auto inline-flex items-center text-[12.5px] font-medium text-orange active:opacity-60"
                   >
                     Rx <ChevronRight size={13} />
                   </Link>

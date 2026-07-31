@@ -32,7 +32,7 @@ export default function RxActions({
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-2xl bg-good py-3 text-center text-[17px] font-semibold text-white active:opacity-80"
+            className="rounded-2xl bg-mint py-3 text-center text-[17px] font-semibold text-white active:opacity-80"
           >
             WhatsApp
           </a>
@@ -44,7 +44,7 @@ export default function RxActions({
       </div>
       <Link
         href={`/patients/${patientId}`}
-        className="block w-full rounded-2xl bg-primary py-3 text-center text-[17px] font-semibold text-white active:opacity-80"
+        className="block w-full rounded-2xl bg-orange py-3 text-center text-[17px] font-semibold text-white active:opacity-80"
       >
         Done
       </Link>

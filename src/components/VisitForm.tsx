@@ -85,7 +85,7 @@ function Chip({
       className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors active:opacity-70 ${
         on
           ? tone === "accent"
-            ? "bg-primary text-white"
+            ? "btn-primary"
             : "bg-ink2 text-white"
           : "bg-sunk text-ink"
       }`}
@@ -241,14 +241,14 @@ export default function VisitForm({
   return (
     <div className="space-y-6 pb-10">
       {restored && (
-        <div className="flex items-center gap-2 rounded-2xl bg-primarysoft px-4 py-3">
-          <p className="flex-1 text-[13px] text-primary">
+        <div className="flex items-center gap-2 rounded-2xl bg-orangesoft px-4 py-3">
+          <p className="flex-1 text-[13px] text-orange">
             Restored what you had typed for this patient.
           </p>
           <button
             type="button"
             onClick={discardDraft}
-            className="shrink-0 text-[13px] font-semibold text-primary active:opacity-60"
+            className="shrink-0 text-[13px] font-semibold text-orange active:opacity-60"
           >
             Start fresh
           </button>
@@ -260,7 +260,7 @@ export default function VisitForm({
         <button
           type="button"
           onClick={() => set("items", lastRxItems)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primarysoft px-4 py-3.5 text-[17px] font-semibold text-primary active:bg-primarysoft"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orangesoft px-4 py-3.5 text-[17px] font-semibold text-orange active:bg-orangesoft"
         >
           <RotateCw size={18} strokeWidth={2.2} />
           Repeat last prescription ({lastRxItems.length} meds)
@@ -383,7 +383,7 @@ export default function VisitForm({
                 <button
                   type="button"
                   onClick={() => addDrug(drugQuery.trim())}
-                  className="w-full px-4 py-2.5 text-left text-[15px] font-medium text-primary active:bg-black/5"
+                  className="w-full px-4 py-2.5 text-left text-[15px] font-medium text-orange active:bg-black/5"
                 >
                   + Add “{drugQuery.trim()}”
                 </button>
@@ -429,7 +429,7 @@ export default function VisitForm({
                   )
                 }
                 className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors active:opacity-70 ${
-                  on ? "bg-good text-white" : "bg-sunk text-ink"
+                  on ? "bg-mint text-white" : "bg-sunk text-ink"
                 }`}
               >
                 <FlaskConical size={12} strokeWidth={2.2} />
@@ -441,8 +441,8 @@ export default function VisitForm({
       </div>
 
       {saveError && (
-        <div className="rounded-2xl bg-alertsoft p-4">
-          <p className="flex items-center gap-2 text-[15px] font-semibold text-alert">
+        <div className="rounded-2xl bg-coralsoft p-4">
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-coral">
             <AlertTriangle size={16} strokeWidth={2.4} />
             Couldn’t save
           </p>
@@ -457,7 +457,7 @@ export default function VisitForm({
         type="button"
         onClick={submit}
         disabled={pending}
-        className="btn w-full bg-primary py-3.5 text-[16px] text-white disabled:opacity-50"
+        className="btn w-full bg-orange py-3.5 text-[16px] text-white disabled:opacity-50"
       >
         {pending ? "Saving…" : saveError ? "Try saving again" : "Save visit & prescription"}
       </button>

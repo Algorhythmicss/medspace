@@ -61,7 +61,7 @@ export default async function RxView({ params }: { params: Promise<{ id: string 
       <header className="mb-3 flex items-center justify-between print:hidden">
         <Link
           href={`/patients/${visit.patientId}`}
-          className="-ml-1 flex items-center text-[17px] text-primary active:opacity-60"
+          className="-ml-1 flex items-center text-[17px] text-orange active:opacity-60"
         >
           ‹ Chart
         </Link>

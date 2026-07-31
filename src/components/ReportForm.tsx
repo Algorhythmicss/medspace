@@ -135,14 +135,14 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       <input type="hidden" name="patientId" value={patientId} />
 
       {restored && (
-        <div className="flex items-center gap-2 rounded-2xl bg-primarysoft px-4 py-3">
-          <p className="flex-1 text-[13px] text-primary">
+        <div className="flex items-center gap-2 rounded-2xl bg-orangesoft px-4 py-3">
+          <p className="flex-1 text-[13px] text-orange">
             Restored the report you were entering.
           </p>
           <button
             type="button"
             onClick={discardDraft}
-            className="shrink-0 text-[13px] font-semibold text-primary active:opacity-60"
+            className="shrink-0 text-[13px] font-semibold text-orange active:opacity-60"
           >
             Start fresh
           </button>
@@ -174,7 +174,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
                 type="button"
                 onClick={() => set("kind", k.value)}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium ${
-                  draft.kind === k.value ? "bg-primary text-white" : "bg-sunk text-ink"
+                  draft.kind === k.value ? "btn-primary" : "bg-sunk text-ink"
                 }`}
               >
                 {k.label}
@@ -275,8 +275,8 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       />
 
       {saveError && (
-        <div className="rounded-2xl bg-alertsoft p-4">
-          <p className="flex items-center gap-2 text-[15px] font-semibold text-alert">
+        <div className="rounded-2xl bg-coralsoft p-4">
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-coral">
             <AlertTriangle size={16} strokeWidth={2.4} />
             Couldn’t save
           </p>
@@ -290,7 +290,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="btn w-full bg-primary py-3.5 text-[16px] text-white disabled:opacity-50"
+        className="btn w-full bg-orange py-3.5 text-[16px] text-white disabled:opacity-50"
       >
         {pending ? "Saving…" : saveError ? "Try saving again" : "Save report"}
       </button>

@@ -42,7 +42,7 @@ export default async function Login({
   return (
     <div className="flex min-h-dvh flex-col justify-center px-6 pb-24">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primarysoft text-primary">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-orangesoft text-orange">
           <Lock size={24} strokeWidth={2} />
         </div>
         <h1 className="text-[28px] font-bold tracking-tight">medSpace</h1>
@@ -61,13 +61,13 @@ export default async function Login({
           className="w-full rounded-xl bg-sunk px-4 py-3.5 text-center text-[22px] tracking-[0.3em] outline-none placeholder:text-[17px] placeholder:tracking-normal placeholder:text-ink2"
         />
         {e && (
-          <p className="text-center text-[13px] font-medium text-alert">
+          <p className="text-center text-[13px] font-medium text-coral">
             Wrong passcode. Try again.
           </p>
         )}
         <button
           type="submit"
-          className="w-full rounded-2xl bg-primary py-3.5 text-[17px] font-semibold text-white active:opacity-80"
+          className="w-full rounded-2xl bg-orange py-3.5 text-[17px] font-semibold text-white active:opacity-80"
         >
           Unlock
         </button>

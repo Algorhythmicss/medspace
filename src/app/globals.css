@@ -1,78 +1,83 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────
-   medSpace design tokens
+   medSpace — Headspace-inspired clinical warmth
 
-   Warm clinical calm. Headspace's warmth and generous spacing,
-   Apple's hierarchy and restraint, Notion's quiet content-first
-   chrome, Figma's precision in dense numeric areas.
+   Headspace's actual language is not minimal-white: it is cream
+   grounds, big saturated filled cards, very large radii, friendly
+   geometric type and generous air. Colour does the emotional work;
+   white space does the calming.
 
-   Deliberately NOT iOS-default: a warm paper ground and a deep
-   teal read as a considered instrument rather than a settings
-   screen, and warmth lowers the clinical coldness of an EMR.
+   Applied to a clinic tool: the patient briefing becomes a filled
+   navy "hero" object you look *at*, not a form section you read
+   through. Everything supporting it stays light and quiet.
    ───────────────────────────────────────────────────────────── */
 :root {
-  /* ground & surfaces */
-  --paper: #f7f6f3; /* warm ground, not cold #F2F2F7 */
+  /* ground */
+  --cream: #fff7ef;
   --surface: #ffffff;
-  --surface-sunk: #f1efea; /* inputs, quiet fills */
+  --sunk: #f4ece2;
 
-  /* ink — warm neutrals, never pure black */
-  --ink: #1c1b18;
-  --ink-2: #6b675e;
-  --ink-3: #9c978c;
-  --hairline: rgba(28, 27, 24, 0.08);
+  /* the hero: deep navy, Headspace's signature dark */
+  --night: #16305b;
+  --night-2: #24487e;
+  --night-ink: #eaf0fa;
+  --night-ink-2: #9db2d4;
 
-  /* brand */
-  --primary: #0e6b5e; /* deep teal — health without sterile blue */
-  --primary-soft: #e6f0ed;
+  /* ink on cream */
+  --ink: #2b2a28;
+  --ink-2: #6e6a64;
+  --ink-3: #a29b91;
+  --hairline: rgba(43, 42, 40, 0.08);
 
-  /* semantics — muted and serious, never shouty */
-  --alert: #b3261e;
-  --alert-soft: #fbeae8;
-  --warn: #9a5b06;
-  --warn-soft: #fbf0df;
-  --good: #2e6b45;
-  --good-soft: #e8f1ea;
+  /* signature orange + supporting hues */
+  --orange: #ff7a29;
+  --orange-soft: #ffe9d8;
+  --coral: #e5533d;
+  --coral-soft: #ffe6e1;
+  --mint: #17a087;
+  --mint-soft: #ddf3ee;
+  --sunny: #d98b00;
+  --sunny-soft: #fff0d2;
 
-  /* depth: two soft layers, no hard borders */
-  --lift: 0 1px 2px rgba(28, 27, 24, 0.04), 0 1px 1px rgba(28, 27, 24, 0.03);
-  --lift-lg: 0 1px 2px rgba(28, 27, 24, 0.04), 0 12px 28px -14px rgba(28, 27, 24, 0.18);
+  --lift: 0 2px 6px rgba(43, 42, 40, 0.05);
+  --lift-lg: 0 10px 30px -12px rgba(22, 48, 91, 0.28);
+  --lift-hero: 0 18px 40px -18px rgba(22, 48, 91, 0.55);
 
-  --r-card: 20px;
-  --r-field: 14px;
+  --r: 24px;
+  --r-hero: 28px;
+  --r-field: 18px;
 }
 
 @theme inline {
-  --color-paper: var(--paper);
+  --color-cream: var(--cream);
   --color-surface: var(--surface);
-  --color-sunk: var(--surface-sunk);
+  --color-sunk: var(--sunk);
+  --color-night: var(--night);
+  --color-nightink: var(--night-ink);
+  --color-nightink2: var(--night-ink-2);
   --color-ink: var(--ink);
   --color-ink2: var(--ink-2);
   --color-ink3: var(--ink-3);
   --color-hairline: var(--hairline);
-  --color-primary: var(--primary);
-  --color-primarysoft: var(--primary-soft);
-  --color-alert: var(--alert);
-  --color-alertsoft: var(--alert-soft);
-  --color-warn: var(--warn);
-  --color-warnsoft: var(--warn-soft);
-  --color-good: var(--good);
-  --color-goodsoft: var(--good-soft);
-  --font-sans: var(--font-body), -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, sans-serif;
-  --font-display: var(--font-display), var(--font-body), -apple-system, sans-serif;
+  --color-orange: var(--orange);
+  --color-orangesoft: var(--orange-soft);
+  --color-coral: var(--coral);
+  --color-coralsoft: var(--coral-soft);
+  --color-mint: var(--mint);
+  --color-mintsoft: var(--mint-soft);
+  --color-sunny: var(--sunny);
+  --color-sunnysoft: var(--sunny-soft);
+  --font-sans: var(--font-display), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: var(--font-display), -apple-system, sans-serif;
 }
 
 body {
-  background: var(--paper);
+  background: var(--cream);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
-/* Clinical values must align and compare at a glance (Figma-grade
-   precision): tabular figures wherever a number carries meaning. */
 .tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
@@ -81,17 +86,33 @@ body {
 /* ── surfaces ───────────────────────────────────────────────── */
 .card {
   background: var(--surface);
-  border-radius: var(--r-card);
+  border-radius: var(--r);
   box-shadow: var(--lift);
 }
-.card-lg {
-  background: var(--surface);
-  border-radius: var(--r-card);
-  box-shadow: var(--lift-lg);
+
+/* The hero: a filled object with depth, the one place colour is
+   allowed to be loud. */
+.hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-hero);
+  background: linear-gradient(155deg, var(--night-2) 0%, var(--night) 62%);
+  color: var(--night-ink);
+  box-shadow: var(--lift-hero);
+}
+/* soft light bloom, the illustrative touch Headspace always has */
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -38%;
+  right: -18%;
+  width: 68%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 122, 41, 0.34), transparent 68%);
+  pointer-events: none;
 }
 
-/* Grouped rows separated by hairlines rather than gaps — Notion's
-   quiet density, far less noise than many floating cards. */
 .rows > * + * {
   border-top: 1px solid var(--hairline);
 }
@@ -99,63 +120,61 @@ body {
 /* ── controls ───────────────────────────────────────────────── */
 .field {
   width: 100%;
-  background: var(--surface-sunk);
+  background: var(--surface);
   border-radius: var(--r-field);
-  padding: 0.7rem 0.9rem;
-  font-size: 16px; /* ≥16px so iOS never zooms the page on focus */
+  padding: 0.85rem 1rem;
+  font-size: 16px;
   color: var(--ink);
   outline: none;
-  transition: box-shadow 0.15s ease, background 0.15s ease;
+  box-shadow: var(--lift);
+  transition: box-shadow 0.18s ease;
 }
 .field::placeholder {
   color: var(--ink-3);
 }
 .field:focus {
-  background: var(--surface);
-  box-shadow: 0 0 0 3px rgba(14, 107, 94, 0.18);
+  box-shadow: 0 0 0 3px rgba(255, 122, 41, 0.28), var(--lift);
 }
 
 .btn {
-  border-radius: 16px;
+  border-radius: 999px;
   font-weight: 600;
-  transition: transform 0.12s ease, opacity 0.12s ease, background 0.12s ease;
+  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.14s ease;
 }
 .btn:active {
-  transform: scale(0.985);
+  transform: scale(0.97);
+}
+.btn-primary {
+  background: var(--orange);
+  color: #fff;
+  box-shadow: 0 8px 18px -8px rgba(255, 122, 41, 0.8);
 }
 
 .chip {
   border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 0.35rem 0.7rem;
-  background: var(--surface-sunk);
-  color: var(--ink);
-  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0.4rem 0.8rem;
+  background: var(--sunk);
+  color: var(--ink-2);
+  transition: background 0.14s ease, color 0.14s ease, transform 0.14s ease;
 }
 .chip:active {
-  transform: scale(0.96);
-}
-.chip[data-on="true"] {
-  background: var(--primary);
-  color: #fff;
+  transform: scale(0.95);
 }
 
-/* Quiet section labels. Sentence case, not uppercase: all-caps
-   shouts, and six shouting headings was most of why the old chart
-   felt busy. */
+/* Sentence case, quiet. Never all-caps — it shouts. */
 .label {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--ink-3);
-  letter-spacing: 0.01em;
 }
 
 /* ── motion ─────────────────────────────────────────────────── */
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
@@ -163,7 +182,7 @@ body {
   }
 }
 .rise {
-  animation: rise 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -175,7 +194,6 @@ body {
   }
 }
 
-/* Prescriptions print on A5 — standard Indian clinic Rx pad size. */
 @media print {
   @page {
     size: A5 portrait;

@@ -42,8 +42,8 @@ export default async function Home() {
     <div className="px-4 pt-5">
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[13px] text-ink3">{greeting(now.getHours())}</p>
-          <h1 className="font-display text-[30px] font-bold leading-tight tracking-[-0.025em]">
+          <p className="text-[14px] font-medium text-ink3">{greeting(now.getHours())}</p>
+          <h1 className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.03em]">
             {shortName ?? "Today"}
           </h1>
         </div>
@@ -58,18 +58,20 @@ export default async function Home() {
       {overdueCount > 0 && (
         <Link
           href="/followups"
-          className="card mt-4 flex items-center gap-3.5 px-4 py-4 transition-colors active:bg-sunk"
+          className="hero mt-5 flex items-center gap-4 px-5 py-5 transition-transform active:scale-[0.99]"
         >
-          <span className="tnum flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-alertsoft font-display text-[17px] font-bold text-alert">
+          <span className="tnum relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 font-display text-[22px] font-extrabold text-white">
             {overdueCount}
           </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[16px] font-medium">Waiting on follow-up</span>
-            <span className="block text-[13px] text-ink3">
+          <span className="relative min-w-0 flex-1">
+            <span className="block font-display text-[18px] font-bold text-white">
+              Waiting on you
+            </span>
+            <span className="block text-[13.5px] text-nightink2">
               Overdue patients drift to another clinic
             </span>
           </span>
-          <ChevronRight size={17} className="shrink-0 text-ink3" />
+          <ChevronRight size={20} className="relative shrink-0 text-nightink2" />
         </Link>
       )}
 
@@ -81,7 +83,7 @@ export default async function Home() {
               <Link
                 key={t.id}
                 href={`/patients/${t.patient.id}`}
-                className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-sunk"
+                className="flex items-center gap-3 px-5 py-4 transition-opacity active:opacity-60"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block text-[16px]">{t.patient.name}</span>
@@ -101,9 +103,9 @@ export default async function Home() {
             <Link
               key={p.id}
               href={`/patients/${p.id}`}
-              className="flex items-center gap-3.5 px-4 py-3 transition-colors active:bg-sunk"
+              className="flex items-center gap-3.5 px-5 py-3.5 transition-opacity active:opacity-60"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primarysoft font-display text-[14px] font-semibold text-primary">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orangesoft font-display text-[15px] font-bold text-orange">
                 {p.name
                   .split(" ")
                   .slice(0, 2)

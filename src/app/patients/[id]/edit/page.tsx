@@ -28,7 +28,7 @@ export default async function EditPatient({ params }: { params: Promise<{ id: st
       <header className="mb-4 flex items-center gap-1">
         <Link
           href={`/patients/${patient.id}`}
-          className="-ml-2 p-1.5 text-primary active:opacity-60"
+          className="-ml-2 p-1.5 text-orange active:opacity-60"
         >
           <ChevronLeft size={26} />
         </Link>
@@ -39,8 +39,8 @@ export default async function EditPatient({ params }: { params: Promise<{ id: st
       </header>
 
       {phoneTwin && (
-        <div className="mb-3 rounded-2xl bg-warnsoft px-4 py-3">
-          <p className="text-[13px] font-semibold text-warn">Same phone as another record</p>
+        <div className="mb-3 rounded-2xl bg-sunnysoft px-4 py-3">
+          <p className="text-[13px] font-semibold text-sunny">Same phone as another record</p>
           <p className="text-[13px] text-ink2">
             {phoneTwin.name} · #{phoneTwin.fileNumber}
           </p>
@@ -53,7 +53,7 @@ export default async function EditPatient({ params }: { params: Promise<{ id: st
             </Link>
             <Link
               href={`/patients/${patient.id}/merge?with=${phoneTwin.id}`}
-              className="flex-1 rounded-xl bg-warn py-2 text-center text-[13px] font-semibold text-white active:opacity-80"
+              className="flex-1 rounded-xl bg-sunny py-2 text-center text-[13px] font-semibold text-white active:opacity-80"
             >
               Same person — merge
             </Link>
@@ -104,7 +104,7 @@ export default async function EditPatient({ params }: { params: Promise<{ id: st
         />
         <button
           type="submit"
-          className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-[17px] font-semibold text-white active:opacity-80"
+          className="mt-2 w-full rounded-2xl bg-orange py-3.5 text-[17px] font-semibold text-white active:opacity-80"
         >
           Save changes
         </button>

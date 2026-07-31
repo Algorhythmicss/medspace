@@ -20,7 +20,7 @@ export default function StickyNoteEditor({
     return (
       <button
         onClick={() => setEditing(true)}
-        className="flex w-full items-center gap-2.5 px-5 py-3 text-left transition-colors active:bg-sunk"
+        className="flex w-full items-center gap-2.5 px-5 py-3.5 text-left transition-opacity active:opacity-60"
       >
         <Pin size={13} className="shrink-0 text-ink3" />
         <span className={`flex-1 text-[13px] ${note ? "text-ink2" : "text-ink3"}`}>
@@ -36,7 +36,7 @@ export default function StickyNoteEditor({
         await updateStickyNote(fd);
         setEditing(false);
       }}
-      className="flex items-center gap-2 px-3 py-2.5"
+      className="flex items-center gap-2 px-3 py-3"
     >
       <input type="hidden" name="patientId" value={patientId} />
       <input
@@ -49,7 +49,7 @@ export default function StickyNoteEditor({
       <button
         type="submit"
         aria-label="Save note"
-        className="btn shrink-0 bg-primary p-2.5 text-white"
+        className="btn btn-primary shrink-0 p-2.5"
       >
         <Check size={15} strokeWidth={2.6} />
       </button>

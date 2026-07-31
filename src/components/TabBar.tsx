@@ -15,10 +15,9 @@ export default function TabBar() {
   if (pathname === "/login") return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 pb-[env(safe-area-inset-bottom)] print:hidden">
-      {/* floats on a soft veil rather than sitting behind a hard divider */}
-      <div className="absolute inset-0 bg-paper/85 backdrop-blur-xl" />
-      <div className="relative mx-auto flex max-w-md items-stretch justify-around px-2 pb-1.5 pt-2">
+    <nav className="fixed inset-x-0 bottom-0 z-20 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 print:hidden">
+      {/* a floating pill, not a bar bolted to the edge */}
+      <div className="mx-auto flex max-w-md items-stretch justify-around rounded-full bg-night px-2 py-2 shadow-[0_14px_34px_-12px_rgba(22,48,91,0.6)]">
         {tabs.map(({ href, label, Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
@@ -26,17 +25,17 @@ export default function TabBar() {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className="flex flex-1 flex-col items-center gap-1 rounded-2xl py-1.5 transition-transform active:scale-95"
+              className="flex flex-1 flex-col items-center gap-0.5 rounded-full py-1 transition-transform active:scale-95"
             >
               <span
-                className={`flex h-8 w-16 items-center justify-center rounded-full transition-colors ${
-                  active ? "bg-primarysoft text-primary" : "text-ink3"
+                className={`flex h-9 w-full items-center justify-center rounded-full transition-colors ${
+                  active ? "bg-orange text-white" : "text-nightink2"
                 }`}
               >
-                <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
+                <Icon size={19} strokeWidth={active ? 2.4 : 1.9} />
               </span>
               <span
-                className={`text-[10.5px] font-medium ${active ? "text-primary" : "text-ink3"}`}
+                className={`text-[10px] font-semibold ${active ? "text-white" : "text-nightink2"}`}
               >
                 {label}
               </span>

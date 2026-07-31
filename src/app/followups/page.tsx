@@ -71,7 +71,7 @@ export default async function FollowUps() {
                     className="flex items-baseline justify-between active:opacity-60"
                   >
                     <span className="font-display text-[17px] font-semibold tracking-[-0.01em]">{patient.name}</span>
-                    <span className="text-[13px] font-medium text-alert">
+                    <span className="text-[13px] font-medium text-coral">
                       {relDay(worst.dueDate!)}
                     </span>
                   </Link>

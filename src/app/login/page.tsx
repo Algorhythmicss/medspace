@@ -45,8 +45,8 @@ export default async function Login({
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-orangesoft text-orange">
           <Lock size={24} strokeWidth={2} />
         </div>
-        <h1 className="text-[28px] font-bold tracking-tight">medSpace</h1>
-        <p className="mt-1 text-[15px] text-ink2">Enter the clinic passcode</p>
+        <h1 className="t-title">medSpace</h1>
+        <p className="t-body mt-1 text-ink2">Enter the clinic passcode</p>
       </div>
 
       <form action={signIn} className="space-y-2.5">
@@ -73,7 +73,7 @@ export default async function Login({
         </button>
       </form>
 
-      <p className="mt-6 text-center text-[12px] text-ink2">
+      <p className="t-micro mt-6 text-center text-ink3">
         Patient records are confidential. Do not share this passcode.
       </p>
     </div>

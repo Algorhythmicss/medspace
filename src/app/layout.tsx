@@ -1,23 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans, Inter } from "next/font/google";
+import { Manrope } from "next/font/google";
 import ConnectionBanner from "@/components/ConnectionBanner";
 import TabBar from "@/components/TabBar";
+import Sidebar from "@/components/Sidebar";
 import "./globals.css";
 
-// Pairing: a warm geometric for headings (personality, Headspace-adjacent)
-// against a neutral grotesque for data (legible small, good tabular figures).
-// Both self-hosted by next/font — no third-party request on a clinic's
-// unreliable connection.
-const display = Plus_Jakarta_Sans({
+// Display face only. Manrope is a semi-rounded geometric — warm enough for
+// Headspace's register, but tight and modern enough to set at 40px without
+// looking childish. Body text deliberately uses the system stack (SF Pro on
+// Apple hardware) because a display face set at 13px is what made the old
+// typography feel cheap.
+const display = Manrope({
   subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-display",
-  display: "swap",
-});
-
-const body = Inter({
-  subsets: ["latin"],
-  variable: "--font-body",
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-display-face",
   display: "swap",
 });
 
@@ -29,8 +25,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: "#f7f6f3",
+  themeColor: "#fff7ef",
 };
 
 export default function RootLayout({
@@ -39,16 +34,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${display.variable} ${body.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${display.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
-        <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col print:max-w-none">
-          <ConnectionBanner />
-          <main className="flex-1 pb-28 print:pb-0">{children}</main>
-          <TabBar />
+        <ConnectionBanner />
+        <Sidebar />
+        {/* phone: single column · laptop: offset past the sidebar */}
+        <div className="lg:pl-[248px]">
+          <main className="mx-auto w-full max-w-md px-4 pb-28 lg:max-w-[1080px] lg:px-10 lg:pb-16 lg:pt-2 print:max-w-none print:px-0">
+            {children}
+          </main>
         </div>
+        <TabBar />
       </body>
     </html>
   );

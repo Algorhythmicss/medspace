@@ -58,7 +58,7 @@ export default async function PatientChart({
   const now = new Date();
 
   return (
-    <div className="px-4 pt-3">
+    <div className="pt-3 lg:pt-6">
       <header className="mb-3 flex items-center justify-between">
         <Link
           href="/"
@@ -69,7 +69,7 @@ export default async function PatientChart({
         </Link>
         <Link
           href={`/patients/${patient.id}/edit`}
-          className="rounded-full px-3 py-1.5 text-[13px] font-medium text-ink3 transition-opacity active:opacity-60"
+          className="t-cap rounded-full px-3 py-1.5 font-medium text-ink3 transition-opacity active:opacity-60"
         >
           Edit details
         </Link>
@@ -83,9 +83,13 @@ export default async function PatientChart({
         fileNumber={patient.fileNumber}
       />
 
+      <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-6">
+      {/* the rail: what to do next, and what is owed — stays put while
+          history scrolls on a laptop */}
+      <div className="lg:sticky lg:top-6 lg:order-2 lg:col-span-5 lg:space-y-5">
       <Link
         href={`/patients/${patient.id}/visit/new`}
-        className="btn btn-primary mt-4 block w-full py-4 text-center text-[17px]"
+        className="btn btn-primary mt-4 block w-full py-4 text-center text-[16.5px] lg:mt-0"
       >
         Start a visit
       </Link>
@@ -97,7 +101,7 @@ export default async function PatientChart({
             <h2 className="label">Open items</h2>
             <Link
               href={`/patients/${patient.id}/report/new`}
-              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-orange active:opacity-60"
+              className="t-cap inline-flex items-center gap-0.5 font-semibold text-orange active:opacity-60"
             >
               <Plus size={13} strokeWidth={2.5} /> Report
             </Link>
@@ -115,7 +119,7 @@ export default async function PatientChart({
                       <FlaskConical size={15} />
                     )}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[15px]">{t.title}</span>
+                  <span className="t-body min-w-0 flex-1 truncate">{t.title}</span>
                   {t.dueDate && (
                     <span
                       className={`shrink-0 text-[12.5px] ${overdue ? "font-medium text-coral" : "text-ink3"}`}
@@ -134,12 +138,12 @@ export default async function PatientChart({
                     {r.fileName ? <Paperclip size={15} /> : <FileText size={15} />}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px]">{r.title}</span>
+                    <span className="t-body block truncate">{r.title}</span>
                     {r.summary && (
-                      <span className="block truncate text-[12.5px] text-ink3">{r.summary}</span>
+                      <span className="t-micro block truncate text-ink3">{r.summary}</span>
                     )}
                   </span>
-                  <span className="shrink-0 text-[12.5px] text-ink3">
+                  <span className="t-micro shrink-0 text-ink3">
                     {relDay(r.reportDate)}
                   </span>
                 </>
@@ -167,10 +171,10 @@ export default async function PatientChart({
       {patient.tasks.length === 0 && patient.reports.length === 0 && (
         <section className="mt-6">
           <div className="card flex items-center justify-between px-4 py-3.5">
-            <span className="text-[14px] text-ink3">Nothing pending for this patient.</span>
+            <span className="t-body text-ink3">Nothing pending for this patient.</span>
             <Link
               href={`/patients/${patient.id}/report/new`}
-              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-orange active:opacity-60"
+              className="t-cap inline-flex items-center gap-0.5 font-semibold text-orange active:opacity-60"
             >
               <Plus size={13} strokeWidth={2.5} /> Report
             </Link>
@@ -178,24 +182,26 @@ export default async function PatientChart({
         </section>
       )}
 
+      </div>
+
       {/* ── history ──────────────────────────────────────────── */}
-      <section className="mt-6 pb-8">
+      <section className="mt-6 pb-8 lg:order-1 lg:col-span-7 lg:mt-4">
         <h2 className="label mb-2 px-1">History</h2>
         <ol className="space-y-2.5">
           {visits.map((v) => (
             <li key={v.id} className="card p-4">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="font-display text-[15px] font-semibold">
+                <span className="t-head">
                   {shortDate(v.visitDate)}
                 </span>
-                <span className="shrink-0 text-[12.5px] text-ink3">{relDay(v.visitDate)}</span>
+                <span className="t-micro shrink-0 text-ink3">{relDay(v.visitDate)}</span>
               </div>
-              {v.complaint && <p className="mt-1 text-[15px] leading-snug">{v.complaint}</p>}
+              {v.complaint && <p className="t-body mt-1">{v.complaint}</p>}
               {v.diagnosis && (
-                <p className="mt-0.5 text-[13px] text-ink2">{v.diagnosis}</p>
+                <p className="t-cap mt-0.5 text-ink2">{v.diagnosis}</p>
               )}
               {v.observations.length > 0 && (
-                <p className="tnum mt-1.5 text-[12.5px] text-ink3">
+                <p className="t-micro tnum mt-1.5 text-ink3">
                   {v.observations
                     .filter((o) => o.type !== "BP_DIA")
                     .map((o) => {
@@ -213,7 +219,7 @@ export default async function PatientChart({
                   {v.prescription.items.map((item) => (
                     <span
                       key={item.id}
-                      className="rounded-lg bg-sunk px-2 py-1 text-[12px] text-ink2"
+                      className="t-micro rounded-lg bg-sunk px-2 py-1 text-ink2"
                     >
                       {item.drugName.replace(/^(Tab|Cap|Syp|Inh|Gel) /, "")}{" "}
                       <span className="tnum text-ink3">{item.frequency}</span>
@@ -221,7 +227,7 @@ export default async function PatientChart({
                   ))}
                   <Link
                     href={`/visits/${v.id}/rx`}
-                    className="ml-auto inline-flex items-center text-[12.5px] font-medium text-orange active:opacity-60"
+                    className="t-micro ml-auto inline-flex items-center font-semibold text-orange active:opacity-60"
                   >
                     Rx <ChevronRight size={13} />
                   </Link>
@@ -234,12 +240,13 @@ export default async function PatientChart({
         {hidden > 0 && (
           <Link
             href={`/patients/${patient.id}?all=1`}
-            className="mt-3 block rounded-2xl border border-hairline py-3 text-center text-[14px] font-medium text-ink2 transition-colors active:bg-sunk"
+            className="t-body mt-3 block rounded-2xl border border-hairline py-3 text-center font-medium text-ink2 transition-colors active:bg-sunk"
           >
             Show {hidden} earlier visit{hidden > 1 ? "s" : ""}
           </Link>
         )}
       </section>
+      </div>
     </div>
   );
 }

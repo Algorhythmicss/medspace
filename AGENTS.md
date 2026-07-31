@@ -57,25 +57,26 @@ Passcode gate: signed 12h session cookie (Web Crypto HMAC, Edge-compatible — `
 - WhatsApp is always a `wa.me` deep link with prefilled text. The doctor presses send. Never auto-send.
 - Printed Rx carries the doctor's registration number (legally required, Telemedicine Practice Guidelines 2020) and a QR encoding `/scan/<fileNumber>` for instant lookup at the next visit.
 
-## Design language — Headspace-inspired (31 Jul 2026)
-The first pass at this was "tasteful minimal" (white cards, warm grey, one teal) and the user rejected it as ancient. Headspace's real language is **not** minimal-white: cream grounds, big saturated *filled* cards, very large radii, friendly geometric type, generous air. Colour does the emotional work.
+## Design language — Headspace warmth, Apple craft (31 Jul 2026)
+Two rejected passes preceded this: "tasteful minimal" (white cards, one teal — called ancient) and a first Headspace attempt with weak typography. What works is Headspace's **palette and warmth** carried with Apple's **structure, materials and typographic precision**.
 
-Tokens in `globals.css`:
-- **Ground** cream `#fff7ef`; surfaces white; sunk fills `#f4ece2`.
-- **Night** `#16305b` → `#24487e` gradient — the hero fill, plus the floating tab bar.
-- **Signature orange** `#ff7a29` for primary actions; supporting coral `#e5533d`, mint `#17a087`, sunny `#d98b00`, each with a soft tint.
-- **Radii** 24px cards, 28px hero, pill buttons and tab bar.
-- **Type** Plus Jakarta Sans throughout (geometric, warm); `.tnum` on every clinical number.
-- **Helpers** `.hero`, `.card`, `.rows`, `.field`, `.btn` / `.btn-primary`, `.chip`, `.label`, `.rise`.
+**Colour** (`globals.css`): cream ground `#fff7ef`; night gradient `#16305b → #24487e` for the hero and tab bar; signature orange `#ff7a29` for primary actions; coral / mint / sunny for semantics. Colour is loud in exactly two places — the hero and the primary action. Everywhere else stays quiet or it becomes noise.
 
-Structure that carries the intent:
-- **The briefing is a filled navy hero** with the patient's name inside it — an object you look *at*, not a form section you read through. The page header above it is just back + "Edit details".
-- **Colour is loud in exactly two places**: the hero and the orange primary action. Everything else stays light and quiet, or it turns into noise.
-- `.hero::before` paints a soft orange radial bloom — the illustrative touch Headspace always has, achieved without image assets.
-- Sparklines take `onDark` for brighter strokes that survive the navy.
-- **Sentence-case labels only.** Never all-caps.
-- **Hierarchy over colour** inside the hero: the lead finding is large white; supporting lines recede into the blue with small coloured dots.
-- **Never say the same thing twice** — the hero summarises overdue work ("2 things overdue, oldest by 35 days"); the Open items list carries the titles.
+**Typography** — the part that was worst and matters most:
+- Display face **Manrope** (600–800) for titles, patient names, hero lead, clinical numerals.
+- Body/UI is the **system stack** — on the doctor's Mac and iPhone that *is* SF Pro: the most Apple choice available, and zero webfont cost. Setting a geometric display face at 13px is what made the earlier типography feel cheap; don't do it again.
+- Use the scale classes, never ad-hoc `text-[Npx]`: `.t-hero .t-title .t-lead .t-head .t-body .t-bodyL .t-cap .t-micro .t-num`. Tracking tightens as size grows because a webfont has no optical sizes; `.t-hero` grows to 40px at `lg`.
+
+**Materials & motion (Apple):** `.material` / `.material-dark` are translucent + backdrop-blurred — chrome is layered over content, never opaque. `--spring: cubic-bezier(0.32, 0.72, 0, 1)` on every transition. `.ring-focus` is a macOS-style halo. Radii 20px cards / 26px hero / pill buttons.
+
+**Responsive shell:**
+- `< lg` — single column, floating navy pill tab bar.
+- `≥ lg` — translucent 248px `Sidebar` (tab bar hides), content max 1080px.
+- Today splits 5/7: attention column left, "Recently seen" right.
+- Chart puts history at 7 cols and a **sticky rail** at 5 (Start a visit + Open items) so actions stay put while history scrolls.
+- ⌘K / Ctrl-K focuses search; the hint pill shows only at `lg`. Autofocus is desktop-only — on a phone it would throw up the keyboard on load.
+
+**Gotcha:** `.field` sets `padding` shorthand, which beats Tailwind's `pl-*`/`pr-*`. Use `!pl-11` style overrides when adding icons inside a field.
 
 ## Traps that cost time before
 - **Silent server-action failure:** a dynamic `await import()` inside `actions.ts` pulled `node:fs` into the client graph and broke *every* server action with no error anywhere — forms just no-op'd. Keep imports in `actions.ts` static and top-level. Turbopack also serves a poisoned graph long after the source is fixed: `rm -rf .next` and restart. Tell-tale sign is dev-server logs citing imports that no longer exist.

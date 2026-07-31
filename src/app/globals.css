@@ -44,9 +44,12 @@
   --lift-lg: 0 10px 30px -12px rgba(22, 48, 91, 0.28);
   --lift-hero: 0 18px 40px -18px rgba(22, 48, 91, 0.55);
 
-  --r: 24px;
-  --r-hero: 28px;
-  --r-field: 18px;
+  --r: 20px;      /* Apple keeps card radii tighter than Headspace does */
+  --r-hero: 26px;
+  --r-field: 14px;
+
+  /* Apple's spring — everything eases with this, nothing linear */
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @theme inline {
@@ -68,19 +71,130 @@
   --color-mintsoft: var(--mint-soft);
   --color-sunny: var(--sunny);
   --color-sunnysoft: var(--sunny-soft);
-  --font-sans: var(--font-display), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: var(--font-display), -apple-system, sans-serif;
+  /* Text/UI is the system stack — on the doctor's Mac and iPhone that IS
+     SF Pro, which is both the most Apple choice available and the fastest
+     (no webfont, no swap). The display face carries the warmth. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-display-face), -apple-system, sans-serif;
 }
 
 body {
   background: var(--cream);
   color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Type scale
+
+   One decision per step, not per component. Tracking tightens as
+   size grows — SF ships optical sizes that do this automatically and
+   a webfont has to be told. Display weights are heavy and set tight;
+   text weights stay light and open so dense clinical lines breathe.
+   ───────────────────────────────────────────────────────────── */
+.t-hero,
+.t-title,
+.t-head,
+.t-lead {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.t-hero {
+  font-size: 34px;
+  line-height: 1.06;
+  letter-spacing: -0.033em;
+}
+.t-title {
+  font-size: 26px;
+  line-height: 1.14;
+  letter-spacing: -0.027em;
+}
+.t-lead {
+  font-size: 21px;
+  line-height: 1.28;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+.t-head {
+  font-size: 17px;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+.t-body {
+  font-size: 15.5px;
+  line-height: 1.5;
+}
+.t-bodyL {
+  font-size: 16.5px;
+  line-height: 1.45;
+}
+.t-cap {
+  font-size: 13.2px;
+  line-height: 1.42;
+}
+.t-micro {
+  font-size: 11.8px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.004em;
+}
+/* numerals that carry clinical meaning */
+.t-num {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 1024px) {
+  .t-hero {
+    font-size: 40px;
+    letter-spacing: -0.035em;
+  }
+  .t-title {
+    font-size: 29px;
+  }
 }
 
 .tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+}
+
+/* Vibrancy. Apple layers translucent material over content rather than
+   drawing opaque bars — the blur is what signals "chrome, not content". */
+.material {
+  background: color-mix(in srgb, var(--cream) 72%, transparent);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+}
+.material-dark {
+  background: color-mix(in srgb, var(--night) 78%, transparent);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+}
+
+/* macOS-style focus ring: a precise halo, never a heavy border */
+.ring-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--orange) 38%, transparent);
+}
+
+/* Keyboard hint pill (⌘K) */
+.kbd {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.28rem 0.4rem;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink-3);
 }
 
 /* ── surfaces ───────────────────────────────────────────────── */
@@ -139,7 +253,7 @@ body {
 .btn {
   border-radius: 999px;
   font-weight: 600;
-  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.14s ease;
+  transition: transform 0.22s var(--spring), opacity 0.18s ease, box-shadow 0.22s var(--spring);
 }
 .btn:active {
   transform: scale(0.97);
@@ -165,9 +279,10 @@ body {
 
 /* Sentence case, quiet. Never all-caps — it shouts. */
 .label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--ink-3);
+  letter-spacing: -0.005em;
 }
 
 /* ── motion ─────────────────────────────────────────────────── */
@@ -182,7 +297,28 @@ body {
   }
 }
 .rise {
-  animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: rise 0.44s var(--spring) both;
+}
+
+/* Sidebar nav item (desktop) */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  font-size: 14.5px;
+  font-weight: 550;
+  color: var(--ink-2);
+  transition: background 0.18s var(--spring), color 0.18s ease;
+}
+.nav-item:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.nav-item[data-active="true"] {
+  background: var(--orange);
+  color: #fff;
+  box-shadow: 0 6px 14px -6px rgba(255, 122, 41, 0.75);
 }
 
 @media (prefers-reduced-motion: reduce) {

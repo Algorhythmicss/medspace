@@ -39,35 +39,37 @@ export default async function Home() {
   const shortName = clinic?.doctorName?.replace(/^(Dr\.?)\s+.*?\s*(\S+)$/, "$1 $2");
 
   return (
-    <div className="px-4 pt-5">
+    <div className="pt-5 lg:pt-8">
       <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[14px] font-medium text-ink3">{greeting(now.getHours())}</p>
-          <h1 className="font-display text-[34px] font-extrabold leading-[1.1] tracking-[-0.03em]">
+          <p className="t-cap font-medium text-ink3">{greeting(now.getHours())}</p>
+          <h1 className="t-hero">
             {shortName ?? "Today"}
           </h1>
         </div>
-        <div className="pt-1.5">
+        <div className="pt-1.5 lg:hidden">
           <LockButton />
         </div>
       </header>
 
       <SearchBox />
 
+      <div className="lg:mt-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-6">
+      <div className="lg:col-span-5 lg:space-y-6">
       {/* The single most valuable thing on this screen: who is drifting away. */}
       {overdueCount > 0 && (
         <Link
           href="/followups"
           className="hero mt-5 flex items-center gap-4 px-5 py-5 transition-transform active:scale-[0.99]"
         >
-          <span className="tnum relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 font-display text-[22px] font-extrabold text-white">
+          <span className="t-num relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-[22px] text-white">
             {overdueCount}
           </span>
           <span className="relative min-w-0 flex-1">
-            <span className="block font-display text-[18px] font-bold text-white">
+            <span className="t-head block text-white">
               Waiting on you
             </span>
-            <span className="block text-[13.5px] text-nightink2">
+            <span className="t-cap block text-nightink2">
               Overdue patients drift to another clinic
             </span>
           </span>
@@ -76,7 +78,7 @@ export default async function Home() {
       )}
 
       {dueTodayTasks.length > 0 && (
-        <section className="mt-6">
+        <section className="mt-6 lg:mt-0">
           <h2 className="label mb-2 px-1">Expected today</h2>
           <div className="card rows overflow-hidden">
             {dueTodayTasks.map((t) => (
@@ -86,8 +88,8 @@ export default async function Home() {
                 className="flex items-center gap-3 px-5 py-4 transition-opacity active:opacity-60"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[16px]">{t.patient.name}</span>
-                  <span className="block truncate text-[13px] text-ink3">{t.title}</span>
+                  <span className="t-bodyL block">{t.patient.name}</span>
+                  <span className="t-cap block truncate text-ink3">{t.title}</span>
                 </span>
                 <ChevronRight size={16} className="shrink-0 text-ink3" />
               </Link>
@@ -96,7 +98,9 @@ export default async function Home() {
         </section>
       )}
 
-      <section className="mt-6">
+      </div>
+
+      <section className="mt-6 lg:col-span-7 lg:mt-0">
         <h2 className="label mb-2 px-1">Recently seen</h2>
         <div className="card rows overflow-hidden">
           {recentPatients.map((p) => (
@@ -105,7 +109,7 @@ export default async function Home() {
               href={`/patients/${p.id}`}
               className="flex items-center gap-3.5 px-5 py-3.5 transition-opacity active:opacity-60"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orangesoft font-display text-[15px] font-bold text-orange">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orangesoft t-head text-orange">
                 {p.name
                   .split(" ")
                   .slice(0, 2)
@@ -113,20 +117,21 @@ export default async function Home() {
                   .join("")}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[16px] leading-snug">{p.name}</span>
-                <span className="block truncate text-[13px] text-ink3">
+                <span className="t-bodyL block truncate">{p.name}</span>
+                <span className="t-cap block truncate text-ink3">
                   {[patientAgeSex(p), p.conditions.map((c) => c.name).join(", ")]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
               </span>
-              <span className="shrink-0 text-[12.5px] text-ink3">
+              <span className="t-micro shrink-0 text-ink3">
                 {p.visits[0] ? relDay(p.visits[0].visitDate) : "new"}
               </span>
             </Link>
           ))}
         </div>
       </section>
+      </div>
     </div>
   );
 }

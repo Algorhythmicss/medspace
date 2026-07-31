@@ -15,7 +15,7 @@ export default function TabBar() {
   if (pathname === "/login") return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 print:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-20 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 lg:hidden print:hidden">
       {/* a floating pill, not a bar bolted to the edge */}
       <div className="mx-auto flex max-w-md items-stretch justify-around rounded-full bg-night px-2 py-2 shadow-[0_14px_34px_-12px_rgba(22,48,91,0.6)]">
         {tabs.map(({ href, label, Icon }) => {

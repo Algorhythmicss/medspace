@@ -12,7 +12,7 @@ export default async function NewReport({ params }: { params: Promise<{ id: stri
   if (!patient) notFound();
 
   return (
-    <div className="px-4 pt-3">
+    <div className="pt-3">
       <header className="mb-4 flex items-center gap-1">
         <Link
           href={`/patients/${patient.id}`}

@@ -28,10 +28,10 @@ export default async function FollowUps() {
   }
 
   return (
-    <div className="px-4 pt-4">
+    <div className="pt-4">
       <header className="mb-5">
-        <p className="text-[13px] text-ink3">Bringing people back</p>
-        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[-0.025em]">
+        <p className="t-cap text-ink3">Bringing people back</p>
+        <h1 className="t-hero">
           Follow-ups
         </h1>
       </header>
@@ -70,14 +70,14 @@ export default async function FollowUps() {
                     href={`/patients/${patient.id}`}
                     className="flex items-baseline justify-between active:opacity-60"
                   >
-                    <span className="font-display text-[17px] font-semibold tracking-[-0.01em]">{patient.name}</span>
-                    <span className="text-[13px] font-medium text-coral">
+                    <span className="t-head">{patient.name}</span>
+                    <span className="t-cap font-semibold text-coral">
                       {relDay(worst.dueDate!)}
                     </span>
                   </Link>
                   <ul className="mt-1.5 space-y-1">
                     {patientTasks.map((t) => (
-                      <li key={t.id} className="flex items-center gap-2 text-[13px] text-ink2">
+                      <li key={t.id} className="t-cap flex items-center gap-2 text-ink2">
                         {t.kind === "FOLLOW_UP" ? (
                           <RefreshCw size={12} />
                         ) : (
@@ -113,7 +113,7 @@ export default async function FollowUps() {
                   <span className="shrink-0 text-ink2">
                     {t.kind === "FOLLOW_UP" ? <RefreshCw size={15} /> : <FlaskConical size={15} />}
                   </span>
-                  <span className="truncate text-[15px]">
+                  <span className="t-body truncate">
                     <span className="font-medium">{t.patient.name}</span>
                     <span className="text-ink2"> · {t.title}</span>
                   </span>

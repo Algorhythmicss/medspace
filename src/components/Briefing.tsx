@@ -37,11 +37,11 @@ export default function Briefing({
       <div className="hero px-5 pb-5 pt-5">
         {/* who */}
         <div className="relative">
-          <h1 className="font-display text-[26px] font-bold leading-tight tracking-[-0.02em] text-white">
+          <h1 className="t-title text-white">
             {name}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-            <span className="tnum text-[13.5px] text-nightink2">
+            <span className="t-cap tnum text-nightink2">
               #{fileNumber} · {card.headline}
             </span>
             {card.allergies.map((a) => (
@@ -58,7 +58,7 @@ export default function Briefing({
 
         {/* the one thing that matters most */}
         {lead && (
-          <p className="relative mt-4 font-display text-[21px] font-bold leading-[1.28] tracking-[-0.015em] text-white">
+          <p className="t-lead relative mt-4 text-white">
             {lead.text}
           </p>
         )}
@@ -67,7 +67,7 @@ export default function Briefing({
         {rest.length > 0 && (
           <ul className="relative mt-3 space-y-1.5">
             {rest.map((line, i) => (
-              <li key={i} className="flex gap-2.5 text-[14.5px] leading-snug text-nightink">
+              <li key={i} className="t-body flex gap-2.5 text-nightink">
                 <span
                   className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${dot[line.tone]}`}
                 />
@@ -85,13 +85,13 @@ export default function Briefing({
                 key={m.type}
                 className="min-w-[108px] shrink-0 rounded-2xl bg-white/10 px-3 py-2.5 backdrop-blur-sm"
               >
-                <div className="text-[11.5px] font-medium text-nightink2">{m.label}</div>
-                <div className="tnum font-display text-[18px] font-bold leading-tight text-white">
+                <div className="t-micro text-nightink2">{m.label}</div>
+                <div className="t-num text-[19px] text-white">
                   {m.paired
                     ? `${m.latest.toFixed(0)}/${m.paired}`
                     : m.latest.toFixed(m.decimals)}
                   {m.unit && !m.paired && (
-                    <span className="ml-1 text-[10.5px] font-medium text-nightink2">
+                    <span className="ml-1 text-[10.5px] font-medium tracking-normal text-nightink2">
                       {m.unit}
                     </span>
                   )}
@@ -111,7 +111,7 @@ export default function Briefing({
 
         {/* current medication */}
         {card.activeMeds.length > 0 && (
-          <p className="relative mt-4 border-t border-white/12 pt-3 text-[13px] leading-relaxed text-nightink2">
+          <p className="t-cap relative mt-4 border-t border-white/12 pt-3 text-nightink2">
             <span className="font-semibold text-nightink">On</span>{" "}
             {card.activeMeds
               .map((m) => m.drugName.replace(/^(Tab|Cap|Syp|Inh|Gel) /, ""))

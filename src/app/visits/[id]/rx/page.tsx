@@ -57,7 +57,7 @@ export default async function RxView({ params }: { params: Promise<{ id: string 
     .join("\n");
 
   return (
-    <div className="px-4 pt-4 print:px-0 print:pt-0">
+    <div className="pt-4 print:px-0 print:pt-0">
       <header className="mb-3 flex items-center justify-between print:hidden">
         <Link
           href={`/patients/${visit.patientId}`}

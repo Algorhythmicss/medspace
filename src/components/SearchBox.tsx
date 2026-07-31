@@ -34,7 +34,25 @@ export default function SearchBox() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    // Autofocus only where a keyboard exists; on a phone it would throw the
+    // on-screen keyboard up the moment the app opens.
+    if (window.matchMedia("(min-width: 1024px)").matches) inputRef.current?.focus();
+  }, []);
+
+  // ⌘K / Ctrl-K jumps to search from anywhere, and Escape releases it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      }
+      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        inputRef.current?.blur();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   useEffect(() => {
@@ -70,7 +88,7 @@ export default function SearchBox() {
       <div className="relative">
         <Search
           size={18}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink2"
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink3"
         />
         <input
           ref={inputRef}
@@ -83,30 +101,34 @@ export default function SearchBox() {
           }}
           placeholder="Name, phone, or file no."
           inputMode="search"
-          className="w-full rounded-xl bg-sunk py-2.5 pl-10 pr-4 text-[17px] outline-none placeholder:text-ink2"
+          className="field ring-focus t-bodyL !bg-surface !py-3 !pl-11 !pr-14"
         />
-        {loading && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-ink2">
+        {loading ? (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-ink3">
             …
+          </span>
+        ) : (
+          <span className="kbd pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 lg:block">
+            ⌘K
           </span>
         )}
       </div>
 
       {results.length > 0 && (
-        <div className="rows mt-2 overflow-hidden rounded-2xl bg-surface shadow-[var(--lift-lg)]">
+        <div className="rows card mt-2 overflow-hidden shadow-[var(--lift-lg)]">
           {results.map((p) => (
             <Link
               key={p.id}
               href={`/patients/${p.id}`}
               prefetch
-              className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left active:bg-black/5"
+              className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left transition-opacity active:opacity-60"
             >
               <div className="min-w-0">
-                <div className="truncate text-[17px] leading-snug">
+                <div className="t-bodyL truncate">
                   {p.name}
-                  <span className="ml-2 text-[13px] text-ink2">#{p.fileNumber}</span>
+                  <span className="t-cap ml-2 text-ink3">#{p.fileNumber}</span>
                 </div>
-                <div className="truncate text-[13px] text-ink2">
+                <div className="t-cap truncate text-ink3">
                   {[
                     [p.ageYears, p.sex].filter(Boolean).join(" "),
                     p.conditions.join(", "),
@@ -115,7 +137,7 @@ export default function SearchBox() {
                     .join(" · ")}
                 </div>
               </div>
-              <div className="shrink-0 text-right text-[13px] text-ink2">
+              <div className="t-micro shrink-0 text-right text-ink3">
                 {p.lastVisit ? <>last {relDay(p.lastVisit)}</> : "new"}
               </div>
             </Link>

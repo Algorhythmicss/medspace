@@ -24,7 +24,7 @@ export default async function EditPatient({ params }: { params: Promise<{ id: st
     : null;
 
   return (
-    <div className="px-4 pt-3">
+    <div className="pt-3">
       <header className="mb-4 flex items-center gap-1">
         <Link
           href={`/patients/${patient.id}`}

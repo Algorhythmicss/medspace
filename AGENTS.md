@@ -40,7 +40,9 @@ docker run -d --name medspace-pg -e POSTGRES_PASSWORD=devpass -e POSTGRES_DB=med
 
 `scripts/seed-sql.ts` emits the whole demo panel as SQL (deterministic ids, wipes first) for loading a remote DB via `execute_sql` without a local connection string.
 
-**Open security item:** RLS is disabled on all 11 tables. The app connects as the `postgres` role via Prisma so it doesn't need RLS, but the project's anon key would otherwise expose every patient row through Supabase's REST API. Fix is deny-all (enable RLS, add no policies), then re-run `get_advisors`.
+**RLS is deny-all (applied 31 Jul 2026).** All 11 tables have RLS enabled with **no policies**, deliberately: medSpace connects as the `postgres` role via Prisma (which bypasses RLS), while anon/authenticated PostgREST roles are denied outright, so the project's publishable key cannot read patient rows. `get_advisors` now reports only the INFO-level "RLS enabled, no policy" note — that is the intended state, not a defect. Do **not** "fix" it by adding permissive policies.
+
+**Repo:** https://github.com/Algorhythmicss/medspace (private). Vercel should be connected to this repo so pushes auto-deploy.
 
 ## Auth
 Passcode gate: signed 12h session cookie (Web Crypto HMAC, Edge-compatible — `src/lib/auth.ts`), enforced by `src/middleware.ts` on every route except `/login`. Verified: all routes including `/api/search` and `/api/reports/[id]/file` return 307→/login without a session.
@@ -66,7 +68,8 @@ Tokens in `globals.css`: grouped background `#F2F2F7`, white `rounded-2xl` cards
 - **Browser screenshots are 2× scale:** a row at screenshot y=358 is CSS y=179. Prefer clicking `read_page` refs.
 
 ## Iteration backlog
-- Deploy to Vercel production (env vars must be set in the dashboard; MCP deploy takes an inline file tree).
+- **Wipe the demo panel before real patients.** Production currently holds the 8 fictional demo patients. Clear with the DELETE block at the top of `scripts/seed-sql.ts` before the clinic enters anyone real.
+- Vercel: connect the GitHub repo and set `DATABASE_URL` / `MEDSPACE_PASSCODE` / `MEDSPACE_SESSION_SECRET` in the dashboard (no MCP tool exists for env vars).
 - Offline *reads*: drafts survive a dropped connection but charts still need the server. Cloud hosting is now the chosen path, so this means a service worker + local cache + sync queue — a substantial build. Don't start it speculatively.
 - OCR/AI parsing of report photos to prefill key values (needs an API-key decision; manual entry works today).
 - Draft recovery covers only the visit form, not the report form or demographics edit.

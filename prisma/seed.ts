@@ -73,7 +73,7 @@ async function main() {
       doctorName: "Dr. A. K. Verma",
       degrees: "MBBS, MD (Medicine)",
       regNumber: "MCI-45821",
-      phone: "+91 98XXXXXX21",
+      phone: "+91 98450 12345",
       address: "12, Market Road, Lucknow",
     },
   });

@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { readPatientToken } from "@/lib/patientLink";
 import { plainFrequency, plainInstruction } from "@/lib/dosage";
 import { relDay, shortDate } from "@/lib/format";
+import { waLink, telLink } from "@/lib/phone";
 import { ArtBand, ArtSpot } from "@/components/Art";
 
 export const dynamic = "force-dynamic";
@@ -59,9 +60,8 @@ export default async function PatientView({
   const tests = patient.tasks.filter((t) => t.kind === "LAB_TEST");
   const now = new Date();
 
-  const waHref = clinic?.phone
-    ? `https://wa.me/91${clinic.phone.replace(/\D/g, "").slice(-10)}`
-    : null;
+  const waHref = waLink(clinic?.phone);
+  const telHref = telLink(clinic?.phone);
 
   return (
     <div className="pb-16">
@@ -200,9 +200,9 @@ export default async function PatientView({
                   <MessageCircle size={15} strokeWidth={2.2} /> WhatsApp
                 </a>
               )}
-              {clinic?.phone && (
+              {telHref && (
                 <a
-                  href={`tel:${clinic.phone}`}
+                  href={telHref}
                   className="btn inline-flex items-center gap-1.5 bg-white/20 px-4 py-2 text-[14px] text-white backdrop-blur-sm"
                 >
                   <Phone size={15} strokeWidth={2.2} /> Call

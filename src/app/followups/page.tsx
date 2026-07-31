@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { createPatientToken } from "@/lib/patientLink";
 import { relDay, shortDate } from "@/lib/format";
+import { waLink } from "@/lib/phone";
 import TaskActions from "@/components/TaskActions";
 
 export const dynamic = "force-dynamic";
@@ -80,9 +81,7 @@ export default async function FollowUps() {
                 `Your medicines, tests and next visit are here: ${linkFor.get(patient.id)}`,
                 `Please reply here or call to book a time. 🙏`,
               ].join("\n");
-              const waHref = patient.phone
-                ? `https://wa.me/91${patient.phone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(reminderText)}`
-                : null;
+              const waHref = waLink(patient.phone, reminderText);
 
               return (
                 <li

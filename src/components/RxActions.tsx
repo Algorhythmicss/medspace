@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Printer } from "lucide-react";
+import { waLink } from "@/lib/phone";
 
 // Share/print controls. The WhatsApp button only opens WhatsApp with the text
 // prefilled — the doctor reviews and presses send themselves.
@@ -14,9 +15,7 @@ export default function RxActions({
   rxText: string;
   patientId: string;
 }) {
-  const waHref = patientPhone
-    ? `https://wa.me/91${patientPhone.replace(/\D/g, "").slice(-10)}?text=${encodeURIComponent(rxText)}`
-    : null;
+  const waHref = waLink(patientPhone, rxText);
 
   return (
     <div className="mt-4 space-y-2.5 pb-10 print:hidden">

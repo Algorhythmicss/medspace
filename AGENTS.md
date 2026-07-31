@@ -25,7 +25,7 @@ Next.js 15 (App Router, `src/`), Tailwind v4, Prisma 7 with the **Postgres** dri
 - `pnpm dev` — dev server (or `preview_start` with launch config `medspace-dev`)
 - `npx prisma migrate deploy` — apply migrations · `npx tsx prisma/seed.ts` — reseed the demo panel
 - `npx tsc --noEmit` — typecheck · `npx next build` — production build
-- Test suites (reseed after): `npx tsx scripts/test-merge.ts`, `test-report.ts`, `test-supersede.ts`
+- Test suites (reseed after): `npx tsx scripts/test-merge.ts`, `test-report.ts`, `test-supersede.ts`, `test-patient-link.ts`, `test-phone.ts`
 
 ## Databases
 **Local dev = Postgres in Docker. Never point local tooling at production.**
@@ -86,6 +86,8 @@ A second app in the same deployment. Reached from a WhatsApp link the doctor sen
 **Content rules.** Show what helps the patient *act* — medicines, tests still to do, the next visit date, reports on file. Do **not** surface diagnoses, trends or interpretation: the doctor communicates those in person, and a worsening line read cold on a phone is frightening and unsafe. `src/lib/dosage.ts` translates "1-0-1" into "Morning and night" — dosing confusion is a documented adherence cause, and roughly half of Indian chronic patients are non-adherent.
 
 Art is used generously here (consultation hero, lab band, reception footer, prepared-room empty state) because a patient reading at home is not under the doctor's 2–4 minute clock.
+
+**Phone numbers → `src/lib/phone.ts`.** Never build a `wa.me` or `tel:` URL by hand. `waLink()` / `telLink()` return **null** for anything that isn't a real 10-digit Indian mobile, so a bad number yields no button instead of a dead link. This is not theoretical: a clinic phone seeded as `+91 98XXXXXX21` stripped to `919821` and shipped `https://wa.me/91919821` to patients. WhatsApp is the delivery channel for the whole product; a silently broken link there is a silently broken product.
 
 ## Traps that cost time before
 - **Silent server-action failure:** a dynamic `await import()` inside `actions.ts` pulled `node:fs` into the client graph and broke *every* server action with no error anywhere — forms just no-op'd. Keep imports in `actions.ts` static and top-level. Turbopack also serves a poisoned graph long after the source is fixed: `rm -rf .next` and restart. Tell-tale sign is dev-server logs citing imports that no longer exist.

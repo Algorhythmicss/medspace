@@ -16,7 +16,7 @@ out.push(
 );
 
 out.push(
-  `INSERT INTO "Clinic" ("id","clinicName","doctorName","regNumber","degrees","phone","address") VALUES ('clinic',${q("Shri Krishna Clinic")},${q("Dr. A. K. Verma")},${q("MCI-45821")},${q("MBBS, MD (Medicine)")},${q("+91 98XXXXXX21")},${q("12, Market Road, Lucknow")});`
+  `INSERT INTO "Clinic" ("id","clinicName","doctorName","regNumber","degrees","phone","address") VALUES ('clinic',${q("Shri Krishna Clinic")},${q("Dr. A. K. Verma")},${q("MCI-45821")},${q("MBBS, MD (Medicine)")},${q("+91 98450 12345")},${q("12, Market Road, Lucknow")});`
 );
 
 const FORMULARY: Array<[string, string | null, string | null, string | null, number]> = [

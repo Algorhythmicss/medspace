@@ -518,6 +518,34 @@ async function main() {
     data: { patientId: lakshmi.id, visitId: lastLakshmiVisit, kind: "FOLLOW_UP", title: "Quarterly diabetes review", dueDate: now, status: "pending" },
   });
 
+  // ---------- Plan-link reach ----------
+  // Sending is easy; being read is not. The demo panel reflects the field
+  // numbers rather than a happy path — SPRINT India got 17% to acknowledge a
+  // message, 99DOTS 33% to ever use the channel. So: some opened, some sent
+  // once and still waiting, some sent repeatedly and never opened (the ones
+  // the app should stop messaging and start phoning), some never sent.
+  const reachSeed: Record<number, { shares: number; sharedDaysAgo: number; opens: number; openedDaysAgo?: number }> = {
+    101: { shares: 3, sharedDaysAgo: 4, opens: 0 }, // Ramesh — never opens; call him
+    102: { shares: 2, sharedDaysAgo: 9, opens: 5, openedDaysAgo: 1 }, // Sunita — engaged
+    103: { shares: 1, sharedDaysAgo: 1, opens: 0 }, // Abdul — sent yesterday, fair enough
+    105: { shares: 1, sharedDaysAgo: 6, opens: 0 }, // Mohan — one send, gone quiet
+    106: { shares: 1, sharedDaysAgo: 12, opens: 2, openedDaysAgo: 11 }, // Kavita — opened once, long ago
+    108: { shares: 4, sharedDaysAgo: 2, opens: 0 }, // Lakshmi — four sends, nothing
+    // 104 Priya and 107 Rajiv: link never sent
+  };
+  for (const [fileNumber, r] of Object.entries(reachSeed)) {
+    await db.patient.update({
+      where: { fileNumber: Number(fileNumber) },
+      data: {
+        planShareCount: r.shares,
+        planSharedAt: subDays(now, r.sharedDaysAgo),
+        planOpenCount: r.opens,
+        planFirstOpenedAt: r.opens ? subDays(now, r.sharedDaysAgo - 1) : null,
+        planLastOpenedAt: r.openedDaysAgo != null ? subDays(now, r.openedDaysAgo) : null,
+      },
+    });
+  }
+
   const counts = {
     patients: await db.patient.count(),
     visits: await db.visit.count(),

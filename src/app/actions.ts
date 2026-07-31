@@ -236,6 +236,24 @@ export async function updateStickyNote(formData: FormData) {
   revalidatePath(`/patients/${patientId}`);
 }
 
+// Called when the doctor hands the plan link over — the WhatsApp button or the
+// copy button. Pairs with the open counters written from the patient page, so
+// the pair answers "sent twice, never opened" rather than just "not opened".
+// Deliberately does not revalidate: it fires while the doctor is being sent to
+// WhatsApp, and re-rendering the chart underneath them would be pointless work.
+export async function recordPlanShare(patientId: string) {
+  if (!patientId) return;
+  try {
+    await db.patient.update({
+      where: { id: patientId },
+      data: { planSharedAt: new Date(), planShareCount: { increment: 1 } },
+    });
+  } catch (err) {
+    // Sharing must never fail in the doctor's face — the link still works.
+    console.error("failed to record plan share", err);
+  }
+}
+
 export async function completeTask(taskId: string) {
   const task = await db.carePlanTask.update({
     where: { id: taskId },

@@ -25,7 +25,7 @@ Next.js 15 (App Router, `src/`), Tailwind v4, Prisma 7 with the **Postgres** dri
 - `pnpm dev` — dev server (or `preview_start` with launch config `medspace-dev`)
 - `npx prisma migrate deploy` — apply migrations · `npx tsx prisma/seed.ts` — reseed the demo panel
 - `npx tsc --noEmit` — typecheck · `npx next build` — production build
-- Test suites (reseed after): `npx tsx scripts/test-merge.ts`, `test-report.ts`, `test-supersede.ts`, `test-patient-link.ts`, `test-phone.ts`
+- Test suites (reseed after): `npx tsx scripts/test-merge.ts`, `test-report.ts`, `test-supersede.ts`, `test-patient-link.ts`, `test-phone.ts`, `test-reach.ts`
 
 ## Databases
 **Local dev = Postgres in Docker. Never point local tooling at production.**
@@ -84,7 +84,11 @@ One deployment, two audiences, three ways in:
 ## Pilot distribution & adoption
 Every chart carries a **plan link card** (`SendPlanLink.tsx`) in the desktop rail: "Send on WhatsApp" opens the **doctor's own** WhatsApp via `wa.me` with the message pre-filled, plus a copy button for SMS or reading it out. No Business API, no Meta verification, no DLT registration, no per-message cost — that is deliberately what makes a 100-patient pilot possible without waiting on paperwork.
 
-**Opens are recorded** on `Patient.planFirstOpenedAt / planLastOpenedAt / planOpenCount`, written from the patient page inside Next's `after()` so the patient never waits on a tracking write *and* the write is actually guaranteed to run (a bare floating promise silently never fired). The card shows "Opened" / "Not opened yet". This is the pilot's core metric: the field evidence is that engagement, not messaging, is the binding constraint — SPRINT India saw 17% acknowledge receipt, 99DOTS 33% ever use it. A pilot that can't see opens learns nothing.
+**Opens are recorded** on `Patient.planFirstOpenedAt / planLastOpenedAt / planOpenCount`, written from the patient page inside Next's `after()` so the patient never waits on a tracking write *and* the write is actually guaranteed to run (a bare floating promise silently never fired). This is the pilot's core metric: the field evidence is that engagement, not messaging, is the binding constraint — SPRINT India saw 17% acknowledge receipt, 99DOTS 33% ever use it. A pilot that can't see opens learns nothing.
+
+**Sends are recorded too** — `planSharedAt / planShareCount`, written by the `recordPlanShare` action when the WhatsApp or Copy button is pressed. Opens alone have no denominator: "not opened" means nothing until you know whether it was ever sent. Caveat to keep in mind when reading pilot numbers: pressing the button means *WhatsApp was opened with the message ready*, not that the doctor pressed send — it over-counts sends slightly, which is acceptable at this scale and is why the UI says "Sent", never "Delivered".
+
+`src/lib/reach.ts` turns the two counters into one answer to the only question that changes behaviour — **is WhatsApp working for this patient?** States: `never` (link not sent yet), `waiting` (sent once, under 3 days, no open), `opened`, `silent` (≥2 sends, or one send ≥3 days old, still never opened). `silent` sets `callFirst`, and both the chart card and the follow-up list then **demote WhatsApp to an icon and promote Call**, because another unread message is not follow-up, it only looks like it. Deterministic and pure like `memory.ts`; `scripts/test-reach.ts` pins the thresholds and the fail-closed cases (a share count with no timestamp reads as "never sent"). The seeded demo panel deliberately spans all four states at roughly field-realistic open rates.
 
 ## Patient side (`/p/<token>`)
 A second app in the same deployment. Reached from a WhatsApp link the doctor sends — the field research was clear that patients will not install a per-clinic app, while 94% of WhatsApp users open it daily. Phone + OTP is a deliberate *later* addition, not a replacement.
@@ -107,6 +111,8 @@ Art is used generously here (consultation hero, lab band, reception footer, prep
 - **Client/server boundary:** client components must not import `db.ts`, `reports.ts`, `tasks.ts`, or `merge.ts`. Shared constants belong in `src/lib/metrics.ts`.
 - **NULL-safe Prisma filters:** `{ visitId: { not: x } }` silently drops rows where `visitId IS NULL`; use an explicit `OR: [{ visitId: null }, ...]`.
 - **Shell cwd:** the harness resets Bash cwd to `/Users/mac/Medspace.` (a stray dot-suffixed directory). Always `cd /Users/mac/Medspace/medspace &&` first, or installs land in the user's home `package.json`.
+- **`navigator.clipboard` needs a secure context.** localhost qualifies, a clinic machine on `http://192.168.x.x` does not, and neither do some old Android WebViews. Copying the plan link is one of only two ways a patient ever gets it, so `src/lib/clipboard.ts` tries the modern API, falls back to the legacy `execCommand` selection trick, and returns `false` if both fail — the caller then *reveals* the link, pre-selected, instead of doing nothing. Never leave a bare `catch {}` on a copy path.
+- **Automated clicks via `computer` sometimes don't dispatch** to React handlers even when the ref coordinates are correct. If a click appears to do nothing, confirm with `javascript_tool` (`button.click()`) before concluding the app is broken — that exact false alarm cost time here.
 - **Browser screenshots are 2× scale:** a row at screenshot y=358 is CSS y=179. Prefer clicking `read_page` refs.
 
 ## Iteration backlog

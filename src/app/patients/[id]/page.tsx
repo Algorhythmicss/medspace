@@ -13,7 +13,8 @@ import { headers } from "next/headers";
 import { ArtSpot } from "@/components/Art";
 import SendPlanLink from "@/components/SendPlanLink";
 import { createPatientToken } from "@/lib/patientLink";
-import { waLink } from "@/lib/phone";
+import { waLink, telLink } from "@/lib/phone";
+import { planReach } from "@/lib/reach";
 import { db } from "@/lib/db";
 import { buildMemoryCard } from "@/lib/memory";
 import Briefing from "@/components/Briefing";
@@ -111,8 +112,10 @@ export default async function PatientChart({
 
       <SendPlanLink
         waHref={waLink(patient.phone, planMessage)}
+        telHref={telLink(patient.phone)}
         planUrl={planUrl}
-        opened={patient.planOpenCount > 0}
+        patientId={patient.id}
+        reach={planReach(patient)}
       />
 
       {/* ── open items: what is owed, in one place ───────────── */}

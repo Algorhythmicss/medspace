@@ -43,6 +43,14 @@ model Patient {
   planLastOpenedAt  DateTime?
   planOpenCount     Int       @default(0)
 
+  // The other half of the same question: how often the doctor handed the link
+  // over. Recorded when the WhatsApp/copy button is pressed — which means it
+  // counts "opened WhatsApp with the message ready", not a confirmed delivery.
+  // Good enough to tell "never sent" from "sent twice and ignored", which is
+  // the distinction that changes what the doctor does next.
+  planSharedAt   DateTime?
+  planShareCount Int       @default(0)
+
   conditions   Condition[]
   allergies    Allergy[]
   visits       Visit[]

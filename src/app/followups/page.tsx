@@ -5,7 +5,8 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { createPatientToken } from "@/lib/patientLink";
 import { relDay, shortDate } from "@/lib/format";
-import { waLink } from "@/lib/phone";
+import { waLink, telLink } from "@/lib/phone";
+import { planReach } from "@/lib/reach";
 import TaskActions from "@/components/TaskActions";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +83,7 @@ export default async function FollowUps() {
                 `Please reply here or call to book a time. 🙏`,
               ].join("\n");
               const waHref = waLink(patient.phone, reminderText);
+              const reach = planReach(patient, now);
 
               return (
                 <li
@@ -109,10 +111,25 @@ export default async function FollowUps() {
                       </li>
                     ))}
                   </ul>
+                  {/* Whether the channel works for this person, said once and
+                      quietly — it decides whether to message or to phone. */}
+                  <p
+                    className={`t-micro mt-2 ${
+                      reach.tone === "ok"
+                        ? "text-jade"
+                        : reach.tone === "warn"
+                          ? "text-butter"
+                          : "text-ink3"
+                    }`}
+                  >
+                    {reach.label}
+                  </p>
                   <TaskActions
                     waHref={waHref}
-                    phone={patient.phone}
+                    telHref={telLink(patient.phone)}
                     taskIds={patientTasks.map((t) => t.id)}
+                    patientId={patient.id}
+                    reach={reach}
                   />
                 </li>
               );

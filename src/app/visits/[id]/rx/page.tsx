@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { db } from "@/lib/db";
+import { createPatientToken } from "@/lib/patientLink";
 import { shortDate, patientAgeSex } from "@/lib/format";
 import RxActions from "@/components/RxActions";
 
@@ -30,6 +31,7 @@ export default async function RxView({ params }: { params: Promise<{ id: string 
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";
   const scanUrl = `${proto}://${host}/scan/${visit.patient.fileNumber}`;
+  const patientUrl = `${proto}://${host}/p/${await createPatientToken(visit.patientId)}`;
   const qrDataUrl = await QRCode.toDataURL(scanUrl, { margin: 1, width: 160 });
 
   const bpSys = visit.observations.find((o) => o.type === "BP_SYS")?.value;
@@ -52,6 +54,7 @@ export default async function RxView({ params }: { params: Promise<{ id: string 
     visit.prescription?.advice ? `\nAdvice: ${visit.prescription.advice}` : null,
     labTasks.length > 0 ? `\nTests: ${labTasks.map((t) => t.title).join(", ")}` : null,
     visit.followUpDate ? `\nNext visit: ${shortDate(visit.followUpDate)}` : null,
+    `\nYour medicines and tests: ${patientUrl}`,
   ]
     .filter((line) => line !== null)
     .join("\n");

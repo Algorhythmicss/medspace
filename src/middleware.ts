@@ -6,7 +6,13 @@ import { isValidSession, sessionCookieName } from "@/lib/auth";
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  if (pathname === "/login" || pathname.startsWith("/api/login")) {
+  // The patient view authenticates with its own signed token in the path,
+  // so it must not be forced through the clinic passcode.
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/api/login") ||
+    pathname.startsWith("/p/")
+  ) {
     return NextResponse.next();
   }
 

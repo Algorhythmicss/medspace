@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { FlaskConical, RefreshCw } from "lucide-react";
 import { ArtSpot } from "@/components/Art";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
+import { createPatientToken } from "@/lib/patientLink";
 import { relDay, shortDate } from "@/lib/format";
 import TaskActions from "@/components/TaskActions";
 
@@ -17,6 +19,18 @@ export default async function FollowUps() {
       include: { patient: true },
     }),
   ]);
+
+  // Absolute origin so the link works when it lands in WhatsApp.
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host") ?? "localhost:3000"}`;
+
+  // One signed link per overdue patient, generated alongside the message.
+  const linkFor = new Map<string, string>();
+  for (const t of tasks) {
+    if (!linkFor.has(t.patientId)) {
+      linkFor.set(t.patientId, `${origin}/p/${await createPatientToken(t.patientId)}`);
+    }
+  }
 
   const overdue = tasks.filter((t) => t.dueDate! < now);
   const upcoming = tasks.filter((t) => t.dueDate! >= now);
@@ -63,6 +77,7 @@ export default async function FollowUps() {
                     ? `Your follow-up visit was due on ${shortDate(t.dueDate!)}. Please visit the clinic.`
                     : `Your test "${t.title}" is pending. Please get it done before your next visit.`
                 ),
+                `Your medicines, tests and next visit are here: ${linkFor.get(patient.id)}`,
                 `Please reply here or call to book a time. 🙏`,
               ].join("\n");
               const waHref = patient.phone

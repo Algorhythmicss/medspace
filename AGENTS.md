@@ -73,6 +73,20 @@ Placed so far: login (`reception`), Today masthead (`huddle`, greeting set *on* 
 
 Art direction constraints from the library README worth respecting: 4:3 landscape, keep action in the middle two-thirds on shallow crops, use only a subtle scrim when contrast demands it, and preserve the paper texture — no heavy colour grading.
 
+## Patient side (`/p/<token>`)
+A second app in the same deployment. Reached from a WhatsApp link the doctor sends — the field research was clear that patients will not install a per-clinic app, while 94% of WhatsApp users open it daily. Phone + OTP is a deliberate *later* addition, not a replacement.
+
+**The link is the credential.** `src/lib/patientLink.ts` signs `{patient, expiry, v}` with `MEDSPACE_PATIENT_LINK_SECRET` (Web Crypto HMAC, Edge-safe), 120-day default. Stateless: nothing stored, nothing to clean up. Revoking one patient means rotating the secret — acceptable at this lifetime, and the `v` field is already there for per-patient revocation later. `scripts/test-patient-link.ts` asserts that tampered signatures, re-pointed payloads, garbage and expired links all fail closed.
+
+- `middleware.ts` lets `/p/*` through the clinic passcode; the token is its own auth.
+- The page sets `robots: noindex, nofollow, nocache` — a medical record must never reach a search index.
+- `Shell.tsx` (client) renders the doctor chrome or a bare patient column depending on the path, so patients never see clinic navigation.
+- Links are injected into the follow-up reminder text and the prescription share, so the message a patient receives opens their live plan rather than a static dump.
+
+**Content rules.** Show what helps the patient *act* — medicines, tests still to do, the next visit date, reports on file. Do **not** surface diagnoses, trends or interpretation: the doctor communicates those in person, and a worsening line read cold on a phone is frightening and unsafe. `src/lib/dosage.ts` translates "1-0-1" into "Morning and night" — dosing confusion is a documented adherence cause, and roughly half of Indian chronic patients are non-adherent.
+
+Art is used generously here (consultation hero, lab band, reception footer, prepared-room empty state) because a patient reading at home is not under the doctor's 2–4 minute clock.
+
 ## Traps that cost time before
 - **Silent server-action failure:** a dynamic `await import()` inside `actions.ts` pulled `node:fs` into the client graph and broke *every* server action with no error anywhere — forms just no-op'd. Keep imports in `actions.ts` static and top-level. Turbopack also serves a poisoned graph long after the source is fixed: `rm -rf .next` and restart. Tell-tale sign is dev-server logs citing imports that no longer exist.
 - **Client/server boundary:** client components must not import `db.ts`, `reports.ts`, `tasks.ts`, or `merge.ts`. Shared constants belong in `src/lib/metrics.ts`.

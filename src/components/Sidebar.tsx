@@ -22,7 +22,7 @@ export default function Sidebar() {
     <aside className="material fixed inset-y-0 left-0 z-30 hidden w-[248px] border-r border-hairline px-3 py-5 lg:flex lg:flex-col print:hidden">
       <div className="px-3 pb-6">
         <span className="font-display text-[19px] font-extrabold tracking-[-0.02em]">
-          med<span className="text-orange">Space</span>
+          med<span className="text-peri">Space</span>
         </span>
       </div>
 

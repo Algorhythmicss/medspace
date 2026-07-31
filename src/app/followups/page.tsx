@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FlaskConical, RefreshCw } from "lucide-react";
+import { ArtSpot } from "@/components/Art";
 import { db } from "@/lib/db";
 import { relDay, shortDate } from "@/lib/format";
 import TaskActions from "@/components/TaskActions";
@@ -37,7 +38,14 @@ export default async function FollowUps() {
       </header>
 
       {byPatient.size === 0 && upcoming.length === 0 && (
-        <p className="py-16 text-center text-[15px] text-ink3">No one is waiting. Everybody\u2019s follow-ups are current.</p>
+        <div className="py-10 text-center">
+          <ArtSpot name="discharge" className="mb-5" />
+          <p className="t-head">Everyone is up to date</p>
+          <p className="t-cap mx-auto mt-1 max-w-[280px] text-ink3">
+            No follow-ups are overdue. Patients you see today will appear here when
+            their next visit falls due.
+          </p>
+        </div>
       )}
 
       {byPatient.size > 0 && (

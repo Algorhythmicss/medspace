@@ -16,7 +16,7 @@ export default async function NewReport({ params }: { params: Promise<{ id: stri
       <header className="mb-4 flex items-center gap-1">
         <Link
           href={`/patients/${patient.id}`}
-          className="-ml-2 p-1.5 text-orange active:opacity-60"
+          className="-ml-2 p-1.5 text-peri active:opacity-60"
         >
           <ChevronLeft size={26} />
         </Link>

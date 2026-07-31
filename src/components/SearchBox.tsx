@@ -148,7 +148,7 @@ export default function SearchBox() {
       {q.trim() && !loading && results.length === 0 && (
         <p className="mt-3 text-center text-[15px] text-ink2">
           No match.{" "}
-          <Link href="/patients/new" className="font-medium text-orange">
+          <Link href="/patients/new" className="font-medium text-peri">
             Add new patient
           </Link>
         </p>

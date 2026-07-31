@@ -64,7 +64,7 @@ export default async function MergePatients({
   return (
     <div className="mx-auto w-full max-w-[560px] pt-3">
       <header className="mb-4 flex items-center gap-1">
-        <Link href={`/patients/${id}`} className="-ml-2 p-1.5 text-orange active:opacity-60">
+        <Link href={`/patients/${id}`} className="-ml-2 p-1.5 text-peri active:opacity-60">
           <ChevronLeft size={26} />
         </Link>
         <div>
@@ -82,8 +82,8 @@ export default async function MergePatients({
         <Card s={dup} role="Merge in" />
       </div>
 
-      <div className="mt-4 rounded-2xl bg-sunnysoft p-4">
-        <p className="text-[13px] font-semibold text-sunny">This cannot be undone</p>
+      <div className="mt-4 rounded-2xl bg-buttersoft p-4">
+        <p className="text-[13px] font-semibold text-butter">This cannot be undone</p>
         <p className="mt-1 text-[13px] text-ink2">
           All {dup.visits} visit{dup.visits === 1 ? "" : "s"}, {dup.reports} report
           {dup.reports === 1 ? "" : "s"} and pending tasks from #{dup.patient.fileNumber} move to #

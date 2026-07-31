@@ -9,6 +9,7 @@ import {
   Paperclip,
   Plus,
 } from "lucide-react";
+import { ArtSpot } from "@/components/Art";
 import { db } from "@/lib/db";
 import { buildMemoryCard } from "@/lib/memory";
 import Briefing from "@/components/Briefing";
@@ -101,7 +102,7 @@ export default async function PatientChart({
             <h2 className="label">Open items</h2>
             <Link
               href={`/patients/${patient.id}/report/new`}
-              className="t-cap inline-flex items-center gap-0.5 font-semibold text-orange active:opacity-60"
+              className="t-cap inline-flex items-center gap-0.5 font-semibold text-peri active:opacity-60"
             >
               <Plus size={13} strokeWidth={2.5} /> Report
             </Link>
@@ -171,10 +172,10 @@ export default async function PatientChart({
       {patient.tasks.length === 0 && patient.reports.length === 0 && (
         <section className="mt-6">
           <div className="card flex items-center justify-between px-4 py-3.5">
-            <span className="t-body text-ink3">Nothing pending for this patient.</span>
+            <span className="t-body text-ink3">Nothing pending — records are current.</span>
             <Link
               href={`/patients/${patient.id}/report/new`}
-              className="t-cap inline-flex items-center gap-0.5 font-semibold text-orange active:opacity-60"
+              className="t-cap inline-flex items-center gap-0.5 font-semibold text-peri active:opacity-60"
             >
               <Plus size={13} strokeWidth={2.5} /> Report
             </Link>
@@ -227,7 +228,7 @@ export default async function PatientChart({
                   ))}
                   <Link
                     href={`/visits/${v.id}/rx`}
-                    className="t-micro ml-auto inline-flex items-center font-semibold text-orange active:opacity-60"
+                    className="t-micro ml-auto inline-flex items-center font-semibold text-peri active:opacity-60"
                   >
                     Rx <ChevronRight size={13} />
                   </Link>

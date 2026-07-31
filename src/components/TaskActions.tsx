@@ -24,7 +24,7 @@ export default function TaskActions({
           href={waHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-mint py-2.5 text-center text-[15px] font-semibold text-white active:opacity-80"
+          className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-jade py-2.5 text-center text-[15px] font-semibold text-white active:opacity-80"
         >
           <MessageCircle size={15} strokeWidth={2.2} /> WhatsApp
         </a>

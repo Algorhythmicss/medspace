@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { ArtBand } from "@/components/Art";
 import { db } from "@/lib/db";
 import SearchBox from "@/components/SearchBox";
 import LockButton from "@/components/LockButton";
@@ -40,15 +41,20 @@ export default async function Home() {
 
   return (
     <div className="pt-5 lg:pt-8">
-      <header className="mb-5 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="t-cap font-medium text-ink3">{greeting(now.getHours())}</p>
-          <h1 className="t-hero">
-            {shortName ?? "Today"}
-          </h1>
-        </div>
-        <div className="pt-1.5 lg:hidden">
-          <LockButton />
+      {/* The library leaves painted wall space for headings, so the greeting
+          sits on the art instead of pushing search down the page — lookup is
+          the ≤5s path and must stay near the top. */}
+      <header className="relative mb-5 overflow-hidden rounded-[26px] shadow-[var(--lift-lg)]">
+        <ArtBand name="huddle" height="h-[156px] lg:h-[184px]" priority />
+        <div className="absolute inset-0 bg-gradient-to-r from-[rgba(70,79,150,0.82)] via-[rgba(70,79,150,0.45)] to-transparent" />
+        <div className="absolute inset-0 flex items-end justify-between gap-3 p-5">
+          <div className="min-w-0">
+            <p className="t-cap font-medium text-periink2">{greeting(now.getHours())}</p>
+            <h1 className="t-title text-white">{shortName ?? "Today"}</h1>
+          </div>
+          <div className="lg:hidden">
+            <LockButton />
+          </div>
         </div>
       </header>
 
@@ -69,11 +75,11 @@ export default async function Home() {
             <span className="t-head block text-white">
               Waiting on you
             </span>
-            <span className="t-cap block text-nightink2">
+            <span className="t-cap block text-periink2">
               Overdue patients drift to another clinic
             </span>
           </span>
-          <ChevronRight size={20} className="relative shrink-0 text-nightink2" />
+          <ChevronRight size={20} className="relative shrink-0 text-periink2" />
         </Link>
       )}
 
@@ -109,7 +115,7 @@ export default async function Home() {
               href={`/patients/${p.id}`}
               className="flex items-center gap-3.5 px-5 py-3.5 transition-opacity active:opacity-60"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orangesoft t-head text-orange">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-perisoft t-head text-peri">
                 {p.name
                   .split(" ")
                   .slice(0, 2)

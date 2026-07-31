@@ -135,14 +135,14 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       <input type="hidden" name="patientId" value={patientId} />
 
       {restored && (
-        <div className="flex items-center gap-2 rounded-2xl bg-orangesoft px-4 py-3">
-          <p className="flex-1 text-[13px] text-orange">
+        <div className="flex items-center gap-2 rounded-2xl bg-perisoft px-4 py-3">
+          <p className="flex-1 text-[13px] text-peri">
             Restored the report you were entering.
           </p>
           <button
             type="button"
             onClick={discardDraft}
-            className="shrink-0 text-[13px] font-semibold text-orange active:opacity-60"
+            className="shrink-0 text-[13px] font-semibold text-peri active:opacity-60"
           >
             Start fresh
           </button>
@@ -289,7 +289,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="btn w-full bg-orange py-3.5 text-[16px] text-white disabled:opacity-50"
+        className="btn w-full bg-peri py-3.5 text-[16px] text-white disabled:opacity-50"
       >
         {pending ? "Saving…" : saveError ? "Try saving again" : "Save report"}
       </button>

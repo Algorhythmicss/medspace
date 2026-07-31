@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Lock } from "lucide-react";
+import { ArtBand } from "@/components/Art";
 import {
   createSessionValue,
   passcodeMatches,
@@ -41,9 +42,13 @@ export default async function Login({
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[380px] flex-col justify-center pb-24">
-      <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-orangesoft text-orange">
-          <Lock size={24} strokeWidth={2} />
+      <div className="mb-7 overflow-hidden rounded-[26px] shadow-[var(--lift-lg)]">
+        <ArtBand name="reception" height="h-[168px]" priority />
+      </div>
+
+      <div className="mb-7 text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-perisoft text-peri">
+          <Lock size={20} strokeWidth={2} />
         </div>
         <h1 className="t-title">medSpace</h1>
         <p className="t-body mt-1 text-ink2">Enter the clinic passcode</p>
@@ -67,7 +72,7 @@ export default async function Login({
         )}
         <button
           type="submit"
-          className="w-full rounded-2xl bg-orange py-3.5 text-[17px] font-semibold text-white active:opacity-80"
+          className="w-full rounded-2xl bg-peri py-3.5 text-[17px] font-semibold text-white active:opacity-80"
         >
           Unlock
         </button>

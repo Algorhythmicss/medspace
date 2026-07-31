@@ -12,9 +12,9 @@ import StickyNoteEditor from "@/components/StickyNoteEditor";
 
 const dot: Record<MemoryLine["tone"], string> = {
   alert: "bg-coral",
-  warn: "bg-sunny",
-  ok: "bg-mint",
-  info: "bg-nightink2",
+  warn: "bg-butter",
+  ok: "bg-jade",
+  info: "bg-[var(--peri-2)]ink2",
 };
 
 export default function Briefing({
@@ -41,7 +41,7 @@ export default function Briefing({
             {name}
           </h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-            <span className="t-cap tnum text-nightink2">
+            <span className="t-cap tnum text-periink2">
               #{fileNumber} · {card.headline}
             </span>
             {card.allergies.map((a) => (
@@ -67,7 +67,7 @@ export default function Briefing({
         {rest.length > 0 && (
           <ul className="relative mt-3 space-y-1.5">
             {rest.map((line, i) => (
-              <li key={i} className="t-body flex gap-2.5 text-nightink">
+              <li key={i} className="t-body flex gap-2.5 text-periink">
                 <span
                   className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${dot[line.tone]}`}
                 />
@@ -85,13 +85,13 @@ export default function Briefing({
                 key={m.type}
                 className="min-w-[108px] shrink-0 rounded-2xl bg-white/10 px-3 py-2.5 backdrop-blur-sm"
               >
-                <div className="t-micro text-nightink2">{m.label}</div>
+                <div className="t-micro text-periink2">{m.label}</div>
                 <div className="t-num text-[19px] text-white">
                   {m.paired
                     ? `${m.latest.toFixed(0)}/${m.paired}`
                     : m.latest.toFixed(m.decimals)}
                   {m.unit && !m.paired && (
-                    <span className="ml-1 text-[10.5px] font-medium tracking-normal text-nightink2">
+                    <span className="ml-1 text-[10.5px] font-medium tracking-normal text-periink2">
                       {m.unit}
                     </span>
                   )}
@@ -111,8 +111,8 @@ export default function Briefing({
 
         {/* current medication */}
         {card.activeMeds.length > 0 && (
-          <p className="t-cap relative mt-4 border-t border-white/12 pt-3 text-nightink2">
-            <span className="font-semibold text-nightink">On</span>{" "}
+          <p className="t-cap relative mt-4 border-t border-white/12 pt-3 text-periink2">
+            <span className="font-semibold text-periink">On</span>{" "}
             {card.activeMeds
               .map((m) => m.drugName.replace(/^(Tab|Cap|Syp|Inh|Gel) /, ""))
               .join(" · ")}

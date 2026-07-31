@@ -241,14 +241,14 @@ export default function VisitForm({
   return (
     <div className="space-y-6 pb-10">
       {restored && (
-        <div className="flex items-center gap-2 rounded-2xl bg-orangesoft px-4 py-3">
-          <p className="flex-1 text-[13px] text-orange">
+        <div className="flex items-center gap-2 rounded-2xl bg-perisoft px-4 py-3">
+          <p className="flex-1 text-[13px] text-peri">
             Restored what you had typed for this patient.
           </p>
           <button
             type="button"
             onClick={discardDraft}
-            className="shrink-0 text-[13px] font-semibold text-orange active:opacity-60"
+            className="shrink-0 text-[13px] font-semibold text-peri active:opacity-60"
           >
             Start fresh
           </button>
@@ -260,7 +260,7 @@ export default function VisitForm({
         <button
           type="button"
           onClick={() => set("items", lastRxItems)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orangesoft px-4 py-3.5 text-[17px] font-semibold text-orange active:bg-orangesoft"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-perisoft px-4 py-3.5 text-[17px] font-semibold text-peri active:bg-perisoft"
         >
           <RotateCw size={18} strokeWidth={2.2} />
           Repeat last prescription ({lastRxItems.length} meds)
@@ -383,7 +383,7 @@ export default function VisitForm({
                 <button
                   type="button"
                   onClick={() => addDrug(drugQuery.trim())}
-                  className="w-full px-4 py-2.5 text-left text-[15px] font-medium text-orange active:bg-black/5"
+                  className="w-full px-4 py-2.5 text-left text-[15px] font-medium text-peri active:bg-black/5"
                 >
                   + Add “{drugQuery.trim()}”
                 </button>
@@ -429,7 +429,7 @@ export default function VisitForm({
                   )
                 }
                 className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors active:opacity-70 ${
-                  on ? "bg-mint text-white" : "bg-sunk text-ink"
+                  on ? "bg-jade text-white" : "bg-sunk text-ink"
                 }`}
               >
                 <FlaskConical size={12} strokeWidth={2.2} />
@@ -457,7 +457,7 @@ export default function VisitForm({
         type="button"
         onClick={submit}
         disabled={pending}
-        className="btn w-full bg-orange py-3.5 text-[16px] text-white disabled:opacity-50"
+        className="btn w-full bg-peri py-3.5 text-[16px] text-white disabled:opacity-50"
       >
         {pending ? "Saving…" : saveError ? "Try saving again" : "Save visit & prescription"}
       </button>

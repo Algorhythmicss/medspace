@@ -57,26 +57,21 @@ Passcode gate: signed 12h session cookie (Web Crypto HMAC, Edge-compatible — `
 - WhatsApp is always a `wa.me` deep link with prefilled text. The doctor presses send. Never auto-send.
 - Printed Rx carries the doctor's registration number (legally required, Telemedicine Practice Guidelines 2020) and a QR encoding `/scan/<fileNumber>` for instant lookup at the next visit.
 
-## Design language — Headspace warmth, Apple craft (31 Jul 2026)
-Two rejected passes preceded this: "tasteful minimal" (white cards, one teal — called ancient) and a first Headspace attempt with weak typography. What works is Headspace's **palette and warmth** carried with Apple's **structure, materials and typographic precision**.
+## Design language — derived from the clinic art library (31 Jul 2026)
+The app now shares a world with the ten editorial illustrations in `public/art/`. Every colour below was **sampled from those paintings**, not invented: periwinkle/cornflower walls, warm cream light, sea-glass teal cabinetry, jade planting, small coral and butter accents. Two earlier directions (minimal-white; Headspace navy + hot orange) were rejected — the orange in particular fought the art badly.
 
-**Colour** (`globals.css`): cream ground `#fff7ef`; night gradient `#16305b → #24487e` for the hero and tab bar; signature orange `#ff7a29` for primary actions; coral / mint / sunny for semantics. Colour is loud in exactly two places — the hero and the primary action. Everywhere else stays quiet or it becomes noise.
+**Tokens** (`globals.css`): ground `--cream #faf4ea`; ink is violet-tinged `#2b2a33`, never neutral black; brand `--peri #5b67b0` with hero gradient `--peri-1 #6470c4 → --peri-2 #464f96`; semantics `--coral #c4614a` (alert), `--jade #57795a` (good), `--butter #b3862c` (attention), `--teal #6f9a95`.
 
-**Typography** — the part that was worst and matters most:
-- Display face **Manrope** (600–800) for titles, patient names, hero lead, clinical numerals.
-- Body/UI is the **system stack** — on the doctor's Mac and iPhone that *is* SF Pro: the most Apple choice available, and zero webfont cost. Setting a geometric display face at 13px is what made the earlier типography feel cheap; don't do it again.
-- Use the scale classes, never ad-hoc `text-[Npx]`: `.t-hero .t-title .t-lead .t-head .t-body .t-bodyL .t-cap .t-micro .t-num`. Tracking tightens as size grows because a webfont has no optical sizes; `.t-hero` grows to 40px at `lg`.
+**Typography:** Manrope display + system stack (SF Pro on Apple) for text. Use the scale classes `.t-hero .t-title .t-lead .t-head .t-body .t-bodyL .t-cap .t-micro .t-num`, never ad-hoc `text-[Npx]`.
 
-**Materials & motion (Apple):** `.material` / `.material-dark` are translucent + backdrop-blurred — chrome is layered over content, never opaque. `--spring: cubic-bezier(0.32, 0.72, 0, 1)` on every transition. `.ring-focus` is a macOS-style halo. Radii 20px cards / 26px hero / pill buttons.
+### Using the art — the placement rule
+`src/components/Art.tsx` exposes `ArtBand` (shallow crop) and `ArtSpot` (4:3 card) over a named catalogue. **Illustration belongs at moments of pause — signing in, an empty list, a finished task — and never on the working surfaces** (chart, visit form, prescription). A doctor has 2–4 minutes per patient; decoration in that path costs seconds and earns nothing. The palette carries the character everywhere else.
 
-**Responsive shell:**
-- `< lg` — single column, floating navy pill tab bar.
-- `≥ lg` — translucent 248px `Sidebar` (tab bar hides), content max 1080px.
-- Today splits 5/7: attention column left, "Recently seen" right.
-- Chart puts history at 7 cols and a **sticky rail** at 5 (Start a visit + Open items) so actions stay put while history scrolls.
-- ⌘K / Ctrl-K focuses search; the hint pill shows only at `lg`. Autofocus is desktop-only — on a phone it would throw up the keyboard on load.
+Placed so far: login (`reception`), Today masthead (`huddle`, greeting set *on* the art because the library deliberately leaves painted wall space for headings — this also keeps search near the top for the ≤5s lookup budget), follow-ups empty state (`discharge`), new patient (`reception`).
 
-**Gotcha:** `.field` sets `padding` shorthand, which beats Tailwind's `pl-*`/`pr-*`. Use `!pl-11` style overrides when adding icons inside a field.
+**Assets:** sources live in `/Users/mac/Medspace/art-src` (not in the repo). Converted with sharp to `public/art/*.webp` at 1400w and `@sm` 720w — **21MB of PNG became 1.1MB**, which matters on a clinic connection. Regenerate with a sharp script if the library changes; never ship the PNGs.
+
+Art direction constraints from the library README worth respecting: 4:3 landscape, keep action in the middle two-thirds on shallow crops, use only a subtle scrim when contrast demands it, and preserve the paper texture — no heavy colour grading.
 
 ## Traps that cost time before
 - **Silent server-action failure:** a dynamic `await import()` inside `actions.ts` pulled `node:fs` into the client graph and broke *every* server action with no error anywhere — forms just no-op'd. Keep imports in `actions.ts` static and top-level. Turbopack also serves a poisoned graph long after the source is fixed: `rm -rf .next` and restart. Tell-tale sign is dev-server logs citing imports that no longer exist.

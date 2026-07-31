@@ -13,42 +13,51 @@
    through. Everything supporting it stays light and quiet.
    ───────────────────────────────────────────────────────────── */
 :root {
-  /* ground */
-  --cream: #fff7ef;
+  /* ── Palette sampled from the clinic art library ──────────────
+     The illustrations are periwinkle/cornflower walls, warm cream
+     light, sea-glass teal cabinetry, jade planting and small coral
+     and butter accents. Every token below comes from those images,
+     so UI and artwork read as one world rather than the art looking
+     pasted onto an unrelated app.
+     ──────────────────────────────────────────────────────────── */
+
+  /* ground: the warm cream light in the reception and huddle scenes */
+  --cream: #faf4ea;
   --surface: #ffffff;
-  --sunk: #f4ece2;
+  --sunk: #f2ebde;
 
-  /* the hero: deep navy, Headspace's signature dark */
-  --night: #16305b;
-  --night-2: #24487e;
-  --night-ink: #eaf0fa;
-  --night-ink-2: #9db2d4;
+  /* ink: violet-tinged, matching the paintings' shadows — never neutral black */
+  --ink: #2b2a33;
+  --ink-2: #6b6a78;
+  --ink-3: #9e9ca8;
+  --hairline: rgba(43, 42, 51, 0.09);
 
-  /* ink on cream */
-  --ink: #2b2a28;
-  --ink-2: #6e6a64;
-  --ink-3: #a29b91;
-  --hairline: rgba(43, 42, 40, 0.08);
+  /* periwinkle — the signature colour of the whole library */
+  --peri: #5b67b0;
+  --peri-soft: #e8eaf7;
+  --peri-1: #6470c4; /* hero gradient light */
+  --peri-2: #464f96; /* hero gradient deep (violet-blue shadow) */
+  --peri-ink: #eef0fb;
+  --peri-ink-2: #b7bee2;
 
-  /* signature orange + supporting hues */
-  --orange: #ff7a29;
-  --orange-soft: #ffe9d8;
-  --coral: #e5533d;
-  --coral-soft: #ffe6e1;
-  --mint: #17a087;
-  --mint-soft: #ddf3ee;
-  --sunny: #d98b00;
-  --sunny-soft: #fff0d2;
+  /* accents lifted straight from the scenes */
+  --coral: #c4614a; /* the consultation-room cushion */
+  --coral-soft: #fae7e0;
+  --jade: #57795a; /* the planting */
+  --jade-soft: #e5ede3;
+  --butter: #b3862c; /* the small yellow notes */
+  --butter-soft: #fbf1d9;
+  --teal: #6f9a95; /* sea-glass cabinetry */
+  --teal-soft: #e3efec;
 
-  --lift: 0 2px 6px rgba(43, 42, 40, 0.05);
-  --lift-lg: 0 10px 30px -12px rgba(22, 48, 91, 0.28);
-  --lift-hero: 0 18px 40px -18px rgba(22, 48, 91, 0.55);
+  --lift: 0 2px 6px rgba(43, 42, 51, 0.05);
+  --lift-lg: 0 10px 30px -12px rgba(70, 79, 150, 0.3);
+  --lift-hero: 0 18px 40px -18px rgba(70, 79, 150, 0.55);
 
-  --r: 20px;      /* Apple keeps card radii tighter than Headspace does */
+  --r: 20px;
   --r-hero: 26px;
   --r-field: 14px;
 
-  /* Apple's spring — everything eases with this, nothing linear */
   --spring: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
@@ -56,24 +65,22 @@
   --color-cream: var(--cream);
   --color-surface: var(--surface);
   --color-sunk: var(--sunk);
-  --color-night: var(--night);
-  --color-nightink: var(--night-ink);
-  --color-nightink2: var(--night-ink-2);
   --color-ink: var(--ink);
   --color-ink2: var(--ink-2);
   --color-ink3: var(--ink-3);
   --color-hairline: var(--hairline);
-  --color-orange: var(--orange);
-  --color-orangesoft: var(--orange-soft);
+  --color-peri: var(--peri);
+  --color-perisoft: var(--peri-soft);
+  --color-periink: var(--peri-ink);
+  --color-periink2: var(--peri-ink-2);
   --color-coral: var(--coral);
   --color-coralsoft: var(--coral-soft);
-  --color-mint: var(--mint);
-  --color-mintsoft: var(--mint-soft);
-  --color-sunny: var(--sunny);
-  --color-sunnysoft: var(--sunny-soft);
-  /* Text/UI is the system stack — on the doctor's Mac and iPhone that IS
-     SF Pro, which is both the most Apple choice available and the fastest
-     (no webfont, no swap). The display face carries the warmth. */
+  --color-jade: var(--jade);
+  --color-jadesoft: var(--jade-soft);
+  --color-butter: var(--butter);
+  --color-buttersoft: var(--butter-soft);
+  --color-teal: var(--teal);
+  --color-tealsoft: var(--teal-soft);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display: var(--font-display-face), -apple-system, sans-serif;
@@ -175,7 +182,7 @@ body {
   -webkit-backdrop-filter: saturate(180%) blur(24px);
 }
 .material-dark {
-  background: color-mix(in srgb, var(--night) 78%, transparent);
+  background: color-mix(in srgb, var(--peri-2) 78%, transparent);
   backdrop-filter: saturate(180%) blur(24px);
   -webkit-backdrop-filter: saturate(180%) blur(24px);
 }
@@ -183,7 +190,7 @@ body {
 /* macOS-style focus ring: a precise halo, never a heavy border */
 .ring-focus:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--orange) 38%, transparent);
+  box-shadow: 0 0 0 3.5px color-mix(in srgb, var(--peri) 34%, transparent);
 }
 
 /* Keyboard hint pill (⌘K) */
@@ -210,8 +217,8 @@ body {
   position: relative;
   overflow: hidden;
   border-radius: var(--r-hero);
-  background: linear-gradient(155deg, var(--night-2) 0%, var(--night) 62%);
-  color: var(--night-ink);
+  background: linear-gradient(155deg, var(--peri-1) 0%, var(--peri-2) 68%);
+  color: var(--peri-ink);
   box-shadow: var(--lift-hero);
 }
 /* soft light bloom, the illustrative touch Headspace always has */
@@ -223,7 +230,7 @@ body {
   width: 68%;
   aspect-ratio: 1;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 122, 41, 0.34), transparent 68%);
+  background: radial-gradient(circle, rgba(233, 196, 106, 0.3), transparent 68%);
   pointer-events: none;
 }
 
@@ -247,7 +254,7 @@ body {
   color: var(--ink-3);
 }
 .field:focus {
-  box-shadow: 0 0 0 3px rgba(255, 122, 41, 0.28), var(--lift);
+  box-shadow: 0 0 0 3px rgba(91, 103, 176, 0.26), var(--lift);
 }
 
 .btn {
@@ -259,9 +266,9 @@ body {
   transform: scale(0.97);
 }
 .btn-primary {
-  background: var(--orange);
+  background: var(--peri);
   color: #fff;
-  box-shadow: 0 8px 18px -8px rgba(255, 122, 41, 0.8);
+  box-shadow: 0 8px 18px -8px rgba(91, 103, 176, 0.7);
 }
 
 .chip {
@@ -279,9 +286,9 @@ body {
 /* selected state — lost in the Headspace rewrite, which left data-on chips
    looking identical to unselected ones */
 .chip[data-on="true"] {
-  background: var(--orange);
+  background: var(--peri);
   color: #fff;
-  box-shadow: 0 6px 14px -7px rgba(255, 122, 41, 0.85);
+  box-shadow: 0 6px 14px -7px rgba(91, 103, 176, 0.8);
 }
 
 /* Sentence case, quiet. Never all-caps — it shouts. */
@@ -323,9 +330,9 @@ body {
   background: color-mix(in srgb, var(--ink) 5%, transparent);
 }
 .nav-item[data-active="true"] {
-  background: var(--orange);
+  background: var(--peri);
   color: #fff;
-  box-shadow: 0 6px 14px -6px rgba(255, 122, 41, 0.75);
+  box-shadow: 0 6px 14px -6px rgba(91, 103, 176, 0.7);
 }
 
 @media (prefers-reduced-motion: reduce) {

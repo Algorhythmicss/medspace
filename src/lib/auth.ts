@@ -55,6 +55,15 @@ export async function isValidSession(value: string | undefined): Promise<boolean
   return Number.isFinite(expires) && Date.now() < expires;
 }
 
+// Salted hash of the login client key (IP) for the throttle table, so a raw IP
+// is never stored. Salted with the session secret — a stolen DB dump can't be
+// reversed to addresses without it. Web Crypto, so it also runs on the Edge.
+export async function hashLoginKey(raw: string): Promise<string> {
+  const data = new TextEncoder().encode(`${raw}:${secret()}`);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return b64url(new Uint8Array(digest));
+}
+
 export function passcodeMatches(input: string): boolean {
   const expected = process.env.MEDSPACE_PASSCODE;
   if (!expected) return false;

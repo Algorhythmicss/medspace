@@ -30,7 +30,10 @@ export default async function FollowUps() {
   const linkFor = new Map<string, string>();
   for (const t of tasks) {
     if (!linkFor.has(t.patientId)) {
-      linkFor.set(t.patientId, `${origin}/p/${await createPatientToken(t.patientId)}`);
+      linkFor.set(
+        t.patientId,
+        `${origin}/p/${await createPatientToken(t.patientId, undefined, t.patient.linkVersion)}`
+      );
     }
   }
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { after } from "next/server";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import {
   Pill,
@@ -10,7 +11,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { db } from "@/lib/db";
-import { readPatientToken } from "@/lib/patientLink";
+import { readPatientLink } from "@/lib/patientLink";
 import { plainFrequency, plainInstruction } from "@/lib/dosage";
 import { relDay, shortDate } from "@/lib/format";
 import { waLink, telLink } from "@/lib/phone";
@@ -30,12 +31,12 @@ export default async function PatientView({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const patientId = await readPatientToken(token);
-  if (!patientId) notFound();
+  const link = await readPatientLink(token);
+  if (!link) notFound();
 
   const [patient, clinic] = await Promise.all([
     db.patient.findUnique({
-      where: { id: patientId },
+      where: { id: link.p },
       include: {
         tasks: { where: { status: "pending" }, orderBy: { dueDate: "asc" } },
         visits: {
@@ -52,31 +53,49 @@ export default async function PatientView({
     }),
     db.clinic.findUnique({ where: { id: "clinic" } }),
   ]);
-  if (!patient) notFound();
+  // Reject a token minted before the doctor reset this patient's links, even
+  // though its signature and expiry are still valid — this is the revocation.
+  if (!patient || link.v !== patient.linkVersion) notFound();
 
   // Record the open. This is the pilot's core metric: the research is blunt
   // that engagement, not messaging, is the binding constraint — the doctor
   // needs to see who actually looked, not just who was sent something.
   //
-  // `after()` runs once the response is flushed, so the patient never waits on
-  // a tracking write, but unlike a bare floating promise it is actually
-  // guaranteed to run.
+  // But WhatsApp (and every chat app) fetches the link once to build its
+  // preview card the moment the doctor sends it — before the patient has
+  // touched anything. Counting that would report every sent link as "opened"
+  // and quietly destroy the one number the pilot exists to measure. So skip the
+  // link-preview crawlers, and skip prefetch/non-navigation fetches.
+  const h = await headers();
+  const ua = h.get("user-agent") ?? "";
+  const mode = h.get("sec-fetch-mode");
+  const isCrawler =
+    /bot|crawler|spider|preview|facebookexternalhit|WhatsApp|Twitterbot|Slackbot|TelegramBot|LinkedInBot|Embedly|Google-InspectionTool|bingbot/i.test(
+      ua
+    );
+  const isRealOpen = !isCrawler && (mode == null || mode === "navigate");
+
   const firstOpen = patient.planFirstOpenedAt;
-  after(async () => {
-    try {
-      await db.patient.update({
-        where: { id: patient.id },
-        data: {
-          planFirstOpenedAt: firstOpen ?? new Date(),
-          planLastOpenedAt: new Date(),
-          planOpenCount: { increment: 1 },
-        },
-      });
-    } catch (err) {
-      // never swallow silently — a metric that fails quietly is worse than none
-      console.error("failed to record plan open", err);
-    }
-  });
+  if (isRealOpen) {
+    // `after()` runs once the response is flushed, so the patient never waits on
+    // a tracking write, but unlike a bare floating promise it is actually
+    // guaranteed to run.
+    after(async () => {
+      try {
+        await db.patient.update({
+          where: { id: patient.id },
+          data: {
+            planFirstOpenedAt: firstOpen ?? new Date(),
+            planLastOpenedAt: new Date(),
+            planOpenCount: { increment: 1 },
+          },
+        });
+      } catch (err) {
+        // never swallow silently — a metric that fails quietly is worse than none
+        console.error("failed to record plan open", err);
+      }
+    });
+  }
 
   const firstName = patient.name.split(" ")[0];
   const lastVisit = patient.visits[0];

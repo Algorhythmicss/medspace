@@ -51,6 +51,15 @@ model Patient {
   planSharedAt   DateTime?
   planShareCount Int       @default(0)
 
+  // Bumping this invalidates every plan link already sent for this patient —
+  // the one "cut this person off" primitive. The token carries the version it
+  // was minted at (`v`); the patient page rejects any token whose `v` no longer
+  // matches. Needed because a mistyped reception phone number puts a live,
+  // weeks-long credential to a medical record in a stranger's WhatsApp, and the
+  // only prior remedy was rotating the shared secret — which breaks everyone.
+  // Checked on a page that already loads the patient, so it costs no query.
+  linkVersion Int @default(1)
+
   conditions   Condition[]
   allergies    Allergy[]
   visits       Visit[]
@@ -191,4 +200,16 @@ model Drug {
   defaultDuration     String?
   defaultInstructions String?
   useCount            Int     @default(0)
+}
+
+// Failed passcode attempts, for throttling /login. The clinic passcode is a
+// short numeric PIN typed once a morning; without a limiter an unthrottled POST
+// walks the whole keyspace in under a minute and every chart falls. `key` is a
+// salted hash of the client IP, never the raw address.
+model LoginAttempt {
+  id       String   @id @default(cuid())
+  key      String
+  failedAt DateTime @default(now())
+
+  @@index([key, failedAt])
 }

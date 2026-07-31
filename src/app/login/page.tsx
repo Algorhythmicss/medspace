@@ -1,15 +1,24 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { Lock } from "lucide-react";
 import { ArtBand } from "@/components/Art";
+import { db } from "@/lib/db";
 import {
   createSessionValue,
+  hashLoginKey,
   passcodeMatches,
   sessionCookieName,
   sessionMaxAge,
 } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
+
+// A short numeric passcode is only safe if guessing is slow. Five wrong tries
+// from one client in fifteen minutes and the door stops answering — enough to
+// turn a sub-minute brute force into something that would take weeks, while a
+// doctor who fat-fingers it a couple of times in the morning never notices.
+const MAX_FAILURES = 5;
+const WINDOW_MS = 15 * 60 * 1000;
 
 export default async function Login({
   searchParams,
@@ -22,11 +31,47 @@ export default async function Login({
     "use server";
     const code = String(formData.get("passcode") ?? "");
     const target = String(formData.get("next") ?? "") || "/";
-    // only allow same-app paths back
-    const safeTarget = target.startsWith("/") && !target.startsWith("//") ? target : "/";
+    // only allow same-app paths back (reject //host, /\host open-redirects)
+    const safeTarget =
+      target.startsWith("/") && !target.startsWith("//") && !target.startsWith("/\\")
+        ? target
+        : "/";
+    const keepNext = next ? `&next=${encodeURIComponent(next)}` : "";
+
+    const h = await headers();
+    const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    const key = await hashLoginKey(ip);
+    const since = new Date(Date.now() - WINDOW_MS);
+
+    // The throttle must never wedge the door shut on a DB hiccup — fail open on
+    // the counter, but still enforce the passcode itself. Note redirect() throws
+    // NEXT_REDIRECT, so the threshold check stays OUT of the try/catch.
+    let failures = 0;
+    try {
+      failures = await db.loginAttempt.count({
+        where: { key, failedAt: { gte: since } },
+      });
+    } catch (err) {
+      console.error("login throttle check failed", err);
+    }
+    if (failures >= MAX_FAILURES) {
+      redirect(`/login?e=slow${keepNext}`);
+    }
 
     if (!passcodeMatches(code)) {
-      redirect(`/login?e=1${next ? `&next=${encodeURIComponent(next)}` : ""}`);
+      try {
+        await db.loginAttempt.create({ data: { key } });
+      } catch (err) {
+        console.error("login attempt record failed", err);
+      }
+      redirect(`/login?e=1${keepNext}`);
+    }
+
+    // Clean slate on success so a legitimate doctor never inherits a lockout.
+    try {
+      await db.loginAttempt.deleteMany({ where: { key } });
+    } catch {
+      // non-fatal — the window entries expire from relevance on their own
     }
 
     const jar = await cookies();
@@ -65,11 +110,15 @@ export default async function Login({
           placeholder="Passcode"
           className="w-full rounded-xl bg-sunk px-4 py-3.5 text-center text-[22px] tracking-[0.3em] outline-none placeholder:text-[17px] placeholder:tracking-normal placeholder:text-ink2"
         />
-        {e && (
+        {e === "slow" ? (
+          <p className="text-center text-[13px] font-medium text-coral">
+            Too many attempts. Please wait a few minutes and try again.
+          </p>
+        ) : e ? (
           <p className="text-center text-[13px] font-medium text-coral">
             Wrong passcode. Try again.
           </p>
-        )}
+        ) : null}
         <button
           type="submit"
           className="w-full rounded-2xl bg-peri py-3.5 text-[17px] font-semibold text-white active:opacity-80"

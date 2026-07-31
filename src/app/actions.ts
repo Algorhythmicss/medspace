@@ -2,9 +2,10 @@
 
 import { db } from "@/lib/db";
 import { supersedeStaleLabTasks } from "@/lib/tasks";
-import { saveReport, MAX_FILE_BYTES } from "@/lib/reports";
+import { saveReport, MAX_FILE_BYTES, INLINE_SAFE_MIME } from "@/lib/reports";
 import { mergePatients } from "@/lib/merge";
 import { sessionCookieName } from "@/lib/auth";
+import { assertClinicSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -28,6 +29,7 @@ export type NewVisitInput = {
 };
 
 export async function createVisit(input: NewVisitInput) {
+  await assertClinicSession();
   const now = new Date();
   const followUpDate = input.followUpInDays
     ? new Date(now.getTime() + input.followUpInDays * 86400000)
@@ -118,6 +120,7 @@ export async function createVisit(input: NewVisitInput) {
 }
 
 export async function createPatient(formData: FormData) {
+  await assertClinicSession();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
   const phone = String(formData.get("phone") ?? "").trim() || null;
@@ -139,6 +142,7 @@ export async function createPatient(formData: FormData) {
 }
 
 export async function createReport(formData: FormData) {
+  await assertClinicSession();
   const patientId = String(formData.get("patientId") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   if (!patientId || !title) return;
@@ -159,9 +163,12 @@ export async function createReport(formData: FormData) {
   let file: { name: string; mime: string; bytes: Uint8Array<ArrayBuffer> } | null = null;
   if (fileEntry instanceof File && fileEntry.size > 0) {
     if (fileEntry.size > MAX_FILE_BYTES) return;
+    // Store the real MIME only if we trust it; otherwise mark it opaque so the
+    // file route serves it as a download rather than executing it inline.
+    const declared = fileEntry.type || "application/octet-stream";
     file = {
       name: fileEntry.name,
-      mime: fileEntry.type || "application/octet-stream",
+      mime: INLINE_SAFE_MIME.has(declared) ? declared : "application/octet-stream",
       bytes: new Uint8Array(await fileEntry.arrayBuffer()),
     };
   }
@@ -182,6 +189,7 @@ export async function createReport(formData: FormData) {
 }
 
 export async function updatePatient(formData: FormData) {
+  await assertClinicSession();
   const patientId = String(formData.get("patientId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   if (!patientId || !name) return;
@@ -207,6 +215,7 @@ export async function updatePatient(formData: FormData) {
 }
 
 export async function mergePatientRecords(formData: FormData) {
+  await assertClinicSession();
   const keeperId = String(formData.get("keeperId") ?? "");
   const duplicateId = String(formData.get("duplicateId") ?? "");
   if (!keeperId || !duplicateId || keeperId === duplicateId) return;
@@ -226,6 +235,7 @@ export async function signOut() {
 }
 
 export async function updateStickyNote(formData: FormData) {
+  await assertClinicSession();
   const patientId = String(formData.get("patientId") ?? "");
   if (!patientId) return;
   const note = String(formData.get("note") ?? "").trim();
@@ -242,6 +252,7 @@ export async function updateStickyNote(formData: FormData) {
 // Deliberately does not revalidate: it fires while the doctor is being sent to
 // WhatsApp, and re-rendering the chart underneath them would be pointless work.
 export async function recordPlanShare(patientId: string) {
+  await assertClinicSession();
   if (!patientId) return;
   try {
     await db.patient.update({
@@ -255,10 +266,25 @@ export async function recordPlanShare(patientId: string) {
 }
 
 export async function completeTask(taskId: string) {
+  await assertClinicSession();
   const task = await db.carePlanTask.update({
     where: { id: taskId },
     data: { status: "done", completedAt: new Date() },
   });
   revalidatePath("/followups");
   revalidatePath(`/patients/${task.patientId}`);
+}
+
+// Per-patient link revocation. Bumping linkVersion invalidates every plan token
+// already sent to this patient (they were minted at the old version); the next
+// share mints a fresh one at the new version. This is the doctor's remedy when
+// a link reached the wrong number — no secret rotation, nobody else affected.
+export async function resetPatientLinks(patientId: string) {
+  await assertClinicSession();
+  if (!patientId) return;
+  await db.patient.update({
+    where: { id: patientId },
+    data: { linkVersion: { increment: 1 } },
+  });
+  revalidatePath(`/patients/${patientId}`);
 }

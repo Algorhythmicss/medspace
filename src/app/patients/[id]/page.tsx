@@ -62,7 +62,7 @@ export default async function PatientChart({
   // The patient's own plan link, ready to send from this chart.
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host") ?? "localhost:3000"}`;
-  const planUrl = `${origin}/p/${await createPatientToken(patient.id)}`;
+  const planUrl = `${origin}/p/${await createPatientToken(patient.id, undefined, patient.linkVersion)}`;
   const planMessage = [
     `Namaste ${patient.name} ji, this is ${clinic?.clinicName ?? "the clinic"}.`,
     `Your medicines, tests and next visit are here: ${planUrl}`,

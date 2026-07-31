@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { MessageCircle, Copy, Check, Phone } from "lucide-react";
-import { recordPlanShare } from "@/app/actions";
+import { recordPlanShare, resetPatientLinks } from "@/app/actions";
 import { copyText } from "@/lib/clipboard";
 import type { PlanReach } from "@/lib/reach";
 
@@ -32,6 +32,8 @@ export default function SendPlanLink({
   const [copied, setCopied] = useState(false);
   const [justSent, setJustSent] = useState(false);
   const [revealed, setRevealed] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, startReset] = useTransition();
   const linkBox = useRef<HTMLInputElement>(null);
 
   // Optimistic: the doctor has just handed the link over, so don't keep
@@ -125,6 +127,44 @@ export default function SendPlanLink({
           )}
         </div>
       )}
+
+      {/* Sent to the wrong number? Cut the old link without touching anyone
+          else. Two-step because it can't be undone — the sent link goes dead. */}
+      <div className="mt-3 border-t border-hairline pt-2.5">
+        {confirmReset ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className="t-micro min-w-0 flex-1 text-ink3">
+              The link already sent will stop working.
+            </p>
+            <button
+              onClick={() => setConfirmReset(false)}
+              className="t-micro shrink-0 font-medium text-ink2 active:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={resetting}
+              onClick={() =>
+                startReset(async () => {
+                  await resetPatientLinks(patientId);
+                  setConfirmReset(false);
+                  setRevealed(false);
+                })
+              }
+              className="t-micro shrink-0 font-semibold text-coral active:opacity-60 disabled:opacity-50"
+            >
+              {resetting ? "Resetting…" : "Reset link"}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmReset(true)}
+            className="t-micro font-medium text-ink3 active:opacity-60"
+          >
+            Sent to the wrong number? Reset the link
+          </button>
+        )}
+      </div>
     </div>
   );
 }

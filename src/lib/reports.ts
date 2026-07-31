@@ -16,6 +16,20 @@ export type SaveReportInput = {
 
 export const MAX_FILE_BYTES = 4 * 1024 * 1024;
 
+// What may be served back inline. The upload path is "patient WhatsApps a
+// report, doctor uploads whatever they were sent", so the file's MIME is
+// attacker-influenced. Anything outside this set is stored but served as a
+// download (Content-Disposition: attachment) — an image/svg+xml or text/html
+// served inline would execute script on this origin with the doctor's live
+// session cookie. Kept here so the write path and the file route agree.
+export const INLINE_SAFE_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "application/pdf",
+]);
+
 // Core save logic, kept out of the server action so scripts can exercise it.
 // Attachments are stored in the database rather than on disk: serverless hosting
 // has no persistent filesystem, and this keeps files behind the auth gate.

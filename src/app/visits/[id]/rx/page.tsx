@@ -31,7 +31,7 @@ export default async function RxView({ params }: { params: Promise<{ id: string 
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? "http";
   const scanUrl = `${proto}://${host}/scan/${visit.patient.fileNumber}`;
-  const patientUrl = `${proto}://${host}/p/${await createPatientToken(visit.patientId)}`;
+  const patientUrl = `${proto}://${host}/p/${await createPatientToken(visit.patientId, undefined, visit.patient.linkVersion)}`;
   const qrDataUrl = await QRCode.toDataURL(scanUrl, { margin: 1, width: 160 });
 
   const bpSys = visit.observations.find((o) => o.type === "BP_SYS")?.value;

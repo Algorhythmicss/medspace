@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ChevronLeft, MessageCircle, Phone } from "lucide-react";
 import { ArtBand } from "@/components/Art";
 import OpenMyPlan from "@/components/OpenMyPlan";
+import ContinueWithGoogle from "@/components/ContinueWithGoogle";
 import { db } from "@/lib/db";
 import { waLink, telLink } from "@/lib/phone";
 
@@ -13,7 +14,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function PatientEntry() {
+export default async function PatientEntry({
+  searchParams,
+}: {
+  searchParams: Promise<{ e?: string }>;
+}) {
+  const { e } = await searchParams;
   const clinic = await db.clinic.findUnique({ where: { id: "clinic" } }).catch(() => null);
   const waHref = waLink(clinic?.phone);
   const telHref = telLink(clinic?.phone);
@@ -39,14 +45,36 @@ export default async function PatientEntry() {
         </div>
       </div>
 
-      {/* The honest explanation. There is no patient password yet by design:
-          a link costs the patient nothing, and an account is the thing that
-          stops people using it. */}
+      {/* Deliberately neutral: never reveal whether a Google account belongs to
+          a patient here — for a specialist clinic, "you're a patient" is itself
+          sensitive. Same message whether or not the account is linked. */}
+      {e === "nolink" && (
+        <div className="card mb-4 border border-[color:var(--butter)]/30 p-4">
+          <p className="t-body text-ink2">
+            If your clinic has linked this account, your plan will open. Otherwise,
+            open the link from WhatsApp, or ask the clinic to send it.
+          </p>
+        </div>
+      )}
+
+      {/* Returning patients lead — one tap and they're back in. */}
       <div className="card p-5">
+        <p className="t-head">Been here before?</p>
+        <p className="t-body mt-1 text-ink2">
+          Sign in with the Google account you linked, and your plan opens on its own.
+        </p>
+        <div className="mt-4">
+          <ContinueWithGoogle />
+        </div>
+      </div>
+
+      {/* First visit / has the link. */}
+      <div className="card mt-4 p-5">
         <p className="t-head">{clinic?.clinicName ?? "Your clinic"} sends you a private link</p>
         <p className="t-body mt-1.5 text-ink2">
           After each visit it arrives on WhatsApp. Tap it and your plan opens —
-          there’s nothing to install and no password to remember.
+          nothing to install. You can link Google from there so you won’t need
+          the link next time.
         </p>
 
         <div className="mt-4">
@@ -85,7 +113,8 @@ export default async function PatientEntry() {
       )}
 
       <p className="t-micro mt-6 px-2 text-center text-ink3">
-        Signing in with your phone number is coming soon.
+        Your records are private, opened only with your link or your linked
+        Google account.
       </p>
     </div>
   );

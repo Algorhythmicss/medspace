@@ -7,13 +7,18 @@ import { isValidSession, sessionCookieName } from "@/lib/auth";
 export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
-  // Public surfaces. The patient view (/p/*) carries its own signed token in
-  // the path and the welcome/login screens are pre-auth, so none of these may
-  // be forced through the clinic passcode. Everything else is gated below.
+  // Public surfaces — none may be forced through the clinic passcode:
+  //  /login, /welcome*   pre-auth screens
+  //  /p/*                patient view, carries its own signed token in the path
+  //  /auth/*             the Google OAuth callback (validates itself)
+  //  /plan               returning patient, authed by its own medspace_patient
+  //                      cookie (exact match, not a /plans* prefix)
   if (
     pathname === "/login" ||
     pathname.startsWith("/welcome") ||
-    pathname.startsWith("/p/")
+    pathname.startsWith("/p/") ||
+    pathname.startsWith("/auth/") ||
+    pathname === "/plan"
   ) {
     return NextResponse.next();
   }

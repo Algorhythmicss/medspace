@@ -10,7 +10,7 @@ import TabBar from "@/components/TabBar";
 // should never see clinic navigation they cannot use.
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPatient = pathname.startsWith("/p/");
+  const isPatient = pathname.startsWith("/p/") || pathname === "/plan";
   const isPublic = pathname === "/login" || pathname.startsWith("/welcome");
 
   if (isPatient) {

@@ -5,7 +5,19 @@ import { supersedeStaleLabTasks } from "@/lib/tasks";
 import { saveReport, MAX_FILE_BYTES, INLINE_SAFE_MIME } from "@/lib/reports";
 import { mergePatients } from "@/lib/merge";
 import { sessionCookieName } from "@/lib/auth";
-import { assertClinicSession } from "@/lib/session";
+import {
+  assertClinicSession,
+  setPatientSession,
+  clearPatientSession,
+} from "@/lib/session";
+import { supabaseForAuth } from "@/lib/supabase";
+import { bindIdentity, hasActiveAccess } from "@/lib/patientAccess";
+import {
+  readPatientLink,
+  createBindToken,
+  readChooserToken,
+} from "@/lib/patientLink";
+import { siteUrl } from "@/lib/siteUrl";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -287,4 +299,117 @@ export async function resetPatientLinks(patientId: string) {
     data: { linkVersion: { increment: 1 } },
   });
   revalidatePath(`/patients/${patientId}`);
+}
+
+// ── Google identity for patients ────────────────────────────────────────────
+
+// Step 1 of "sign in with Google". Which patient this is for is derived
+// SERVER-SIDE from the plan token the caller holds — never from an argument
+// naming a patient (a client that could name a patientId could bind its Google
+// account to a stranger). The result is a bind cookie, not a query param: a
+// token in a URL ends up in provider logs and Referer headers. Returns the
+// Google URL for the client to navigate to (on the server signInWithOAuth does
+// not redirect, it hands back the URL). No plan token → a plain return-login.
+export async function startPatientGoogleAuth(
+  planToken?: string
+): Promise<{ url: string } | { error: string }> {
+  let bind: string | null = null;
+  if (planToken) {
+    const link = await readPatientLink(planToken);
+    if (link) {
+      const p = await db.patient.findUnique({
+        where: { id: link.p },
+        select: { linkVersion: true },
+      });
+      if (p && p.linkVersion === link.v) bind = await createBindToken(link.p, link.v);
+    }
+    if (!bind) return { error: "expired" }; // fail closed on a stale link
+  }
+
+  const { supabase } = await supabaseForAuth();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${siteUrl()}/auth/callback`,
+      // Always show the account picker — on a shared family phone the signed-in
+      // account must never be reused silently.
+      queryParams: { prompt: "select_account" },
+    },
+  });
+  if (error || !data?.url) return { error: "unavailable" };
+
+  if (bind) {
+    const jar = await cookies();
+    jar.set("medspace_bind", bind, {
+      httpOnly: true,
+      sameSite: "lax", // the return from accounts.google.com is cross-site; strict would drop it
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 600,
+    });
+  }
+  return { url: data.url };
+}
+
+// The chooser's action: a Google account bound to several patients picks one.
+// Re-verified server-side — the id must be in OUR signed list AND still have an
+// active binding — so a tampered form can't open an unrelated record.
+export async function selectPatientForSession(patientId: string) {
+  const jar = await cookies();
+  const chooser = await readChooserToken(jar.get("medspace_choose")?.value ?? "");
+  if (!chooser || !chooser.ids.includes(patientId)) redirect("/welcome/patient?e=nolink");
+  if (!(await hasActiveAccess(chooser!.s, patientId))) redirect("/welcome/patient?e=nolink");
+
+  const patient = await db.patient.findUnique({
+    where: { id: patientId },
+    select: { linkVersion: true },
+  });
+  if (!patient) redirect("/welcome/patient?e=nolink");
+
+  await setPatientSession(patientId, patient!.linkVersion);
+  await db.patientAccess
+    .update({
+      where: {
+        provider_providerUserId_patientId: {
+          provider: "google",
+          providerUserId: chooser!.s,
+          patientId,
+        },
+      },
+      data: { lastUsedAt: new Date() },
+    })
+    .catch(() => {});
+  jar.delete("medspace_choose");
+  redirect("/plan");
+}
+
+export async function patientSignOut() {
+  await clearPatientSession();
+  redirect("/welcome/patient");
+}
+
+// Doctor-side, on the chart: promote a pending binding to active (this is the
+// authorization that lets the Google account open the record on return) …
+export async function confirmPatientBinding(accessId: string) {
+  await assertClinicSession();
+  if (!accessId) return;
+  const row = await db.patientAccess.update({
+    where: { id: accessId },
+    data: { status: "active", confirmedAt: new Date() },
+  });
+  revalidatePath(`/patients/${row.patientId}`);
+}
+
+// … or remove one. Also bumps linkVersion so any live session that binding
+// produced is cut immediately (the session is self-contained {p,v}); the doctor
+// re-sends the link afterwards, which costs nothing.
+export async function removePatientBinding(accessId: string) {
+  await assertClinicSession();
+  if (!accessId) return;
+  const row = await db.patientAccess.delete({ where: { id: accessId } });
+  await db.patient.update({
+    where: { id: row.patientId },
+    data: { linkVersion: { increment: 1 } },
+  });
+  revalidatePath(`/patients/${row.patientId}`);
 }

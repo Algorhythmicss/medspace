@@ -17,9 +17,15 @@ export async function mergePatients(keeperId: string, duplicateId: string) {
 
   const keeperConditions = await db.condition.findMany({ where: { patientId: keeperId } });
   const keeperAllergies = await db.allergy.findMany({ where: { patientId: keeperId } });
+  const keeperAccess = await db.patientAccess.findMany({ where: { patientId: keeperId } });
   const norm = (s: string) => s.trim().toLowerCase();
   const haveCondition = new Set(keeperConditions.map((c) => norm(c.name)));
   const haveAllergy = new Set(keeperAllergies.map((a) => norm(a.substance)));
+  // A shared family Google account bound to both records is exactly what merge
+  // exists to clean up, so reparenting it wholesale would trip the composite
+  // unique and abort the transaction. Dedupe like conditions/allergies.
+  const haveIdentity = new Set(keeperAccess.map((a) => `${a.provider}:${a.providerUserId}`));
+  const duplicateAccess = await db.patientAccess.findMany({ where: { patientId: duplicateId } });
 
   await db.$transaction(async (tx) => {
     // clinical history: move wholesale
@@ -42,6 +48,15 @@ export async function mergePatients(keeperId: string, duplicateId: string) {
         await tx.allergy.delete({ where: { id: a.id } });
       } else {
         await tx.allergy.update({ where: { id: a.id }, data: { patientId: keeperId } });
+      }
+    }
+    // linked Google accounts: move only identities the keeper doesn't already
+    // have, so the unique (provider, providerUserId, patientId) never collides
+    for (const a of duplicateAccess) {
+      if (haveIdentity.has(`${a.provider}:${a.providerUserId}`)) {
+        await tx.patientAccess.delete({ where: { id: a.id } });
+      } else {
+        await tx.patientAccess.update({ where: { id: a.id }, data: { patientId: keeperId } });
       }
     }
 

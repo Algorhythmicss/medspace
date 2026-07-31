@@ -12,7 +12,9 @@ import {
 import { headers } from "next/headers";
 import { ArtSpot } from "@/components/Art";
 import SendPlanLink from "@/components/SendPlanLink";
+import LinkedAccounts from "@/components/LinkedAccounts";
 import { createPatientToken } from "@/lib/patientLink";
+import { accessForPatient } from "@/lib/patientAccess";
 import { waLink, telLink } from "@/lib/phone";
 import { planReach } from "@/lib/reach";
 import { db } from "@/lib/db";
@@ -58,6 +60,8 @@ export default async function PatientChart({
     db.clinic.findUnique({ where: { id: "clinic" } }),
   ]);
   if (!patient || !card) notFound();
+
+  const linkedAccounts = await accessForPatient(id);
 
   // The patient's own plan link, ready to send from this chart.
   const h = await headers();
@@ -116,6 +120,16 @@ export default async function PatientChart({
         planUrl={planUrl}
         patientId={patient.id}
         reach={planReach(patient)}
+      />
+
+      <LinkedAccounts
+        access={linkedAccounts.map((a) => ({
+          id: a.id,
+          email: a.email,
+          status: a.status,
+          boundAt: a.boundAt.toISOString(),
+          lastUsedAt: a.lastUsedAt ? a.lastUsedAt.toISOString() : null,
+        }))}
       />
 
       {/* ── open items: what is owed, in one place ───────────── */}

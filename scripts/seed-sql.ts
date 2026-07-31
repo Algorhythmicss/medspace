@@ -12,7 +12,7 @@ const n = (v: number | null | undefined) => (v == null ? "NULL" : String(v));
 
 // wipe then rebuild
 out.push(
-  `DELETE FROM "CarePlanTask"; DELETE FROM "Observation"; DELETE FROM "PrescriptionItem"; DELETE FROM "Prescription"; DELETE FROM "Report"; DELETE FROM "Visit"; DELETE FROM "Condition"; DELETE FROM "Allergy"; DELETE FROM "Patient"; DELETE FROM "Drug"; DELETE FROM "Clinic";`
+  `DELETE FROM "PatientAccess"; DELETE FROM "CarePlanTask"; DELETE FROM "Observation"; DELETE FROM "PrescriptionItem"; DELETE FROM "Prescription"; DELETE FROM "Report"; DELETE FROM "Visit"; DELETE FROM "Condition"; DELETE FROM "Allergy"; DELETE FROM "Patient"; DELETE FROM "Drug"; DELETE FROM "Clinic";`
 );
 
 out.push(

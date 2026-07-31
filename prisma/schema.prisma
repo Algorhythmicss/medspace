@@ -66,6 +66,7 @@ model Patient {
   observations Observation[]
   reports      Report[]
   tasks        CarePlanTask[]
+  access       PatientAccess[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -200,6 +201,41 @@ model Drug {
   defaultDuration     String?
   defaultInstructions String?
   useCount            Int     @default(0)
+}
+
+// What the WhatsApp link leaves behind — a durable patient identity so the app
+// is something people return to, not a fresh link every visit.
+//
+// The link proves identity once (the doctor sent it to the number in the chart)
+// and this row turns that into a lasting one via Google. One identity → MANY
+// patients, on purpose: one phone and one Google account per household is normal
+// here, so a mother must reach her plan and her son's from the same account.
+// patientId is inside the unique key, so a repeat bind is idempotent without the
+// mapping ever becoming exclusive.
+//
+// providerUserId is the SUPABASE user id (stable), never the email — Google
+// Workspace addresses get reassigned to new people with a new id, and email is
+// mutable; email is stored only so the doctor can recognise the account, and is
+// joined on by nothing.
+//
+// status starts "pending". A binding is created by whoever holds the plan link,
+// and a plan link is forwardable, so a Google account only resolves to a patient
+// on a *return* visit once the doctor has confirmed it on the chart.
+model PatientAccess {
+  id             String    @id @default(cuid())
+  patient        Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId      String
+  provider       String    @default("google")
+  providerUserId String
+  email          String?
+  status         String    @default("pending") // pending | active | revoked
+  boundAt        DateTime  @default(now())
+  boundVia       String    @default("plan_link") // plan_link | doctor
+  confirmedAt    DateTime?
+  lastUsedAt     DateTime?
+
+  @@unique([provider, providerUserId, patientId])
+  @@index([patientId, status])
 }
 
 // Failed passcode attempts, for throttling /login. The clinic passcode is a

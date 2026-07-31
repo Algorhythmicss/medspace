@@ -32,6 +32,11 @@ const nextConfig: NextConfig = {
         source: "/p/:token*",
         headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
       },
+      {
+        // Same for the signed-in patient view.
+        source: "/plan",
+        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
+      },
     ];
   },
 };

@@ -11,7 +11,7 @@ import TabBar from "@/components/TabBar";
 export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPatient = pathname.startsWith("/p/");
-  const isLogin = pathname === "/login";
+  const isPublic = pathname === "/login" || pathname.startsWith("/welcome");
 
   if (isPatient) {
     return (
@@ -19,8 +19,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (isLogin) {
-    return <main className="mx-auto w-full max-w-md px-4">{children}</main>;
+  if (isPublic) {
+    return <main className="mx-auto w-full max-w-[460px] px-4">{children}</main>;
   }
 
   return (

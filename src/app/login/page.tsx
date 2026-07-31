@@ -78,7 +78,14 @@ export default async function Login({
         </button>
       </form>
 
-      <p className="t-micro mt-6 text-center text-ink3">
+      <p className="t-cap mt-5 text-center text-ink3">
+        Not the doctor?{" "}
+        <a href="/welcome" className="font-semibold text-peri">
+          Go back
+        </a>
+      </p>
+
+      <p className="t-micro mt-4 text-center text-ink3">
         Patient records are confidential. Do not share this passcode.
       </p>
     </div>

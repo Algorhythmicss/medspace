@@ -73,6 +73,14 @@ Placed so far: login (`reception`), Today masthead (`huddle`, greeting set *on* 
 
 Art direction constraints from the library README worth respecting: 4:3 landscape, keep action in the middle two-thirds on shallow crops, use only a subtle scrim when contrast demands it, and preserve the paper texture — no heavy colour grading.
 
+## Entry points
+One deployment, two audiences, three ways in:
+- `/welcome` — the public front door: art hero plus "I'm the doctor" / "I'm a patient". Unauthenticated `/` redirects here.
+- `/login` — clinic passcode. A deep link into any clinic screen still redirects here with `?next=` and returns afterwards, so only the bare domain gets the chooser.
+- `/p/<token>` — the patient's signed link. **This must never route through the chooser**: a patient tapping WhatsApp lands directly on their plan, which is the entire reason the link exists.
+
+`/welcome/patient` explains that the clinic sends a private link (no install, no password — the honest reason there is no patient login yet), accepts a pasted link or bare token via `OpenMyPlan.tsx`, and offers WhatsApp/Call to ask for it again. `Shell.tsx` gives `/welcome*` and `/login` a bare centred column — no clinic chrome.
+
 ## Patient side (`/p/<token>`)
 A second app in the same deployment. Reached from a WhatsApp link the doctor sends — the field research was clear that patients will not install a per-clinic app, while 94% of WhatsApp users open it daily. Phone + OTP is a deliberate *later* addition, not a replacement.
 

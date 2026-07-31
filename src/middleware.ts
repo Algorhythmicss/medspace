@@ -11,6 +11,7 @@ export async function middleware(req: NextRequest) {
   if (
     pathname === "/login" ||
     pathname.startsWith("/api/login") ||
+    pathname.startsWith("/welcome") ||
     pathname.startsWith("/p/")
   ) {
     return NextResponse.next();
@@ -20,8 +21,15 @@ export async function middleware(req: NextRequest) {
   if (ok) return NextResponse.next();
 
   const url = req.nextUrl.clone();
-  url.pathname = "/login";
-  url.search = pathname === "/" ? "" : `?next=${encodeURIComponent(pathname + search)}`;
+  // Someone landing on the bare domain is asked who they are; a deep link into
+  // a clinic screen goes straight to the passcode and returns afterwards.
+  if (pathname === "/") {
+    url.pathname = "/welcome";
+    url.search = "";
+  } else {
+    url.pathname = "/login";
+    url.search = `?next=${encodeURIComponent(pathname + search)}`;
+  }
   return NextResponse.redirect(url);
 }
 

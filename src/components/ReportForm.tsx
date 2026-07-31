@@ -158,29 +158,28 @@ export default function ReportForm({ patientId }: { patientId: string }) {
           placeholder="Report name (e.g. Thyrocare full panel)"
           className={fieldCls}
         />
-        <div className="grid grid-cols-2 gap-2.5">
-          <input
-            name="reportDate"
-            type="date"
-            value={draft.reportDate}
-            onChange={(e) => set("reportDate", e.target.value)}
-            max={today}
-            className={fieldCls}
-          />
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {KINDS.map((k) => (
-              <button
-                key={k.value}
-                type="button"
-                onClick={() => set("kind", k.value)}
-                className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium ${
-                  draft.kind === k.value ? "btn-primary" : "bg-sunk text-ink"
-                }`}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
+        <input
+          name="reportDate"
+          type="date"
+          value={draft.reportDate}
+          onChange={(e) => set("reportDate", e.target.value)}
+          max={today}
+          className={fieldCls}
+        />
+        {/* full width and wrapping: beside the date these clipped, so
+            "Outside Rx" and "Other" could not be reached at all */}
+        <div className="flex flex-wrap gap-1.5">
+          {KINDS.map((k) => (
+            <button
+              key={k.value}
+              type="button"
+              onClick={() => set("kind", k.value)}
+              data-on={draft.kind === k.value}
+              className="chip"
+            >
+              {k.label}
+            </button>
+          ))}
         </div>
         <input type="hidden" name="kind" value={draft.kind} />
       </div>

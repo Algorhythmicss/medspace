@@ -276,6 +276,13 @@ body {
 .chip:active {
   transform: scale(0.95);
 }
+/* selected state — lost in the Headspace rewrite, which left data-on chips
+   looking identical to unselected ones */
+.chip[data-on="true"] {
+  background: var(--orange);
+  color: #fff;
+  box-shadow: 0 6px 14px -7px rgba(255, 122, 41, 0.85);
+}
 
 /* Sentence case, quiet. Never all-caps — it shouts. */
 .label {

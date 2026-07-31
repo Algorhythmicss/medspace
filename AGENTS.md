@@ -57,8 +57,24 @@ Passcode gate: signed 12h session cookie (Web Crypto HMAC, Edge-compatible — `
 - WhatsApp is always a `wa.me` deep link with prefilled text. The doctor presses send. Never auto-send.
 - Printed Rx carries the doctor's registration number (legally required, Telemedicine Practice Guidelines 2020) and a QR encoding `/scan/<fileNumber>` for instant lookup at the next visit.
 
-## Design language (Apple/iOS — user's explicit preference)
-Tokens in `globals.css`: grouped background `#F2F2F7`, white `rounded-2xl` cards with a faint shadow (no hard borders), `.ios-list` hairlines, filled gray inputs, one accent `#007AFF` plus semantic red/orange/green, system font stack, lucide icons (never emoji), 17/15/13px type scale, large-title headers, blurred tab bar. The user does final polish; stay inside this language for anything new.
+## Design language — warm clinical calm (redesigned 31 Jul 2026)
+Reference points: Headspace (warmth, generous spacing), Apple (hierarchy, restraint), Notion (quiet content-first chrome), Figma (precision in dense numerics).
+
+Tokens live in `globals.css` as CSS variables surfaced through `@theme inline`:
+- **Ground** warm paper `#f7f6f3`, surfaces white, sunk fills `#f1efea`. Never cold system gray.
+- **Ink** warm neutrals `#1c1b18 / #6b675e / #9c978c`. Never pure black.
+- **Brand** deep teal `#0e6b5e` — health without sterile blue; `primarysoft` for tints.
+- **Semantics** muted and serious: alert `#b3261e`, warn `#9a5b06`, good `#2e6b45`, each with a soft tint.
+- **Depth** two soft shadow layers (`--lift`, `--lift-lg`), no hard borders. Hairline separators via `.rows`.
+- **Type** `Plus_Jakarta_Sans` (display, headings and patient names) + `Inter` (body/data), self-hosted by next/font so a clinic's bad connection never blocks text. `.tnum` for tabular figures on every clinical value.
+- **Helpers** `.card`, `.card-lg`, `.rows`, `.field`, `.btn`, `.chip`, `.label`, `.rise`.
+
+Rules that carry the intent — break these and it drifts back to a generic CRUD app:
+- **Sentence-case labels only.** All-caps headings shout; six of them was most of why the old chart felt busy.
+- **Hierarchy over colour.** The lead finding is large in *ink* with a coloured rail. Do not also colour the sentence — size + colour + rail is triple encoding and reads as panic.
+- **Never say the same thing twice.** The briefing summarises overdue work ("2 things overdue, oldest by 35 days"); the Open items list carries the titles.
+- **One accent.** Teal is the only brand colour; secondary selections use warm gray `ink2`, not a second bright hue.
+- Trends read as arrows (`1.10 → 1.40 mg/dL, 9mo`), not prose — fewer wraps on a phone.
 
 ## Traps that cost time before
 - **Silent server-action failure:** a dynamic `await import()` inside `actions.ts` pulled `node:fs` into the client graph and broke *every* server action with no error anywhere — forms just no-op'd. Keep imports in `actions.ts` static and top-level. Turbopack also serves a poisoned graph long after the source is fixed: `rm -rf .next` and restart. Tell-tale sign is dev-server logs citing imports that no longer exist.

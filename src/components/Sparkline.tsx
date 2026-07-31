@@ -1,11 +1,12 @@
-// Pure-SVG sparkline, server-rendered — no client JS. Color reflects clinical
-// direction: red worsening, green improving, gray flat.
+// Pure-SVG sparkline, server-rendered — no client JS, no layout shift.
+// Colour carries clinical direction, not decoration: worsening reads warm,
+// improving reads green, flat stays neutral.
 export default function Sparkline({
   points,
   higherIsWorse,
   minDelta,
-  width = 96,
-  height = 26,
+  width = 72,
+  height = 22,
 }: {
   points: number[]; // chronological
   higherIsWorse: boolean;
@@ -22,19 +23,37 @@ export default function Sparkline({
   const xStep = (width - pad * 2) / (points.length - 1);
   const y = (v: number) => pad + (height - pad * 2) * (1 - (v - min) / span);
   const coords = points.map((v, i) => [pad + i * xStep, y(v)] as const);
-  const path = coords.map(([px, py], i) => `${i === 0 ? "M" : "L"}${px.toFixed(1)},${py.toFixed(1)}`).join(" ");
+  const line = coords
+    .map(([px, py], i) => `${i === 0 ? "M" : "L"}${px.toFixed(1)},${py.toFixed(1)}`)
+    .join(" ");
+  const area = `${line} L${coords[coords.length - 1][0].toFixed(1)},${height} L${coords[0][0].toFixed(1)},${height} Z`;
 
   const delta = points[points.length - 1] - points[0];
   const flat = Math.abs(delta) < minDelta;
   const worsening = higherIsWorse ? delta > 0 : delta < 0;
-  const color = flat ? "#8e8e93" : worsening ? "#ff3b30" : "#34c759";
+  const stroke = flat ? "#9c978c" : worsening ? "#b3261e" : "#2e6b45";
+  const gradId = `sg-${stroke.slice(1)}-${points.length}-${Math.round(points[0] * 100)}`;
 
   const [lastX, lastY] = coords[coords.length - 1];
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden>
-      <path d={path} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lastX} cy={lastY} r="2.4" fill={color} />
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity="0.16" />
+          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gradId})`} />
+      <path
+        d={line}
+        fill="none"
+        stroke={stroke}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx={lastX} cy={lastY} r="2.2" fill={stroke} />
     </svg>
   );
 }

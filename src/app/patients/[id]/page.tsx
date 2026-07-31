@@ -6,26 +6,29 @@ import {
   FlaskConical,
   RefreshCw,
   FileText,
-  Image as ImageIcon,
-  Pill,
   Paperclip,
+  Plus,
 } from "lucide-react";
 import { db } from "@/lib/db";
-import { buildMemoryCard, METRIC_LABELS } from "@/lib/memory";
-import MemoryCardView from "@/components/MemoryCardView";
-import StickyNoteEditor from "@/components/StickyNoteEditor";
-import Sparkline from "@/components/Sparkline";
+import { buildMemoryCard } from "@/lib/memory";
+import Briefing from "@/components/Briefing";
 import { relDay, shortDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
+const VISIBLE_VISITS = 3;
+
 export default async function PatientChart({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ all?: string }>;
 }) {
   const { id } = await params;
-  const [patient, card, trendObs] = await Promise.all([
+  const { all } = await searchParams;
+
+  const [patient, card] = await Promise.all([
     db.patient.findUnique({
       where: { id },
       include: {
@@ -37,7 +40,7 @@ export default async function PatientChart({
           },
         },
         tasks: { where: { status: "pending" }, orderBy: { dueDate: "asc" } },
-        // never select fileData here — it would pull file bytes into the page
+        // never select fileData here — it would pull attachment bytes into the page
         reports: {
           orderBy: { reportDate: "desc" },
           take: 5,
@@ -46,152 +49,100 @@ export default async function PatientChart({
       },
     }),
     buildMemoryCard(id),
-    db.observation.findMany({
-      where: { patientId: id, type: { in: [...Object.keys(METRIC_LABELS), "BP_DIA"] } },
-      orderBy: { measuredAt: "asc" },
-    }),
   ]);
   if (!patient || !card) notFound();
 
-  // series per metric, chronological; BP shown as systolic
-  const TREND_ORDER = ["HBA1C", "BP_SYS", "CREATININE", "TSH", "LDL", "FBS", "PPBS", "WEIGHT", "HDL", "TG", "HB", "VITD", "B12"];
-  const seriesByType = new Map<string, { values: number[]; latest: number; unit: string | null }>();
-  for (const o of trendObs) {
-    const s = seriesByType.get(o.type) ?? { values: [], latest: o.value, unit: o.unit };
-    s.values.push(o.value);
-    s.latest = o.value;
-    s.unit = o.unit ?? s.unit;
-    seriesByType.set(o.type, s);
-  }
-  const trends = TREND_ORDER.filter((t) => (seriesByType.get(t)?.values.length ?? 0) >= 2).map(
-    (t) => ({ type: t, ...seriesByType.get(t)!, meta: METRIC_LABELS[t] })
-  );
+  const showAll = all === "1";
+  const visits = showAll ? patient.visits : patient.visits.slice(0, VISIBLE_VISITS);
+  const hidden = patient.visits.length - visits.length;
+  const now = new Date();
 
   return (
     <div className="px-4 pt-3">
-      <header className="mb-3 flex items-center gap-1">
-        <Link href="/" className="-ml-2 p-1.5 text-accent active:opacity-60">
-          <ChevronLeft size={26} />
+      <header className="mb-4 flex items-center gap-1.5">
+        <Link
+          href="/"
+          aria-label="Back"
+          className="-ml-2 rounded-full p-1.5 text-ink3 transition-colors active:bg-sunk"
+        >
+          <ChevronLeft size={24} />
         </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[22px] font-bold leading-tight tracking-tight">
+          <h1 className="truncate font-display text-[24px] font-bold leading-tight tracking-[-0.02em]">
             {patient.name}
           </h1>
           <Link
             href={`/patients/${patient.id}/edit`}
-            className="flex items-center gap-0.5 text-[13px] text-label2 active:opacity-60"
+            className="tnum inline-flex items-center gap-0.5 text-[12.5px] text-ink3 active:opacity-60"
           >
             #{patient.fileNumber}
             {patient.phone ? ` · ${patient.phone}` : ""}
-            <ChevronRight size={13} />
+            <ChevronRight size={12} />
           </Link>
         </div>
         <Link
           href={`/patients/${patient.id}/visit/new`}
-          className="rounded-full bg-accent px-4 py-2 text-[15px] font-semibold text-white active:opacity-80"
+          className="btn shrink-0 bg-primary px-4 py-2.5 text-[14px] text-white"
         >
           New visit
         </Link>
       </header>
 
-      <MemoryCardView card={card} />
+      <Briefing card={card} patientId={patient.id} note={patient.stickyNote} />
 
-      <div className="mt-3">
-        <StickyNoteEditor patientId={patient.id} note={patient.stickyNote} />
-      </div>
-
-      {trends.length > 0 && (
+      {/* ── open items: what is owed, in one place ───────────── */}
+      {(patient.tasks.length > 0 || patient.reports.length > 0) && (
         <section className="mt-6">
-          <h2 className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-label2">
-            Trends
-          </h2>
-          <div className="flex gap-2.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
-            {trends.map((t) => (
-              <div
-                key={t.type}
-                className="w-[124px] shrink-0 rounded-2xl bg-card p-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-              >
-                <div className="text-[12px] font-medium text-label2">{t.meta.label}</div>
-                <div className="text-[17px] font-semibold leading-tight">
-                  {t.type === "BP_SYS"
-                    ? `${t.latest.toFixed(0)}${seriesByType.get("BP_DIA") ? `/${seriesByType.get("BP_DIA")!.latest.toFixed(0)}` : ""}`
-                    : t.latest.toFixed(t.meta.decimals)}
-                  <span className="ml-1 text-[11px] font-normal text-label2">{t.unit}</span>
-                </div>
-                <div className="mt-1.5">
-                  <Sparkline
-                    points={t.values.slice(-8)}
-                    higherIsWorse={t.meta.higherIsWorse}
-                    minDelta={t.meta.minDelta}
-                  />
-                </div>
-              </div>
-            ))}
+          <div className="mb-2 flex items-baseline justify-between px-1">
+            <h2 className="label">Open items</h2>
+            <Link
+              href={`/patients/${patient.id}/report/new`}
+              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-primary active:opacity-60"
+            >
+              <Plus size={13} strokeWidth={2.5} /> Report
+            </Link>
           </div>
-        </section>
-      )}
 
-      {patient.tasks.length > 0 && (
-        <section className="mt-6">
-          <h2 className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-label2">
-            Pending
-          </h2>
-          <div className="ios-list overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="card rows overflow-hidden">
             {patient.tasks.map((t) => {
-              const overdue = t.dueDate && t.dueDate < new Date();
+              const overdue = t.dueDate && t.dueDate < now;
               return (
-                <div key={t.id} className="flex items-center justify-between px-4 py-3">
-                  <span className="flex items-center gap-2.5 text-[15px]">
+                <div key={t.id} className="flex items-center gap-3 px-4 py-3">
+                  <span className={overdue ? "text-alert" : "text-ink3"}>
                     {t.kind === "FOLLOW_UP" ? (
-                      <RefreshCw size={15} className="text-label2" />
+                      <RefreshCw size={15} />
                     ) : (
-                      <FlaskConical size={15} className="text-label2" />
+                      <FlaskConical size={15} />
                     )}
-                    {t.title}
                   </span>
+                  <span className="min-w-0 flex-1 truncate text-[15px]">{t.title}</span>
                   {t.dueDate && (
                     <span
-                      className={`text-[13px] ${overdue ? "font-medium text-ios-red" : "text-label2"}`}
+                      className={`shrink-0 text-[12.5px] ${overdue ? "font-medium text-alert" : "text-ink3"}`}
                     >
-                      {overdue ? `overdue · ${relDay(t.dueDate)}` : `due ${relDay(t.dueDate)}`}
+                      {overdue ? relDay(t.dueDate) : `due ${relDay(t.dueDate)}`}
                     </span>
                   )}
                 </div>
               );
             })}
-          </div>
-        </section>
-      )}
 
-      <section className="mt-6">
-        <div className="mb-2 flex items-baseline justify-between px-4">
-          <h2 className="text-[13px] font-medium uppercase tracking-wide text-label2">Reports</h2>
-          <Link
-            href={`/patients/${patient.id}/report/new`}
-            className="text-[13px] font-semibold text-accent active:opacity-60"
-          >
-            + Add
-          </Link>
-        </div>
-        {patient.reports.length > 0 ? (
-          <div className="ios-list overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             {patient.reports.map((r) => {
-              const Icon =
-                r.kind === "imaging" ? ImageIcon : r.kind === "outside_rx" ? Pill : FileText;
               const row = (
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <Icon size={18} className="shrink-0 text-label2" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[15px]">{r.title}</div>
+                <>
+                  <span className="text-ink3">
+                    {r.fileName ? <Paperclip size={15} /> : <FileText size={15} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px]">{r.title}</span>
                     {r.summary && (
-                      <div className="truncate text-[13px] text-label2">{r.summary}</div>
+                      <span className="block truncate text-[12.5px] text-ink3">{r.summary}</span>
                     )}
-                  </div>
-                  <span className="flex shrink-0 items-center gap-1.5 text-[13px] text-label2">
-                    {r.fileName && <Paperclip size={13} />}
+                  </span>
+                  <span className="shrink-0 text-[12.5px] text-ink3">
                     {relDay(r.reportDate)}
                   </span>
-                </div>
+                </>
               );
               return r.fileName ? (
                 <a
@@ -199,42 +150,52 @@ export default async function PatientChart({
                   href={`/api/reports/${r.id}/file`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block active:bg-black/5"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors active:bg-sunk"
                 >
                   {row}
                 </a>
               ) : (
-                <div key={r.id}>{row}</div>
+                <div key={r.id} className="flex items-center gap-3 px-4 py-3">
+                  {row}
+                </div>
               );
             })}
           </div>
-        ) : (
-          <p className="px-4 text-[13px] text-label2">
-            No reports yet — add outside labs so trends stay complete.
-          </p>
-        )}
-      </section>
+        </section>
+      )}
 
-      <section className="mt-6 pb-6">
-        <h2 className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-label2">
-          Timeline
-        </h2>
-        <ol className="space-y-3">
-          {patient.visits.map((v) => (
-            <li
-              key={v.id}
-              className="rounded-2xl bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+      {patient.tasks.length === 0 && patient.reports.length === 0 && (
+        <section className="mt-6">
+          <div className="card flex items-center justify-between px-4 py-3.5">
+            <span className="text-[14px] text-ink3">Nothing pending for this patient.</span>
+            <Link
+              href={`/patients/${patient.id}/report/new`}
+              className="inline-flex items-center gap-0.5 text-[13px] font-medium text-primary active:opacity-60"
             >
-              <div className="flex items-baseline justify-between">
-                <span className="text-[15px] font-semibold">{shortDate(v.visitDate)}</span>
-                <span className="text-[13px] text-label2">{relDay(v.visitDate)}</span>
+              <Plus size={13} strokeWidth={2.5} /> Report
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* ── history ──────────────────────────────────────────── */}
+      <section className="mt-6 pb-8">
+        <h2 className="label mb-2 px-1">History</h2>
+        <ol className="space-y-2.5">
+          {visits.map((v) => (
+            <li key={v.id} className="card p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-display text-[15px] font-semibold">
+                  {shortDate(v.visitDate)}
+                </span>
+                <span className="shrink-0 text-[12.5px] text-ink3">{relDay(v.visitDate)}</span>
               </div>
-              {v.complaint && <p className="mt-1 text-[15px]">{v.complaint}</p>}
+              {v.complaint && <p className="mt-1 text-[15px] leading-snug">{v.complaint}</p>}
               {v.diagnosis && (
-                <p className="mt-0.5 text-[13px] font-medium text-label2">Dx: {v.diagnosis}</p>
+                <p className="mt-0.5 text-[13px] text-ink2">{v.diagnosis}</p>
               )}
               {v.observations.length > 0 && (
-                <p className="mt-1 text-[13px] text-label2">
+                <p className="tnum mt-1.5 text-[12.5px] text-ink3">
                   {v.observations
                     .filter((o) => o.type !== "BP_DIA")
                     .map((o) => {
@@ -244,7 +205,7 @@ export default async function PatientChart({
                       }
                       return `${o.type.replace("_", " ")} ${o.value}${o.unit ?? ""}`;
                     })
-                    .join(" · ")}
+                    .join("   ")}
                 </p>
               )}
               {v.prescription && v.prescription.items.length > 0 && (
@@ -252,22 +213,32 @@ export default async function PatientChart({
                   {v.prescription.items.map((item) => (
                     <span
                       key={item.id}
-                      className="rounded-lg bg-fillinput px-2 py-1 text-[12px] text-label"
+                      className="rounded-lg bg-sunk px-2 py-1 text-[12px] text-ink2"
                     >
-                      {item.drugName.replace(/^(Tab|Cap|Syp|Inh|Gel) /, "")} {item.frequency}
+                      {item.drugName.replace(/^(Tab|Cap|Syp|Inh|Gel) /, "")}{" "}
+                      <span className="tnum text-ink3">{item.frequency}</span>
                     </span>
                   ))}
                   <Link
                     href={`/visits/${v.id}/rx`}
-                    className="ml-auto flex items-center text-[13px] font-medium text-accent active:opacity-60"
+                    className="ml-auto inline-flex items-center text-[12.5px] font-medium text-primary active:opacity-60"
                   >
-                    View Rx <ChevronRight size={14} />
+                    Rx <ChevronRight size={13} />
                   </Link>
                 </div>
               )}
             </li>
           ))}
         </ol>
+
+        {hidden > 0 && (
+          <Link
+            href={`/patients/${patient.id}?all=1`}
+            className="mt-3 block rounded-2xl border border-hairline py-3 text-center text-[14px] font-medium text-ink2 transition-colors active:bg-sunk"
+          >
+            Show {hidden} earlier visit{hidden > 1 ? "s" : ""}
+          </Link>
+        )}
       </section>
     </div>
   );

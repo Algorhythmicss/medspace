@@ -7,7 +7,7 @@ import { createPatient } from "@/app/actions";
 type Match = { id: string; name: string; fileNumber: number; ageYears: number | null; sex: string | null };
 
 const fieldCls =
-  "w-full rounded-xl bg-fillinput px-3.5 py-3 text-[17px] outline-none placeholder:text-label2";
+  "w-full rounded-xl bg-sunk px-3.5 py-3 text-[17px] outline-none placeholder:text-ink2";
 
 export default function NewPatientForm() {
   const [phone, setPhone] = useState("");
@@ -43,11 +43,11 @@ export default function NewPatientForm() {
   return (
     <>
       {matches.length > 0 && (
-        <div className="mb-3 rounded-2xl bg-ios-orange/10 p-3">
-          <p className="mb-1.5 px-1 text-[13px] font-semibold text-ios-orange">
+        <div className="mb-3 rounded-2xl bg-warnsoft p-3">
+          <p className="mb-1.5 px-1 text-[13px] font-semibold text-warn">
             Already on this number
           </p>
-          <div className="ios-list overflow-hidden rounded-xl bg-card">
+          <div className="rows overflow-hidden rounded-xl bg-surface">
             {matches.map((m) => (
               <Link
                 key={m.id}
@@ -56,11 +56,11 @@ export default function NewPatientForm() {
               >
                 <span className="text-[15px]">
                   {m.name}
-                  <span className="ml-2 text-[13px] text-label2">
+                  <span className="ml-2 text-[13px] text-ink2">
                     {[m.ageYears, m.sex].filter(Boolean).join(" ")}
                   </span>
                 </span>
-                <span className="text-[13px] font-medium text-accent">Open</span>
+                <span className="text-[13px] font-medium text-primary">Open</span>
               </Link>
             ))}
           </div>
@@ -82,7 +82,7 @@ export default function NewPatientForm() {
           <select
             name="sex"
             defaultValue=""
-            className="w-full appearance-none rounded-xl bg-fillinput px-3.5 py-3 text-[17px] outline-none"
+            className="w-full appearance-none rounded-xl bg-sunk px-3.5 py-3 text-[17px] outline-none"
           >
             <option value="" disabled>
               Sex
@@ -94,7 +94,7 @@ export default function NewPatientForm() {
         </div>
         <button
           type="submit"
-          className="mt-2 w-full rounded-2xl bg-accent py-3.5 text-[17px] font-semibold text-white active:opacity-80"
+          className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-[17px] font-semibold text-white active:opacity-80"
         >
           Add patient
         </button>

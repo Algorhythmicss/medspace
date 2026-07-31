@@ -15,20 +15,31 @@ export default function TabBar() {
   if (pathname === "/login") return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t-[0.5px] border-hairline bg-white/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl print:hidden">
-      <div className="mx-auto flex max-w-md items-stretch justify-around">
+    <nav className="fixed inset-x-0 bottom-0 z-20 pb-[env(safe-area-inset-bottom)] print:hidden">
+      {/* floats on a soft veil rather than sitting behind a hard divider */}
+      <div className="absolute inset-0 bg-paper/85 backdrop-blur-xl" />
+      <div className="relative mx-auto flex max-w-md items-stretch justify-around px-2 pb-1.5 pt-2">
         {tabs.map(({ href, label, Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
-              className={`flex flex-1 flex-col items-center gap-1 pb-1.5 pt-2 active:opacity-60 ${
-                active ? "text-accent" : "text-label2"
-              }`}
+              aria-current={active ? "page" : undefined}
+              className="flex flex-1 flex-col items-center gap-1 rounded-2xl py-1.5 transition-transform active:scale-95"
             >
-              <Icon size={24} strokeWidth={active ? 2.2 : 1.8} />
-              <span className="text-[10px] font-medium">{label}</span>
+              <span
+                className={`flex h-8 w-16 items-center justify-center rounded-full transition-colors ${
+                  active ? "bg-primarysoft text-primary" : "text-ink3"
+                }`}
+              >
+                <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
+              </span>
+              <span
+                className={`text-[10.5px] font-medium ${active ? "text-primary" : "text-ink3"}`}
+              >
+                {label}
+              </span>
             </Link>
           );
         })}

@@ -29,20 +29,20 @@ export default async function FollowUps() {
 
   return (
     <div className="px-4 pt-4">
-      <header className="mb-4">
-        <h1 className="text-[34px] font-bold leading-tight tracking-tight">Follow-ups</h1>
-        <p className="text-[13px] text-label2">
-          Overdue patients first — they are the ones who drift away.
-        </p>
+      <header className="mb-5">
+        <p className="text-[13px] text-ink3">Bringing people back</p>
+        <h1 className="font-display text-[30px] font-bold leading-tight tracking-[-0.025em]">
+          Follow-ups
+        </h1>
       </header>
 
       {byPatient.size === 0 && upcoming.length === 0 && (
-        <p className="py-12 text-center text-[15px] text-label2">Nothing pending.</p>
+        <p className="py-16 text-center text-[15px] text-ink3">No one is waiting. Everybody\u2019s follow-ups are current.</p>
       )}
 
       {byPatient.size > 0 && (
         <section className="mb-6">
-          <h2 className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-ios-red">
+          <h2 className="label mb-2 px-1">
             Overdue · {byPatient.size} patient{byPatient.size > 1 ? "s" : ""}
           </h2>
           <ul className="space-y-3">
@@ -64,20 +64,20 @@ export default async function FollowUps() {
               return (
                 <li
                   key={patient.id}
-                  className="rounded-2xl bg-card p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                  className="card p-4"
                 >
                   <Link
                     href={`/patients/${patient.id}`}
                     className="flex items-baseline justify-between active:opacity-60"
                   >
-                    <span className="text-[17px] font-semibold">{patient.name}</span>
-                    <span className="text-[13px] font-medium text-ios-red">
+                    <span className="font-display text-[17px] font-semibold tracking-[-0.01em]">{patient.name}</span>
+                    <span className="text-[13px] font-medium text-alert">
                       {relDay(worst.dueDate!)}
                     </span>
                   </Link>
                   <ul className="mt-1.5 space-y-1">
                     {patientTasks.map((t) => (
-                      <li key={t.id} className="flex items-center gap-2 text-[13px] text-label2">
+                      <li key={t.id} className="flex items-center gap-2 text-[13px] text-ink2">
                         {t.kind === "FOLLOW_UP" ? (
                           <RefreshCw size={12} />
                         ) : (
@@ -101,10 +101,8 @@ export default async function FollowUps() {
 
       {upcoming.length > 0 && (
         <section className="pb-6">
-          <h2 className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-label2">
-            Coming up
-          </h2>
-          <div className="ios-list overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <h2 className="label mb-2 px-1">Coming up</h2>
+          <div className="rows overflow-hidden rounded-2xl bg-surface shadow-[var(--lift)]">
             {upcoming.map((t) => (
               <Link
                 key={t.id}
@@ -112,15 +110,15 @@ export default async function FollowUps() {
                 className="flex items-center justify-between px-4 py-3 active:bg-black/5"
               >
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <span className="shrink-0 text-label2">
+                  <span className="shrink-0 text-ink2">
                     {t.kind === "FOLLOW_UP" ? <RefreshCw size={15} /> : <FlaskConical size={15} />}
                   </span>
                   <span className="truncate text-[15px]">
                     <span className="font-medium">{t.patient.name}</span>
-                    <span className="text-label2"> · {t.title}</span>
+                    <span className="text-ink2"> · {t.title}</span>
                   </span>
                 </div>
-                <span className="shrink-0 text-[13px] text-label2">{relDay(t.dueDate!)}</span>
+                <span className="shrink-0 text-[13px] text-ink2">{relDay(t.dueDate!)}</span>
               </Link>
             ))}
           </div>

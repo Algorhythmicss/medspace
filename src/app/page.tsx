@@ -7,6 +7,12 @@ import { relDay, patientAgeSex } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
+function greeting(hour: number): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default async function Home() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -14,9 +20,7 @@ export default async function Home() {
 
   const [clinic, overdueCount, dueTodayTasks, recentPatients] = await Promise.all([
     db.clinic.findUnique({ where: { id: "clinic" } }),
-    db.carePlanTask.count({
-      where: { status: "pending", dueDate: { lt: todayStart } },
-    }),
+    db.carePlanTask.count({ where: { status: "pending", dueDate: { lt: todayStart } } }),
     db.carePlanTask.findMany({
       where: { status: "pending", dueDate: { gte: todayStart, lt: todayEnd } },
       include: { patient: { select: { id: true, name: true } } },
@@ -31,54 +35,59 @@ export default async function Home() {
     }),
   ]);
 
+  // "Dr. A. K. Verma" → "Dr. Verma", which is how a person would greet him
+  const shortName = clinic?.doctorName?.replace(/^(Dr\.?)\s+.*?\s*(\S+)$/, "$1 $2");
+
   return (
-    <div className="px-4 pt-4">
-      <header className="mb-4 flex items-start justify-between gap-3">
+    <div className="px-4 pt-5">
+      <header className="mb-5 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-medium text-label2">
-            {clinic?.clinicName} · {clinic?.doctorName}
-          </p>
-          <h1 className="text-[34px] font-bold leading-tight tracking-tight">Today</h1>
+          <p className="text-[13px] text-ink3">{greeting(now.getHours())}</p>
+          <h1 className="font-display text-[30px] font-bold leading-tight tracking-[-0.025em]">
+            {shortName ?? "Today"}
+          </h1>
         </div>
-        <div className="pt-1">
+        <div className="pt-1.5">
           <LockButton />
         </div>
       </header>
 
       <SearchBox />
 
+      {/* The single most valuable thing on this screen: who is drifting away. */}
       {overdueCount > 0 && (
         <Link
           href="/followups"
-          className="mt-4 flex items-center justify-between rounded-2xl bg-card px-4 py-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:opacity-70"
+          className="card mt-4 flex items-center gap-3.5 px-4 py-4 transition-colors active:bg-sunk"
         >
-          <div className="flex items-center gap-3">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ios-red text-[13px] font-bold text-white">
-              {overdueCount}
+          <span className="tnum flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-alertsoft font-display text-[17px] font-bold text-alert">
+            {overdueCount}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[16px] font-medium">Waiting on follow-up</span>
+            <span className="block text-[13px] text-ink3">
+              Overdue patients drift to another clinic
             </span>
-            <span className="text-[17px]">Overdue follow-ups</span>
-          </div>
-          <ChevronRight size={18} className="text-label2" />
+          </span>
+          <ChevronRight size={17} className="shrink-0 text-ink3" />
         </Link>
       )}
 
       {dueTodayTasks.length > 0 && (
         <section className="mt-6">
-          <h2 className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-label2">
-            Due today
-          </h2>
-          <div className="ios-list overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <h2 className="label mb-2 px-1">Expected today</h2>
+          <div className="card rows overflow-hidden">
             {dueTodayTasks.map((t) => (
               <Link
                 key={t.id}
                 href={`/patients/${t.patient.id}`}
-                className="flex items-center justify-between px-4 py-3 active:bg-black/5"
+                className="flex items-center gap-3 px-4 py-3.5 transition-colors active:bg-sunk"
               >
-                <span className="text-[17px]">{t.patient.name}</span>
-                <span className="flex items-center gap-1 text-[15px] text-label2">
-                  {t.title}
-                  <ChevronRight size={16} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[16px]">{t.patient.name}</span>
+                  <span className="block truncate text-[13px] text-ink3">{t.title}</span>
                 </span>
+                <ChevronRight size={16} className="shrink-0 text-ink3" />
               </Link>
             ))}
           </div>
@@ -86,32 +95,30 @@ export default async function Home() {
       )}
 
       <section className="mt-6">
-        <h2 className="mb-2 px-4 text-[13px] font-medium uppercase tracking-wide text-label2">
-          Recent patients
-        </h2>
-        <div className="ios-list overflow-hidden rounded-2xl bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <h2 className="label mb-2 px-1">Recently seen</h2>
+        <div className="card rows overflow-hidden">
           {recentPatients.map((p) => (
             <Link
               key={p.id}
               href={`/patients/${p.id}`}
-              className="flex items-center gap-3 px-4 py-3 active:bg-black/5"
+              className="flex items-center gap-3.5 px-4 py-3 transition-colors active:bg-sunk"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[15px] font-semibold text-accent">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primarysoft font-display text-[14px] font-semibold text-primary">
                 {p.name
                   .split(" ")
                   .slice(0, 2)
                   .map((w) => w[0])
                   .join("")}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[17px] leading-snug">{p.name}</div>
-                <div className="truncate text-[13px] text-label2">
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[16px] leading-snug">{p.name}</span>
+                <span className="block truncate text-[13px] text-ink3">
                   {[patientAgeSex(p), p.conditions.map((c) => c.name).join(", ")]
                     .filter(Boolean)
                     .join(" · ")}
-                </div>
-              </div>
-              <span className="shrink-0 text-[13px] text-label2">
+                </span>
+              </span>
+              <span className="shrink-0 text-[12.5px] text-ink3">
                 {p.visits[0] ? relDay(p.visits[0].visitDate) : "new"}
               </span>
             </Link>

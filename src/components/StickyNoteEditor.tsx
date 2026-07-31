@@ -4,8 +4,9 @@ import { useState } from "react";
 import { Pin, Check } from "lucide-react";
 import { updateStickyNote } from "@/app/actions";
 
-// Durable context the doctor wants whispered before every visit
-// ("Prefers Hindi", "Daughter manages meds"). One tap to edit, enter to save.
+// Durable human context the doctor wants whispered before every visit
+// ("Prefers Hindi", "Daughter manages meds"). Lives at the foot of the
+// briefing card; tap to edit in place, Notion-style.
 export default function StickyNoteEditor({
   patientId,
   note,
@@ -19,11 +20,11 @@ export default function StickyNoteEditor({
     return (
       <button
         onClick={() => setEditing(true)}
-        className="flex w-full items-center gap-2.5 rounded-2xl bg-card px-4 py-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:opacity-70"
+        className="flex w-full items-center gap-2.5 px-5 py-3 text-left transition-colors active:bg-sunk"
       >
-        <Pin size={15} className="shrink-0 text-label2" />
-        <span className={`flex-1 text-[15px] ${note ? "text-label" : "text-label2"}`}>
-          {note ?? "Add a note (language, caregiver, context…)"}
+        <Pin size={13} className="shrink-0 text-ink3" />
+        <span className={`flex-1 text-[13px] ${note ? "text-ink2" : "text-ink3"}`}>
+          {note ?? "Add a note — language, caregiver, anything worth remembering"}
         </span>
       </button>
     );
@@ -35,7 +36,7 @@ export default function StickyNoteEditor({
         await updateStickyNote(fd);
         setEditing(false);
       }}
-      className="flex items-center gap-2 rounded-2xl bg-card p-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+      className="flex items-center gap-2 px-3 py-2.5"
     >
       <input type="hidden" name="patientId" value={patientId} />
       <input
@@ -43,13 +44,14 @@ export default function StickyNoteEditor({
         defaultValue={note ?? ""}
         autoFocus
         placeholder="e.g. Prefers Hindi. Son Ankit coordinates."
-        className="min-w-0 flex-1 rounded-xl bg-fillinput px-3 py-2 text-[15px] outline-none"
+        className="field min-w-0 flex-1 !py-2 !text-[14px]"
       />
       <button
         type="submit"
-        className="shrink-0 rounded-xl bg-accent p-2.5 text-white active:opacity-80"
+        aria-label="Save note"
+        className="btn shrink-0 bg-primary p-2.5 text-white"
       >
-        <Check size={16} strokeWidth={2.5} />
+        <Check size={15} strokeWidth={2.6} />
       </button>
     </form>
   );

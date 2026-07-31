@@ -11,11 +11,36 @@ export type MemoryLine = {
   text: string;
 };
 
+// A metric worth showing as a chip with a sparkline. Carried on the card so
+// the chart doesn't need a second query or a competing "Trends" section.
+export type MemoryMetric = {
+  type: string;
+  label: string;
+  latest: number;
+  unit: string | null;
+  decimals: number;
+  points: number[]; // chronological
+  higherIsWorse: boolean;
+  minDelta: number;
+  paired?: string; // e.g. diastolic, rendered as "148/94"
+};
+
 export type MemoryCard = {
   headline: string; // "58 M · DM 8y · HTN 6y"
   allergies: string[];
   lines: MemoryLine[];
+  metrics: MemoryMetric[];
   activeMeds: { drugName: string; frequency: string }[];
+};
+
+// Most urgent first. An overdue follow-up outranks a drifting number, and a
+// drifting number outranks "last visit was 2 months ago" — the doctor should
+// never have to scan for the thing that matters.
+const TONE_RANK: Record<MemoryLine["tone"], number> = {
+  alert: 0,
+  warn: 1,
+  ok: 2,
+  info: 3,
 };
 
 // minDelta = smallest absolute change that is clinically worth a line.
@@ -119,6 +144,9 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
     if (Math.abs(delta) < meta.minDelta) continue;
     const worsening = meta.higherIsWorse ? delta > 0 : delta < 0;
 
+    // "Creatinine ↑ 1.10 → 1.40 mg/dL, 9mo" — arrow notation scans faster and
+    // wraps less than prose on a phone.
+    const when = ago(comparator.measuredAt, now).replace(/ ago$/, "");
     let valueText: string;
     if (type === "BP_SYS") {
       const diaSeries = byType.get("BP_DIA") ?? [];
@@ -126,9 +154,9 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       const compDia = diaSeries.find(
         (d) => Math.abs(d.measuredAt.getTime() - comparator.measuredAt.getTime()) < 86400000
       )?.value;
-      valueText = `${latest.value.toFixed(0)}/${latestDia?.toFixed(0) ?? "?"} from ${comparator.value.toFixed(0)}/${compDia?.toFixed(0) ?? "?"} (${ago(comparator.measuredAt, now)})`;
+      valueText = `${comparator.value.toFixed(0)}/${compDia?.toFixed(0) ?? "?"} → ${latest.value.toFixed(0)}/${latestDia?.toFixed(0) ?? "?"}, ${when}`;
     } else {
-      valueText = `${latest.value.toFixed(meta.decimals)}${latest.unit ?? ""} from ${comparator.value.toFixed(meta.decimals)} (${ago(comparator.measuredAt, now)})`;
+      valueText = `${comparator.value.toFixed(meta.decimals)} → ${latest.value.toFixed(meta.decimals)}${latest.unit ?? ""}, ${when}`;
     }
     const arrow = delta > 0 ? "↑" : "↓";
     trendCandidates.push({
@@ -144,20 +172,31 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   trendCandidates.sort((a, b) => b.severity - a.severity);
   lines.push(...trendCandidates.slice(0, 2).map((t) => t.line));
 
-  // -------- gaps: overdue tasks are the loudest lines --------
-  for (const task of patient.tasks) {
-    if (!task.dueDate) continue;
-    const overdueDays = differenceInDays(now, task.dueDate);
-    if (overdueDays > 0) {
-      lines.push({
-        kind: "gap",
-        tone: "alert",
-        text:
-          task.kind === "FOLLOW_UP"
-            ? `Follow-up overdue by ${overdueDays}d — ${task.title}`
-            : `Not done: ${task.title} (due ${ago(task.dueDate, now)})`,
-      });
-    }
+  // -------- gaps --------
+  // One line, however many items. The chart lists them individually right
+  // below; repeating each here verbatim doubled the reading for no gain.
+  const overdue = patient.tasks.filter(
+    (t) => t.dueDate && differenceInDays(now, t.dueDate) > 0
+  );
+  if (overdue.length === 1) {
+    const t = overdue[0];
+    const days = differenceInDays(now, t.dueDate!);
+    lines.push({
+      kind: "gap",
+      tone: "alert",
+      text:
+        t.kind === "FOLLOW_UP"
+          ? `Follow-up overdue ${days}d — ${t.title}`
+          : `${t.title} not done — ordered ${days}d ago`,
+    });
+  } else if (overdue.length > 1) {
+    const oldest = differenceInDays(now, overdue[0].dueDate!);
+    // Titles deliberately omitted — they are listed in full directly below.
+    lines.push({
+      kind: "gap",
+      tone: "alert",
+      text: `${overdue.length} things overdue, oldest by ${oldest} days`,
+    });
   }
 
   // -------- new information since the doctor last saw them --------
@@ -182,13 +221,43 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
     });
   }
 
-  // Sticky note intentionally NOT a card line — it renders as its own
-  // editable row (StickyNoteEditor) directly beneath the card.
+  // Sticky note intentionally NOT a card line — it renders inline at the
+  // foot of the briefing card, tappable to edit.
+
+  // -------- metric chips (sparkline data) --------
+  const METRIC_ORDER = ["HBA1C", "BP_SYS", "CREATININE", "TSH", "LDL", "FBS", "PPBS", "WEIGHT"];
+  const metrics: MemoryMetric[] = [];
+  for (const type of METRIC_ORDER) {
+    const meta = METRIC_LABELS[type];
+    const series = byType.get(type);
+    if (!meta || !series || series.length < 2) continue;
+    // stored newest-first; sparklines read left→right in time
+    const chron = [...series].reverse();
+    metrics.push({
+      type,
+      label: meta.label,
+      latest: series[0].value,
+      unit: series[0].unit,
+      decimals: meta.decimals,
+      points: chron.slice(-8).map((p) => p.value),
+      higherIsWorse: meta.higherIsWorse,
+      minDelta: meta.minDelta,
+      paired:
+        type === "BP_SYS" && byType.get("BP_DIA")?.[0]
+          ? byType.get("BP_DIA")![0].value.toFixed(0)
+          : undefined,
+    });
+  }
 
   return {
     headline,
     allergies: patient.allergies.map((a) => a.substance),
-    lines: lines.slice(0, 5),
+    lines: lines
+      .map((line, i) => ({ line, i }))
+      .sort((a, b) => TONE_RANK[a.line.tone] - TONE_RANK[b.line.tone] || a.i - b.i)
+      .map(({ line }) => line)
+      .slice(0, 5),
+    metrics: metrics.slice(0, 4),
     activeMeds:
       lastVisit?.prescription?.items.map((i) => ({ drugName: i.drugName, frequency: i.frequency })) ?? [],
   };

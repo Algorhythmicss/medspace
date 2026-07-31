@@ -16,13 +16,13 @@ export default async function NewReport({ params }: { params: Promise<{ id: stri
       <header className="mb-4 flex items-center gap-1">
         <Link
           href={`/patients/${patient.id}`}
-          className="-ml-2 p-1.5 text-accent active:opacity-60"
+          className="-ml-2 p-1.5 text-primary active:opacity-60"
         >
           <ChevronLeft size={26} />
         </Link>
         <div>
           <h1 className="text-[22px] font-bold leading-tight tracking-tight">{patient.name}</h1>
-          <p className="text-[13px] text-label2">Add report</p>
+          <p className="text-[13px] text-ink2">Add report</p>
         </div>
       </header>
 

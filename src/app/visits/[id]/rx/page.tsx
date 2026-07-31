@@ -61,15 +61,15 @@ export default async function RxView({ params }: { params: Promise<{ id: string 
       <header className="mb-3 flex items-center justify-between print:hidden">
         <Link
           href={`/patients/${visit.patientId}`}
-          className="-ml-1 flex items-center text-[17px] text-accent active:opacity-60"
+          className="-ml-1 flex items-center text-[17px] text-primary active:opacity-60"
         >
           ‹ Chart
         </Link>
-        <span className="text-[13px] text-label2">Prescription</span>
+        <span className="text-[13px] text-ink2">Prescription</span>
       </header>
 
       {/* printable sheet — deliberately classic paper styling, not app chrome */}
-      <div className="rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] print:rounded-none print:p-0 print:shadow-none">
+      <div className="rounded-2xl bg-white p-5 shadow-[var(--lift)] print:rounded-none print:p-0 print:shadow-none">
         <div className="flex items-start justify-between border-b border-slate-300 pb-3">
           <div>
             <h1 className="text-lg font-bold">{clinic?.clinicName}</h1>

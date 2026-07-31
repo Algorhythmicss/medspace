@@ -65,7 +65,7 @@ function isEmpty(d: Draft) {
 }
 
 const fieldCls =
-  "w-full rounded-xl bg-fillinput px-3.5 py-2.5 text-[17px] outline-none placeholder:text-label2";
+  "w-full rounded-xl bg-sunk px-3.5 py-2.5 text-[17px] outline-none placeholder:text-ink2";
 
 function Chip({
   on,
@@ -85,9 +85,9 @@ function Chip({
       className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors active:opacity-70 ${
         on
           ? tone === "accent"
-            ? "bg-accent text-white"
-            : "bg-label text-white"
-          : "bg-fillinput text-label"
+            ? "bg-primary text-white"
+            : "bg-ink2 text-white"
+          : "bg-sunk text-ink"
       }`}
     >
       {children}
@@ -241,14 +241,14 @@ export default function VisitForm({
   return (
     <div className="space-y-6 pb-10">
       {restored && (
-        <div className="flex items-center gap-2 rounded-2xl bg-accent/10 px-4 py-3">
-          <p className="flex-1 text-[13px] text-accent">
+        <div className="flex items-center gap-2 rounded-2xl bg-primarysoft px-4 py-3">
+          <p className="flex-1 text-[13px] text-primary">
             Restored what you had typed for this patient.
           </p>
           <button
             type="button"
             onClick={discardDraft}
-            className="shrink-0 text-[13px] font-semibold text-accent active:opacity-60"
+            className="shrink-0 text-[13px] font-semibold text-primary active:opacity-60"
           >
             Start fresh
           </button>
@@ -260,7 +260,7 @@ export default function VisitForm({
         <button
           type="button"
           onClick={() => set("items", lastRxItems)}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent/10 px-4 py-3.5 text-[17px] font-semibold text-accent active:bg-accent/20"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primarysoft px-4 py-3.5 text-[17px] font-semibold text-primary active:bg-primarysoft"
         >
           <RotateCw size={18} strokeWidth={2.2} />
           Repeat last prescription ({lastRxItems.length} meds)
@@ -283,7 +283,7 @@ export default function VisitForm({
       </div>
 
       <div>
-        <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-label2">
+        <h3 className="label mb-2 px-1">
           Vitals
         </h3>
         <div className="grid grid-cols-4 gap-2">
@@ -301,14 +301,14 @@ export default function VisitForm({
               onChange={(e) => set(key, e.target.value)}
               placeholder={ph}
               inputMode={mode}
-              className="rounded-xl bg-fillinput px-2 py-2.5 text-center text-[17px] outline-none placeholder:text-label2"
+              className="rounded-xl bg-sunk px-2 py-2.5 text-center text-[17px] outline-none placeholder:text-ink2"
             />
           ))}
         </div>
       </div>
 
       <div>
-        <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-label2">
+        <h3 className="label mb-2 px-1">
           Prescription
         </h3>
         {draft.items.length > 0 && (
@@ -316,7 +316,7 @@ export default function VisitForm({
             {draft.items.map((item, i) => (
               <li
                 key={i}
-                className="rounded-2xl bg-card p-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                className="card p-3.5"
               >
                 <div className="flex items-start justify-between gap-2">
                   <span className="text-[17px] font-medium leading-snug">{item.drugName}</span>
@@ -328,7 +328,7 @@ export default function VisitForm({
                         draft.items.filter((_, idx) => idx !== i)
                       )
                     }
-                    className="mt-0.5 shrink-0 rounded-full bg-fillinput p-1 text-label2 active:opacity-60"
+                    className="mt-0.5 shrink-0 rounded-full bg-sunk p-1 text-ink2 active:opacity-60"
                   >
                     <X size={13} strokeWidth={2.5} />
                   </button>
@@ -353,7 +353,7 @@ export default function VisitForm({
                   ))}
                 </div>
                 {item.instructions && (
-                  <p className="mt-2 text-[13px] text-label2">{item.instructions}</p>
+                  <p className="mt-2 text-[13px] text-ink2">{item.instructions}</p>
                 )}
               </li>
             ))}
@@ -367,7 +367,7 @@ export default function VisitForm({
             className={fieldCls}
           />
           {suggestions.length > 0 && (
-            <div className="ios-list absolute inset-x-0 top-full z-10 mt-1.5 overflow-hidden rounded-2xl bg-card shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+            <div className="rows absolute inset-x-0 top-full z-10 mt-1.5 overflow-hidden rounded-2xl bg-surface shadow-[var(--lift-lg)]">
               {suggestions.map((d) => (
                 <button
                   key={d.name}
@@ -376,14 +376,14 @@ export default function VisitForm({
                   className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[15px] active:bg-black/5"
                 >
                   <span>{d.name}</span>
-                  <span className="text-[12px] text-label2">{d.defaultFrequency}</span>
+                  <span className="text-[12px] text-ink2">{d.defaultFrequency}</span>
                 </button>
               ))}
               {drugQuery.trim() && (
                 <button
                   type="button"
                   onClick={() => addDrug(drugQuery.trim())}
-                  className="w-full px-4 py-2.5 text-left text-[15px] font-medium text-accent active:bg-black/5"
+                  className="w-full px-4 py-2.5 text-left text-[15px] font-medium text-primary active:bg-black/5"
                 >
                   + Add “{drugQuery.trim()}”
                 </button>
@@ -401,7 +401,7 @@ export default function VisitForm({
       />
 
       <div>
-        <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-label2">
+        <h3 className="label mb-2 px-1">
           Follow-up
         </h3>
         <div className="flex flex-wrap gap-1.5">
@@ -429,7 +429,7 @@ export default function VisitForm({
                   )
                 }
                 className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors active:opacity-70 ${
-                  on ? "bg-ios-green text-white" : "bg-fillinput text-label"
+                  on ? "bg-good text-white" : "bg-sunk text-ink"
                 }`}
               >
                 <FlaskConical size={12} strokeWidth={2.2} />
@@ -441,12 +441,12 @@ export default function VisitForm({
       </div>
 
       {saveError && (
-        <div className="rounded-2xl bg-ios-red/10 p-4">
-          <p className="flex items-center gap-2 text-[15px] font-semibold text-ios-red">
+        <div className="rounded-2xl bg-alertsoft p-4">
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-alert">
             <AlertTriangle size={16} strokeWidth={2.4} />
             Couldn’t save
           </p>
-          <p className="mt-1 text-[13px] text-label2">
+          <p className="mt-1 text-[13px] text-ink2">
             Nothing is lost — everything above is kept on this device. Check the connection and try
             again.
           </p>
@@ -457,7 +457,7 @@ export default function VisitForm({
         type="button"
         onClick={submit}
         disabled={pending}
-        className="w-full rounded-2xl bg-accent py-3.5 text-[17px] font-semibold text-white active:opacity-80 disabled:opacity-50"
+        className="btn w-full bg-primary py-3.5 text-[16px] text-white disabled:opacity-50"
       >
         {pending ? "Saving…" : saveError ? "Try saving again" : "Save visit & prescription"}
       </button>

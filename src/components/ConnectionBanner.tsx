@@ -22,7 +22,7 @@ export default function ConnectionBanner() {
   if (!offline) return null;
 
   return (
-    <div className="sticky top-0 z-30 flex items-center justify-center gap-2 bg-ios-orange px-4 py-1.5 text-[13px] font-semibold text-white print:hidden">
+    <div className="sticky top-0 z-30 flex items-center justify-center gap-2 bg-warn px-4 py-1.5 text-[13px] font-semibold text-white print:hidden">
       <WifiOff size={14} strokeWidth={2.4} />
       No connection — your typing is saved on this device
     </div>

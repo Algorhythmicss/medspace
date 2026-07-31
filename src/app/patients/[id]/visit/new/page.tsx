@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { buildMemoryCard } from "@/lib/memory";
-import MemoryCardView from "@/components/MemoryCardView";
-import StickyNoteEditor from "@/components/StickyNoteEditor";
+import Briefing from "@/components/Briefing";
 import VisitForm from "@/components/VisitForm";
 
 export const dynamic = "force-dynamic";
@@ -36,24 +35,24 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="px-4 pt-3">
-      <header className="mb-3 flex items-center gap-1">
+      <header className="mb-4 flex items-center gap-1.5">
         <Link
           href={`/patients/${patient.id}`}
-          className="-ml-2 p-1.5 text-accent active:opacity-60"
+          aria-label="Back to chart"
+          className="-ml-2 rounded-full p-1.5 text-ink3 transition-colors active:bg-sunk"
         >
-          <ChevronLeft size={26} />
+          <ChevronLeft size={24} />
         </Link>
-        <div>
-          <h1 className="text-[22px] font-bold leading-tight tracking-tight">{patient.name}</h1>
-          <p className="text-[13px] text-label2">New visit</p>
+        <div className="min-w-0">
+          <h1 className="truncate font-display text-[24px] font-bold leading-tight tracking-[-0.02em]">
+            {patient.name}
+          </h1>
+          <p className="text-[12.5px] text-ink3">New visit</p>
         </div>
       </header>
 
-      <div className="mb-2">
-        <MemoryCardView card={card} />
-      </div>
       <div className="mb-5">
-        <StickyNoteEditor patientId={patient.id} note={patient.stickyNote} />
+        <Briefing card={card} patientId={patient.id} note={patient.stickyNote} />
       </div>
 
       <VisitForm patientId={patient.id} lastRxItems={lastRxItems} />

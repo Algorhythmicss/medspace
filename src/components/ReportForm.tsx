@@ -13,7 +13,7 @@ const KINDS = [
 ];
 
 const fieldCls =
-  "w-full rounded-xl bg-fillinput px-3.5 py-2.5 text-[17px] outline-none placeholder:text-label2";
+  "field";
 
 type MetricValue = { type: string; label: string; unit: string; value: string };
 type Draft = {
@@ -135,14 +135,14 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       <input type="hidden" name="patientId" value={patientId} />
 
       {restored && (
-        <div className="flex items-center gap-2 rounded-2xl bg-accent/10 px-4 py-3">
-          <p className="flex-1 text-[13px] text-accent">
+        <div className="flex items-center gap-2 rounded-2xl bg-primarysoft px-4 py-3">
+          <p className="flex-1 text-[13px] text-primary">
             Restored the report you were entering.
           </p>
           <button
             type="button"
             onClick={discardDraft}
-            className="shrink-0 text-[13px] font-semibold text-accent active:opacity-60"
+            className="shrink-0 text-[13px] font-semibold text-primary active:opacity-60"
           >
             Start fresh
           </button>
@@ -174,7 +174,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
                 type="button"
                 onClick={() => set("kind", k.value)}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium ${
-                  draft.kind === k.value ? "bg-accent text-white" : "bg-fillinput text-label"
+                  draft.kind === k.value ? "bg-primary text-white" : "bg-sunk text-ink"
                 }`}
               >
                 {k.label}
@@ -189,7 +189,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-fillinput py-3 text-[15px] font-medium text-label active:opacity-70"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-sunk py-3 text-[15px] font-medium text-ink active:opacity-70"
         >
           <Paperclip size={16} />
           {fileName ?? "Attach photo / PDF (optional)"}
@@ -203,14 +203,14 @@ export default function ReportForm({ patientId }: { patientId: string }) {
           onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
         />
         {restored && (
-          <p className="mt-1.5 px-1 text-[12px] text-label2">
+          <p className="mt-1.5 px-1 text-[12px] text-ink2">
             Browsers can’t restore a chosen file — re-attach it if you had one.
           </p>
         )}
       </div>
 
       <div>
-        <h3 className="mb-2 px-1 text-[13px] font-medium uppercase tracking-wide text-label2">
+        <h3 className="label mb-2 px-1">
           Key values — feed the trends
         </h3>
         {draft.values.length > 0 && (
@@ -218,7 +218,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
             {draft.values.map((v, i) => (
               <li
                 key={v.type}
-                className="flex items-center gap-2.5 rounded-xl bg-card p-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                className="flex items-center gap-2.5 card p-2.5"
               >
                 <span className="w-28 shrink-0 text-[15px]">{v.label}</span>
                 <input
@@ -233,9 +233,9 @@ export default function ReportForm({ patientId }: { patientId: string }) {
                   }
                   inputMode="decimal"
                   placeholder="value"
-                  className="min-w-0 flex-1 rounded-lg bg-fillinput px-3 py-2 text-[17px] outline-none"
+                  className="min-w-0 flex-1 rounded-lg bg-sunk px-3 py-2 text-[17px] outline-none"
                 />
-                <span className="w-14 shrink-0 text-[13px] text-label2">{v.unit}</span>
+                <span className="w-14 shrink-0 text-[13px] text-ink2">{v.unit}</span>
                 <button
                   type="button"
                   onClick={() =>
@@ -244,7 +244,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
                       draft.values.filter((_, idx) => idx !== i)
                     )
                   }
-                  className="shrink-0 rounded-full bg-fillinput p-1 text-label2"
+                  className="shrink-0 rounded-full bg-sunk p-1 text-ink2"
                 >
                   <X size={13} strokeWidth={2.5} />
                 </button>
@@ -258,7 +258,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
               key={m.type}
               type="button"
               onClick={() => addMetric(m)}
-              className="rounded-full bg-fillinput px-3 py-1.5 text-[13px] font-medium text-label active:opacity-70"
+              className="rounded-full bg-sunk px-3 py-1.5 text-[13px] font-medium text-ink active:opacity-70"
             >
               + {m.label}
             </button>
@@ -275,12 +275,12 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       />
 
       {saveError && (
-        <div className="rounded-2xl bg-ios-red/10 p-4">
-          <p className="flex items-center gap-2 text-[15px] font-semibold text-ios-red">
+        <div className="rounded-2xl bg-alertsoft p-4">
+          <p className="flex items-center gap-2 text-[15px] font-semibold text-alert">
             <AlertTriangle size={16} strokeWidth={2.4} />
             Couldn’t save
           </p>
-          <p className="mt-1 text-[13px] text-label2">
+          <p className="mt-1 text-[13px] text-ink2">
             Nothing is lost — the values above are kept on this device. Check the connection and try
             again.
           </p>
@@ -290,7 +290,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-2xl bg-accent py-3.5 text-[17px] font-semibold text-white active:opacity-80 disabled:opacity-50"
+        className="btn w-full bg-primary py-3.5 text-[16px] text-white disabled:opacity-50"
       >
         {pending ? "Saving…" : saveError ? "Try saving again" : "Save report"}
       </button>

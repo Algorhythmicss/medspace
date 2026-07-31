@@ -24,19 +24,19 @@ export default function TaskActions({
           href={waHref}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-ios-green py-2.5 text-center text-[15px] font-semibold text-white active:opacity-80"
+          className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-good py-2.5 text-center text-[15px] font-semibold text-white active:opacity-80"
         >
           <MessageCircle size={15} strokeWidth={2.2} /> WhatsApp
         </a>
       ) : (
-        <span className="flex-1 rounded-xl bg-fillinput py-2.5 text-center text-[13px] text-label2">
+        <span className="flex-1 rounded-xl bg-sunk py-2.5 text-center text-[13px] text-ink2">
           No phone on file
         </span>
       )}
       {phone && (
         <a
           href={`tel:${phone}`}
-          className="flex items-center gap-1.5 rounded-xl bg-fillinput px-3.5 py-2.5 text-[15px] font-medium active:opacity-70"
+          className="flex items-center gap-1.5 rounded-xl bg-sunk px-3.5 py-2.5 text-[15px] font-medium active:opacity-70"
         >
           <Phone size={15} /> Call
         </a>
@@ -48,7 +48,7 @@ export default function TaskActions({
             for (const id of taskIds) await completeTask(id);
           })
         }
-        className="flex items-center gap-1.5 rounded-xl bg-fillinput px-3.5 py-2.5 text-[15px] font-medium active:opacity-70 disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-xl bg-sunk px-3.5 py-2.5 text-[15px] font-medium active:opacity-70 disabled:opacity-50"
       >
         <Check size={15} /> Done
       </button>

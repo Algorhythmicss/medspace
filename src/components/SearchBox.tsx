@@ -70,7 +70,7 @@ export default function SearchBox() {
       <div className="relative">
         <Search
           size={18}
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-label2"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink2"
         />
         <input
           ref={inputRef}
@@ -83,17 +83,17 @@ export default function SearchBox() {
           }}
           placeholder="Name, phone, or file no."
           inputMode="search"
-          className="w-full rounded-xl bg-fillinput py-2.5 pl-10 pr-4 text-[17px] outline-none placeholder:text-label2"
+          className="w-full rounded-xl bg-sunk py-2.5 pl-10 pr-4 text-[17px] outline-none placeholder:text-ink2"
         />
         {loading && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-label2">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-ink2">
             …
           </span>
         )}
       </div>
 
       {results.length > 0 && (
-        <div className="ios-list mt-2 overflow-hidden rounded-2xl bg-card shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+        <div className="rows mt-2 overflow-hidden rounded-2xl bg-surface shadow-[var(--lift-lg)]">
           {results.map((p) => (
             <Link
               key={p.id}
@@ -104,9 +104,9 @@ export default function SearchBox() {
               <div className="min-w-0">
                 <div className="truncate text-[17px] leading-snug">
                   {p.name}
-                  <span className="ml-2 text-[13px] text-label2">#{p.fileNumber}</span>
+                  <span className="ml-2 text-[13px] text-ink2">#{p.fileNumber}</span>
                 </div>
-                <div className="truncate text-[13px] text-label2">
+                <div className="truncate text-[13px] text-ink2">
                   {[
                     [p.ageYears, p.sex].filter(Boolean).join(" "),
                     p.conditions.join(", "),
@@ -115,7 +115,7 @@ export default function SearchBox() {
                     .join(" · ")}
                 </div>
               </div>
-              <div className="shrink-0 text-right text-[13px] text-label2">
+              <div className="shrink-0 text-right text-[13px] text-ink2">
                 {p.lastVisit ? <>last {relDay(p.lastVisit)}</> : "new"}
               </div>
             </Link>
@@ -124,9 +124,9 @@ export default function SearchBox() {
       )}
 
       {q.trim() && !loading && results.length === 0 && (
-        <p className="mt-3 text-center text-[15px] text-label2">
+        <p className="mt-3 text-center text-[15px] text-ink2">
           No match.{" "}
-          <Link href="/patients/new" className="font-medium text-accent">
+          <Link href="/patients/new" className="font-medium text-primary">
             Add new patient
           </Link>
         </p>

@@ -23,7 +23,7 @@ export default function RxActions({
       <div className="grid grid-cols-2 gap-2.5">
         <button
           onClick={() => window.print()}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-card py-3 text-[17px] font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:opacity-70"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-surface py-3 text-[17px] font-semibold shadow-[var(--lift)] active:opacity-70"
         >
           <Printer size={18} /> Print
         </button>
@@ -32,19 +32,19 @@ export default function RxActions({
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-2xl bg-ios-green py-3 text-center text-[17px] font-semibold text-white active:opacity-80"
+            className="rounded-2xl bg-good py-3 text-center text-[17px] font-semibold text-white active:opacity-80"
           >
             WhatsApp
           </a>
         ) : (
-          <span className="rounded-2xl bg-fillinput py-3 text-center text-[15px] text-label2">
+          <span className="rounded-2xl bg-sunk py-3 text-center text-[15px] text-ink2">
             No phone on file
           </span>
         )}
       </div>
       <Link
         href={`/patients/${patientId}`}
-        className="block w-full rounded-2xl bg-accent py-3 text-center text-[17px] font-semibold text-white active:opacity-80"
+        className="block w-full rounded-2xl bg-primary py-3 text-center text-[17px] font-semibold text-white active:opacity-80"
       >
         Done
       </Link>

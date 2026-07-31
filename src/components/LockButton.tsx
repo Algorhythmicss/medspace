@@ -8,7 +8,7 @@ export default function LockButton() {
       <button
         type="submit"
         aria-label="Lock medSpace"
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-card text-label2 shadow-[0_1px_2px_rgba(0,0,0,0.04)] active:opacity-60"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink2 shadow-[var(--lift)] active:opacity-60"
       >
         <Lock size={16} strokeWidth={2} />
       </button>

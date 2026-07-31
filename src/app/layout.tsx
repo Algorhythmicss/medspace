@@ -40,7 +40,7 @@ export default function RootLayout({
         <Sidebar />
         {/* phone: single column · laptop: offset past the sidebar */}
         <div className="lg:pl-[248px]">
-          <main className="mx-auto w-full max-w-md px-4 pb-28 lg:max-w-[1080px] lg:px-10 lg:pb-16 lg:pt-2 print:max-w-none print:px-0">
+          <main className="mx-auto w-full max-w-md px-4 pb-28 md:max-w-[700px] md:px-6 lg:max-w-[1080px] lg:px-10 lg:pb-16 lg:pt-2 print:max-w-none print:px-0">
             {children}
           </main>
         </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { notFound } from "next/navigation";
 import {
   Pill,
@@ -52,6 +53,30 @@ export default async function PatientView({
     db.clinic.findUnique({ where: { id: "clinic" } }),
   ]);
   if (!patient) notFound();
+
+  // Record the open. This is the pilot's core metric: the research is blunt
+  // that engagement, not messaging, is the binding constraint — the doctor
+  // needs to see who actually looked, not just who was sent something.
+  //
+  // `after()` runs once the response is flushed, so the patient never waits on
+  // a tracking write, but unlike a bare floating promise it is actually
+  // guaranteed to run.
+  const firstOpen = patient.planFirstOpenedAt;
+  after(async () => {
+    try {
+      await db.patient.update({
+        where: { id: patient.id },
+        data: {
+          planFirstOpenedAt: firstOpen ?? new Date(),
+          planLastOpenedAt: new Date(),
+          planOpenCount: { increment: 1 },
+        },
+      });
+    } catch (err) {
+      // never swallow silently — a metric that fails quietly is worse than none
+      console.error("failed to record plan open", err);
+    }
+  });
 
   const firstName = patient.name.split(" ")[0];
   const lastVisit = patient.visits[0];

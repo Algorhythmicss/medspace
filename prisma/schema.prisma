@@ -35,6 +35,14 @@ model Patient {
   abhaId     String?
   stickyNote String? // durable context: language, caregiver, temperament
 
+  // Whether the patient has actually opened the plan link the doctor sent.
+  // Engagement — not messaging — is the binding constraint in the field
+  // (SPRINT India: 17% acknowledged receipt; 99DOTS: 33% ever used it), so a
+  // pilot has to measure opens or it learns nothing.
+  planFirstOpenedAt DateTime?
+  planLastOpenedAt  DateTime?
+  planOpenCount     Int       @default(0)
+
   conditions   Condition[]
   allergies    Allergy[]
   visits       Visit[]

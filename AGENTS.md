@@ -81,6 +81,11 @@ One deployment, two audiences, three ways in:
 
 `/welcome/patient` explains that the clinic sends a private link (no install, no password — the honest reason there is no patient login yet), accepts a pasted link or bare token via `OpenMyPlan.tsx`, and offers WhatsApp/Call to ask for it again. `Shell.tsx` gives `/welcome*` and `/login` a bare centred column — no clinic chrome.
 
+## Pilot distribution & adoption
+Every chart carries a **plan link card** (`SendPlanLink.tsx`) in the desktop rail: "Send on WhatsApp" opens the **doctor's own** WhatsApp via `wa.me` with the message pre-filled, plus a copy button for SMS or reading it out. No Business API, no Meta verification, no DLT registration, no per-message cost — that is deliberately what makes a 100-patient pilot possible without waiting on paperwork.
+
+**Opens are recorded** on `Patient.planFirstOpenedAt / planLastOpenedAt / planOpenCount`, written from the patient page inside Next's `after()` so the patient never waits on a tracking write *and* the write is actually guaranteed to run (a bare floating promise silently never fired). The card shows "Opened" / "Not opened yet". This is the pilot's core metric: the field evidence is that engagement, not messaging, is the binding constraint — SPRINT India saw 17% acknowledge receipt, 99DOTS 33% ever use it. A pilot that can't see opens learns nothing.
+
 ## Patient side (`/p/<token>`)
 A second app in the same deployment. Reached from a WhatsApp link the doctor sends — the field research was clear that patients will not install a per-clinic app, while 94% of WhatsApp users open it daily. Phone + OTP is a deliberate *later* addition, not a replacement.
 

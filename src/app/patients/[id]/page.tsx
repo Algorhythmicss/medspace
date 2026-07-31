@@ -9,7 +9,11 @@ import {
   Paperclip,
   Plus,
 } from "lucide-react";
+import { headers } from "next/headers";
 import { ArtSpot } from "@/components/Art";
+import SendPlanLink from "@/components/SendPlanLink";
+import { createPatientToken } from "@/lib/patientLink";
+import { waLink } from "@/lib/phone";
 import { db } from "@/lib/db";
 import { buildMemoryCard } from "@/lib/memory";
 import Briefing from "@/components/Briefing";
@@ -29,7 +33,7 @@ export default async function PatientChart({
   const { id } = await params;
   const { all } = await searchParams;
 
-  const [patient, card] = await Promise.all([
+  const [patient, card, clinic] = await Promise.all([
     db.patient.findUnique({
       where: { id },
       include: {
@@ -50,8 +54,18 @@ export default async function PatientChart({
       },
     }),
     buildMemoryCard(id),
+    db.clinic.findUnique({ where: { id: "clinic" } }),
   ]);
   if (!patient || !card) notFound();
+
+  // The patient's own plan link, ready to send from this chart.
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host") ?? "localhost:3000"}`;
+  const planUrl = `${origin}/p/${await createPatientToken(patient.id)}`;
+  const planMessage = [
+    `Namaste ${patient.name} ji, this is ${clinic?.clinicName ?? "the clinic"}.`,
+    `Your medicines, tests and next visit are here: ${planUrl}`,
+  ].join("\n");
 
   const showAll = all === "1";
   const visits = showAll ? patient.visits : patient.visits.slice(0, VISIBLE_VISITS);
@@ -94,6 +108,12 @@ export default async function PatientChart({
       >
         Start a visit
       </Link>
+
+      <SendPlanLink
+        waHref={waLink(patient.phone, planMessage)}
+        planUrl={planUrl}
+        opened={patient.planOpenCount > 0}
+      />
 
       {/* ── open items: what is owed, in one place ───────────── */}
       {(patient.tasks.length > 0 || patient.reports.length > 0) && (

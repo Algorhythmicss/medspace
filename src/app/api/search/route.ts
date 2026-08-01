@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { hasClinicSession } from "@/lib/session";
 
 // Instant patient lookup: name fragment, phone fragment, or file number.
 // Budget: whole round trip well under a second on clinic hardware.
 export async function GET(req: NextRequest) {
+  // Self-authorize — this returns full patient PII plus active conditions, so it
+  // must not rely on the edge gate alone. 404 (not 401) so it doesn't even admit
+  // the route exists to an unauthenticated caller. Doctor-only: staff never see
+  // clinical data, and the queue uses its own guarded search action.
+  if (!(await hasClinicSession())) {
+    return NextResponse.json({ patients: [] }, { status: 404 });
+  }
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (!q) return NextResponse.json({ patients: [] });
 

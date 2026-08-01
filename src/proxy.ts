@@ -23,8 +23,11 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const isDoctor = await isValidSession(req.cookies.get(sessionCookieName)?.value);
-  const isStaff = await isValidSession(req.cookies.get("medspace_staff")?.value);
+  // Role is carried in the SIGNED session value, not just the cookie name — the
+  // two cookies share a secret, so without the role check a staff value dropped
+  // into the doctor cookie would pass. Validate each against its own role.
+  const isDoctor = await isValidSession(req.cookies.get(sessionCookieName)?.value, "doctor");
+  const isStaff = await isValidSession(req.cookies.get("medspace_staff")?.value, "staff");
 
   // The front-desk queue is the one gated screen staff may reach. Everything
   // else clinical is doctor-only; a staff session on any of those is bounced to

@@ -31,13 +31,24 @@ async function sign(payload: string): Promise<string> {
 export const sessionCookieName = COOKIE;
 export const sessionMaxAge = MAX_AGE_SECONDS;
 
-export async function createSessionValue(): Promise<string> {
+// A session is either the doctor's (full clinical access) or the front desk's
+// (queue only). The role is baked into the SIGNED payload, not just the cookie
+// name: both cookies are HMAC'd with the same secret, so a value minted for one
+// is byte-for-byte a valid value for the other. Without the role, a receptionist
+// could copy their medspace_staff cookie into medspace_session and walk straight
+// into the patient records — the exact boundary the two roles exist to keep.
+export type SessionKind = "doctor" | "staff";
+
+export async function createSessionValue(kind: SessionKind = "doctor"): Promise<string> {
   const expires = Date.now() + MAX_AGE_SECONDS * 1000;
-  const payload = String(expires);
+  const payload = `${expires}:${kind}`;
   return `${payload}.${await sign(payload)}`;
 }
 
-export async function isValidSession(value: string | undefined): Promise<boolean> {
+export async function isValidSession(
+  value: string | undefined,
+  kind: SessionKind = "doctor"
+): Promise<boolean> {
   if (!value) return false;
   const dot = value.lastIndexOf(".");
   if (dot < 1) return false;
@@ -51,7 +62,13 @@ export async function isValidSession(value: string | undefined): Promise<boolean
   for (let i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
   if (diff !== 0) return false;
 
-  const expires = Number(payload);
+  // payload is "<expires>:<kind>". The role must match the door being checked;
+  // a legacy value without a role no longer validates (its holder simply signs
+  // in again — a session only lasts a clinic day anyway).
+  const sep = payload.lastIndexOf(":");
+  if (sep < 1) return false;
+  if (payload.slice(sep + 1) !== kind) return false;
+  const expires = Number(payload.slice(0, sep));
   return Number.isFinite(expires) && Date.now() < expires;
 }
 

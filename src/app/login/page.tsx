@@ -42,8 +42,20 @@ export default async function Login({
         : "/";
     const keepNext = next ? `&next=${encodeURIComponent(next)}` : "";
 
+    // The throttle key must be an IP the CALLER cannot choose. x-forwarded-for is
+    // client-prependable — its leftmost entry is whatever the caller sent — so
+    // keying on it lets an attacker send a different XFF each request and get a
+    // fresh bucket every time: the throttle becomes a no-op and the 6-digit code
+    // is brute-forceable. Vercel sets x-real-ip / x-vercel-forwarded-for to the
+    // true connecting IP and overwrites any client-supplied value, so trust those
+    // first; the XFF fallback only runs locally/self-hosted where there is no
+    // attacker between the client and this code.
     const h = await headers();
-    const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+    const ip =
+      h.get("x-real-ip")?.trim() ||
+      h.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ||
+      h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "local";
     const key = await hashLoginKey(ip);
     const since = new Date(Date.now() - WINDOW_MS);
 
@@ -92,7 +104,7 @@ export default async function Login({
     }
 
     const jar = await cookies();
-    jar.set(sessionCookieName, await createSessionValue(), {
+    jar.set(sessionCookieName, await createSessionValue("doctor"), {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",

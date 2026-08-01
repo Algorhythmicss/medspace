@@ -23,7 +23,7 @@ import {
 
 export async function hasClinicSession(): Promise<boolean> {
   const jar = await cookies();
-  return isValidSession(jar.get(sessionCookieName)?.value);
+  return isValidSession(jar.get(sessionCookieName)?.value, "doctor");
 }
 
 /** Throws a redirect to /login if there is no valid clinic session. */
@@ -32,14 +32,17 @@ export async function assertClinicSession(): Promise<void> {
 }
 
 // ── Front-desk (staff) session ──────────────────────────────────────────────
-// A separate cookie so a staff login can never satisfy a doctor check. Same
-// HMAC + secret and a 12h life; the ONLY thing it grants is the /queue screen.
+// A separate cookie whose value is ROLE-BOUND: it is signed with kind "staff",
+// so it can never satisfy a doctor check even though it shares the HMAC secret.
+// (Cookie-name separation alone would not — the values would be interchangeable,
+// letting a receptionist rename their cookie into the clinical records.) 12h
+// life; the ONLY thing it grants is the /queue screen.
 
 const STAFF_COOKIE = "medspace_staff";
 
 export async function setStaffSession(): Promise<void> {
   const jar = await cookies();
-  jar.set(STAFF_COOKIE, await createSessionValue(), {
+  jar.set(STAFF_COOKIE, await createSessionValue("staff"), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -50,7 +53,7 @@ export async function setStaffSession(): Promise<void> {
 
 export async function hasStaffSession(): Promise<boolean> {
   const jar = await cookies();
-  return isValidSession(jar.get(STAFF_COOKIE)?.value);
+  return isValidSession(jar.get(STAFF_COOKIE)?.value, "staff");
 }
 
 export async function clearStaffSession(): Promise<void> {

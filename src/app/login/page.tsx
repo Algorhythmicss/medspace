@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { ArtBand } from "@/components/Art";
+import PasscodeInput from "@/components/PasscodeInput";
 import { db } from "@/lib/db";
 import {
   createSessionValue,
@@ -29,7 +30,8 @@ export default async function Login({
   searchParams: Promise<{ next?: string; e?: string; desk?: string }>;
 }) {
   const { next, e, desk } = await searchParams;
-  // Cosmetic only — the passcode itself decides doctor vs front-desk routing.
+  // Which door you came through. Each door accepts ONLY its own passcode, so a
+  // code opens the role its screen is for — never the other one.
   const isDesk = desk === "1";
 
   async function signIn(formData: FormData) {
@@ -42,6 +44,8 @@ export default async function Login({
         ? target
         : "/";
     const keepNext = next ? `&next=${encodeURIComponent(next)}` : "";
+    // Keep the reception framing (and its wording) across a wrong-passcode retry.
+    const keepDesk = isDesk ? "&desk=1" : "";
 
     // The throttle key must be an IP the CALLER cannot choose. x-forwarded-for is
     // client-prependable — its leftmost entry is whatever the caller sent — so
@@ -72,23 +76,26 @@ export default async function Login({
       console.error("login throttle check failed", err);
     }
 
-    // One passcode field, two doors: the doctor's, or the front desk's. Evaluate
-    // the code BEFORE the throttle gate — a correct passcode IS the credential,
-    // so it must never be blocked, and only a wrong guess counts against the
-    // limit. Both roles share this one IP bucket; gating on the guess (not on
-    // arrival) is what stops one role's typos from locking the other out.
-    const isDoctor = passcodeMatches(code);
-    const isStaff = !isDoctor && staffPasscodeMatches(code);
+    // Each door accepts only its own passcode: the reception door opens the
+    // queue, the doctor door opens the clinic. (The doctor can still reach the
+    // queue once inside — the proxy allows it — this only decides what the code
+    // you type here unlocks.) Evaluate the code BEFORE the throttle gate — a
+    // correct passcode IS the credential, so it must never be blocked, and only
+    // a wrong guess counts against the limit. Both doors share this one IP
+    // bucket; gating on the guess (not on arrival) stops one door's typos from
+    // locking the other out.
+    const isDoctor = !isDesk && passcodeMatches(code);
+    const isStaff = isDesk && staffPasscodeMatches(code);
     if (!isDoctor && !isStaff) {
       if (failures >= MAX_FAILURES) {
-        redirect(`/login?e=slow${keepNext}`);
+        redirect(`/login?e=slow${keepNext}${keepDesk}`);
       }
       try {
         await db.loginAttempt.create({ data: { key } });
       } catch (err) {
         console.error("login attempt record failed", err);
       }
-      redirect(`/login?e=1${keepNext}`);
+      redirect(`/login?e=1${keepNext}${keepDesk}`);
     }
 
     // Clean slate on success so a legitimate user never inherits a lockout.
@@ -133,15 +140,7 @@ export default async function Login({
 
       <form action={signIn} className="space-y-2.5">
         <input type="hidden" name="next" value={next ?? ""} />
-        <input
-          name="passcode"
-          type="password"
-          inputMode="numeric"
-          autoFocus
-          autoComplete="current-password"
-          placeholder="Passcode"
-          className="w-full rounded-xl bg-sunk px-4 py-3.5 text-center text-[22px] tracking-[0.3em] outline-none placeholder:text-[17px] placeholder:tracking-normal placeholder:text-ink2"
-        />
+        <PasscodeInput />
         {e === "slow" ? (
           <p className="text-center text-[13px] font-medium text-coral">
             Too many attempts. Please wait a few minutes and try again.

@@ -267,6 +267,27 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
     });
   }
 
+  // -------- the patient's own answer to the follow-up --------
+  // Intent the patient stated on their plan. A decline is the actionable one —
+  // it belongs in the glance so the doctor calls to find out why, not chases
+  // with another link. "Coming" is shown too, quietly, so nobody double-chases.
+  if (patient.planReplyKind === "not_coming") {
+    lines.push({
+      kind: "gap",
+      tone: "warn",
+      text: "Patient replied: can’t make the next visit — worth a call",
+    });
+  } else if (patient.planReplyKind === "coming" || patient.planReplyKind === "booked") {
+    lines.push({
+      kind: "note",
+      tone: "ok",
+      text:
+        patient.planReplyKind === "booked"
+          ? "Patient replied: already booked the next visit"
+          : "Patient replied: coming to the next visit",
+    });
+  }
+
   // -------- new information since the doctor last saw them --------
   const lastVisitDate = patient.visits[0]?.visitDate;
   const latestReport = patient.reports[0];

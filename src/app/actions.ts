@@ -406,7 +406,18 @@ export async function staffRegisterAndQueue(formData: FormData) {
   if (!name) return;
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const note = String(formData.get("note") ?? "").trim() || null;
-  const patient = await createPatientWithFileNumber({ name, phone });
+  // Capture the same identity fields the doctor's intake does, so a walk-in
+  // registered at the front desk isn't a half-empty record — age and sex are
+  // what every list shows under the name.
+  const ageRaw = String(formData.get("age") ?? "").trim();
+  const age = ageRaw ? parseInt(ageRaw, 10) : null;
+  const sex = String(formData.get("sex") ?? "").trim() || null;
+  const patient = await createPatientWithFileNumber({
+    name,
+    phone,
+    ageYears: age != null && Number.isFinite(age) ? age : null,
+    sex,
+  });
   await db.queueEntry.create({ data: { patientId: patient.id, note } });
   revalidatePath("/queue");
   revalidatePath("/");
@@ -454,7 +465,9 @@ export async function searchPatientsForQueue(q: string) {
 
 export async function staffSignOut() {
   await clearStaffSession();
-  redirect("/login");
+  // Back to the reception door (not the doctor's), so the wording and the
+  // passcode it expects stay right for whoever signs back in at the desk.
+  redirect("/login?desk=1");
 }
 
 export async function completeTask(taskId: string) {

@@ -39,6 +39,10 @@ export default async function QueueScreen() {
         <div>
           <p className="t-cap text-ink3">{clinic?.clinicName ?? "Front desk"}</p>
           <h1 className="t-hero">Today’s queue</h1>
+          <p className="t-cap mt-1 max-w-[340px] text-ink3">
+            Add each patient as they arrive — the doctor sees who’s waiting and
+            checks them off after the visit.
+          </p>
         </div>
         {staff && (
           <form action={staffSignOut}>

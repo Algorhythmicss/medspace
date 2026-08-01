@@ -115,7 +115,9 @@ export default function SendPlanLink({
       {reach.callFirst && !justSent && (
         <div className="mt-3 flex items-center gap-2 rounded-2xl bg-sunk px-3 py-2.5">
           <p className="t-cap min-w-0 flex-1 text-ink2">
-            Not opening links — try a call.
+            {reach.reply === "not_coming"
+              ? "Patient can’t come — call to find out why."
+              : "Not opening links — try a call."}
           </p>
           {telHref && (
             <a

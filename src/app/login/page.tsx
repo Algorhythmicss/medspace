@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { Lock } from "lucide-react";
 import { ArtBand } from "@/components/Art";
 import { db } from "@/lib/db";
@@ -160,9 +161,9 @@ export default async function Login({
 
       <p className="t-cap mt-5 text-center text-ink3">
         {isDesk ? "Not the receptionist?" : "Not the doctor?"}{" "}
-        <a href="/welcome" className="font-semibold text-peri">
+        <Link href="/welcome" className="font-semibold text-peri">
           Go back
-        </a>
+        </Link>
       </p>
 
       <p className="t-micro mt-4 text-center text-ink3">

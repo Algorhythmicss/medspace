@@ -94,6 +94,13 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Native-app feel: no grey flash on tap, no font auto-boost on rotate, and
+     scrolls don't chain out to the browser chrome (rubber-band the app, not
+     the page behind it). */
+  -webkit-tap-highlight-color: transparent;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -312,6 +319,44 @@ body {
 }
 .rise {
   animation: rise 0.44s var(--spring) both;
+}
+
+/* Page transition. `app/template.tsx` re-mounts on every navigation, so the
+   incoming screen springs up-and-in instead of hard-cutting. The nav chrome
+   lives in the layout (outside the template), so only the content moves — the
+   frame stays put, the way a native tab switch feels. Short and gentle so it
+   reads as responsive, never as a thing you wait through. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 9px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.page-enter {
+  animation: page-in 0.32s var(--spring) both;
+}
+
+/* Skeletons. A `loading.tsx` paints these the instant you tap, so a screen
+   never freezes on the old page while its data loads — the shell is there at
+   once and the content fills in. Soft pulse rather than a sweep: quieter, and
+   it reads as "arriving" not "broken". */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+.skeleton {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 12px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
 
 /* Sidebar nav item (desktop) */

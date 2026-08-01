@@ -9,9 +9,11 @@ import {
   assertClinicSession,
   setPatientSession,
   clearPatientSession,
+  readPatientSession,
 } from "@/lib/session";
 import { supabaseForAuth } from "@/lib/supabase";
 import { bindIdentity, hasActiveAccess } from "@/lib/patientAccess";
+import { HOME_METRICS } from "@/lib/metrics";
 import {
   readPatientLink,
   createBindToken,
@@ -275,6 +277,71 @@ export async function recordPlanShare(patientId: string) {
     // Sharing must never fail in the doctor's face — the link still works.
     console.error("failed to record plan share", err);
   }
+}
+
+// Patient-side: the follow-up reply tapped on their own plan. Authenticated by
+// the plan token (on /p/<token>) or the patient session (on /plan) — NEVER the
+// clinic passcode. Deriving the patient from the token/session server-side is
+// what stops one patient answering for another.
+const REPLY_KINDS = new Set(["coming", "booked", "not_coming"]);
+export async function recordPlanReply(kind: string, planToken?: string) {
+  if (!REPLY_KINDS.has(kind)) return;
+  let patientId: string | null = null;
+  if (planToken) {
+    patientId = (await readPatientLink(planToken))?.p ?? null;
+  } else {
+    patientId = (await readPatientSession())?.p ?? null;
+  }
+  if (!patientId) return;
+  try {
+    await db.patient.update({
+      where: { id: patientId },
+      data: { planReplyKind: kind, planReplyAt: new Date() },
+    });
+  } catch (err) {
+    console.error("failed to record plan reply", err);
+  }
+}
+
+// Patient-side: log a home reading. Writes Observation rows with
+// source:"patient" so they show in the doctor's tagged "home readings" strip
+// but never fuse into the clinical trend (memory.ts enforces that). Patient-
+// authed by plan token or session, like recordPlanReply — never clinic-gated.
+export async function recordHomeReading(
+  key: string,
+  values: Record<string, number>,
+  planToken?: string
+): Promise<{ ok: true } | { error: string }> {
+  const metric = HOME_METRICS.find((m) => m.key === key);
+  if (!metric) return { error: "bad_metric" };
+
+  let patientId: string | null = null;
+  if (planToken) patientId = (await readPatientLink(planToken))?.p ?? null;
+  else patientId = (await readPatientSession())?.p ?? null;
+  if (!patientId) return { error: "expired" };
+
+  const rows = metric.fields.map((f) => ({ type: f.type, value: Number(values[f.type]) }));
+  // every field required (both BP numbers), sane range, no garbage
+  if (rows.some((r) => !Number.isFinite(r.value) || r.value <= 0 || r.value > 1000)) {
+    return { error: "invalid" };
+  }
+
+  try {
+    await db.observation.createMany({
+      data: rows.map((r) => ({
+        patientId,
+        type: r.type,
+        value: r.value,
+        unit: metric.unit,
+        measuredAt: new Date(),
+        source: "patient",
+      })),
+    });
+  } catch (err) {
+    console.error("failed to record home reading", err);
+    return { error: "failed" };
+  }
+  return { ok: true };
 }
 
 export async function completeTask(taskId: string) {

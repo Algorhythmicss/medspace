@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FlaskConical, RefreshCw } from "lucide-react";
+import { FlaskConical, RefreshCw, UserX } from "lucide-react";
 import { ArtSpot } from "@/components/Art";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
@@ -7,35 +7,37 @@ import { createPatientToken } from "@/lib/patientLink";
 import { relDay, shortDate } from "@/lib/format";
 import { waLink, telLink } from "@/lib/phone";
 import { planReach } from "@/lib/reach";
+import { findChronicDrifters, DRIFT_MONTHS } from "@/lib/recall";
 import TaskActions from "@/components/TaskActions";
+import RecallActions from "@/components/RecallActions";
 
 export const dynamic = "force-dynamic";
 
 export default async function FollowUps() {
   const now = new Date();
-  const [clinic, tasks] = await Promise.all([
+  const [clinic, tasks, drifters] = await Promise.all([
     db.clinic.findUnique({ where: { id: "clinic" } }),
     db.carePlanTask.findMany({
       where: { status: "pending", dueDate: { not: null } },
       orderBy: { dueDate: "asc" },
       include: { patient: true },
     }),
+    findChronicDrifters(now),
   ]);
 
   // Absolute origin so the link works when it lands in WhatsApp.
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host") ?? "localhost:3000"}`;
 
-  // One signed link per overdue patient, generated alongside the message.
+  // One signed link per patient, generated alongside the message.
   const linkFor = new Map<string, string>();
-  for (const t of tasks) {
-    if (!linkFor.has(t.patientId)) {
-      linkFor.set(
-        t.patientId,
-        `${origin}/p/${await createPatientToken(t.patientId, undefined, t.patient.linkVersion)}`
-      );
+  const addLink = async (patientId: string, linkVersion: number) => {
+    if (!linkFor.has(patientId)) {
+      linkFor.set(patientId, `${origin}/p/${await createPatientToken(patientId, undefined, linkVersion)}`);
     }
-  }
+  };
+  for (const t of tasks) await addLink(t.patientId, t.patient.linkVersion);
+  for (const d of drifters) await addLink(d.id, d.linkVersion);
 
   const overdue = tasks.filter((t) => t.dueDate! < now);
   const upcoming = tasks.filter((t) => t.dueDate! >= now);
@@ -56,7 +58,7 @@ export default async function FollowUps() {
         </h1>
       </header>
 
-      {byPatient.size === 0 && upcoming.length === 0 && (
+      {byPatient.size === 0 && upcoming.length === 0 && drifters.length === 0 && (
         <div className="py-10 text-center">
           <ArtSpot name="discharge" className="mb-5" />
           <p className="t-head">Everyone is up to date</p>
@@ -134,6 +136,53 @@ export default async function FollowUps() {
                     patientId={patient.id}
                     reach={reach}
                   />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {drifters.length > 0 && (
+        <section className="mb-6">
+          <div className="mb-2 px-1">
+            <h2 className="label">
+              Haven’t been back · {drifters.length}
+            </h2>
+            <p className="t-micro mt-0.5 text-ink3">
+              Chronic patients with nothing scheduled and no visit in {DRIFT_MONTHS}+ months.
+            </p>
+          </div>
+          <ul className="space-y-3">
+            {drifters.map((d) => {
+              const recallText = [
+                `Namaste ${d.name} ji, this is ${clinic?.clinicName ?? "the clinic"}${clinic?.doctorName ? ` (${clinic.doctorName})` : ""}.`,
+                d.conditions.length > 0
+                  ? `It's been a while since your last visit for ${d.conditions.slice(0, 2).join(" and ")}. A check-up is due — please come by when you can.`
+                  : `It's been a while since your last visit. A check-up is due — please come by when you can.`,
+                `Your medicines and details are here: ${linkFor.get(d.id)}`,
+                `Reply here or call to book a time. 🙏`,
+              ].join("\n");
+              const waHref = waLink(d.phone, recallText);
+
+              return (
+                <li key={d.id} className="card p-4">
+                  <Link
+                    href={`/patients/${d.id}`}
+                    className="flex items-baseline justify-between active:opacity-60"
+                  >
+                    <span className="t-head">{d.name}</span>
+                    <span className="t-cap font-semibold text-butter">
+                      {d.lastVisit ? `last seen ${relDay(d.lastVisit, now)}` : "never visited"}
+                    </span>
+                  </Link>
+                  {d.conditions.length > 0 && (
+                    <p className="t-cap mt-1 flex items-center gap-2 text-ink2">
+                      <UserX size={12} className="shrink-0" />
+                      {d.conditions.join(" · ")}
+                    </p>
+                  )}
+                  <RecallActions waHref={waHref} telHref={telLink(d.phone)} patientId={d.id} />
                 </li>
               );
             })}

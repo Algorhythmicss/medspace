@@ -25,11 +25,21 @@ export type MemoryMetric = {
   paired?: string; // e.g. diastolic, rendered as "148/94"
 };
 
+// A reading the patient logged from home. Kept OUT of the clinical trend/
+// sparkline (those stay clinic/lab-measured) and shown as its own tagged strip,
+// so a home cuff reading is never mistaken for a clinic-measured one.
+export type HomeReading = {
+  label: string; // "BP", "Sugar (fasting)", "Weight"
+  value: string; // "150/95", "140 mg/dL", "81 kg"
+  measuredAt: Date;
+};
+
 export type MemoryCard = {
   headline: string; // "58 M · DM 8y · HTN 6y"
   allergies: string[];
   lines: MemoryLine[];
   metrics: MemoryMetric[];
+  homeReadings: HomeReading[];
   activeMeds: { drugName: string; frequency: string }[];
 };
 
@@ -121,10 +131,47 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   const lines: MemoryLine[] = [];
 
   // -------- trends: latest vs previous per metric, worst first --------
+  // Clinical trends and sparklines use CLINIC/LAB measurements only. Patient-
+  // logged home readings are surfaced separately (below) and never fused into
+  // the arrow that drives a clinical decision — a safety rule, not cosmetics.
   const byType = new Map<string, { value: number; unit: string | null; measuredAt: Date }[]>();
   for (const o of patient.observations) {
+    if (o.source === "patient") continue;
     if (!byType.has(o.type)) byType.set(o.type, []);
     byType.get(o.type)!.push({ value: o.value, unit: o.unit, measuredAt: o.measuredAt });
+  }
+
+  // -------- home readings (patient-logged, tagged, kept off the trend) --------
+  const patientObs = patient.observations.filter((o) => o.source === "patient");
+  const latestHome = (type: string) =>
+    patientObs.find((o) => o.type === type); // observations come newest-first
+  const homeReadings: HomeReading[] = [];
+  const homeBpSys = latestHome("BP_SYS");
+  if (homeBpSys) {
+    const dia = patientObs.find(
+      (o) => o.type === "BP_DIA" && Math.abs(o.measuredAt.getTime() - homeBpSys.measuredAt.getTime()) < 3600000
+    );
+    homeReadings.push({
+      label: "BP",
+      value: `${homeBpSys.value.toFixed(0)}/${dia?.value.toFixed(0) ?? "?"}`,
+      measuredAt: homeBpSys.measuredAt,
+    });
+  }
+  const homeSugar = latestHome("FBS");
+  if (homeSugar) {
+    homeReadings.push({
+      label: "Sugar (F)",
+      value: `${homeSugar.value.toFixed(0)} mg/dL`,
+      measuredAt: homeSugar.measuredAt,
+    });
+  }
+  const homeWeight = latestHome("WEIGHT");
+  if (homeWeight) {
+    homeReadings.push({
+      label: "Weight",
+      value: `${homeWeight.value.toFixed(1)} kg`,
+      measuredAt: homeWeight.measuredAt,
+    });
   }
 
   const trendCandidates: { severity: number; line: MemoryLine }[] = [];
@@ -258,6 +305,7 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       .map(({ line }) => line)
       .slice(0, 5),
     metrics: metrics.slice(0, 4),
+    homeReadings,
     activeMeds:
       lastVisit?.prescription?.items.map((i) => ({ drugName: i.drugName, frequency: i.frequency })) ?? [],
   };

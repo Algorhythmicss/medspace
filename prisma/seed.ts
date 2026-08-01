@@ -547,6 +547,37 @@ async function main() {
     });
   }
 
+  // ---------- New-capability demo data ----------
+  // A chronic drifter: active problem, nothing scheduled, no visit in months —
+  // exactly who /followups' "Haven't been back" section is built to surface.
+  await db.patient.create({
+    data: {
+      fileNumber: 109,
+      name: "Geeta Rao",
+      phone: "9876543109",
+      sex: "F",
+      ageYears: 61,
+      conditions: { create: [{ name: "Hypertension", status: "active", since: subDays(now, 1400) }] },
+      visits: { create: [{ visitDate: subDays(now, 168), complaint: "BP review", diagnosis: "Essential hypertension" }] },
+    },
+  });
+
+  // Follow-up replies: one coming, one declining (the decline is the call).
+  await db.patient.update({ where: { fileNumber: 103 }, data: { planReplyKind: "coming", planReplyAt: subDays(now, 1) } });
+  await db.patient.update({ where: { fileNumber: 108 }, data: { planReplyKind: "not_coming", planReplyAt: subDays(now, 1) } });
+
+  // Patient-logged home readings for Ramesh — show tagged, off the clinical trend.
+  const rameshHome = await db.patient.findFirst({ where: { fileNumber: 101 } });
+  if (rameshHome) {
+    await db.observation.createMany({
+      data: [
+        { patientId: rameshHome.id, type: "BP_SYS", value: 152, unit: "mmHg", measuredAt: subDays(now, 2), source: "patient" },
+        { patientId: rameshHome.id, type: "BP_DIA", value: 96, unit: "mmHg", measuredAt: subDays(now, 2), source: "patient" },
+        { patientId: rameshHome.id, type: "FBS", value: 148, unit: "mg/dL", measuredAt: subDays(now, 3), source: "patient" },
+      ],
+    });
+  }
+
   const counts = {
     patients: await db.patient.count(),
     visits: await db.visit.count(),

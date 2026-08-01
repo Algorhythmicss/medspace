@@ -13,6 +13,8 @@ import { waLink, telLink } from "@/lib/phone";
 import { ArtBand, ArtSpot } from "@/components/Art";
 import ContinueWithGoogle from "@/components/ContinueWithGoogle";
 import PatientSignOut from "@/components/PatientSignOut";
+import PlanReply from "@/components/PlanReply";
+import LogHomeReading from "@/components/LogHomeReading";
 
 // The patient's plan, rendered identically whether they arrived by tapping
 // their WhatsApp link (/p/<token>) or by signing in with Google (/plan). The
@@ -108,6 +110,7 @@ export default async function PlanView({
               </p>
             </div>
           </div>
+          <PlanReply planToken={planToken} initial={patient.planReplyKind} />
         </section>
       )}
 
@@ -179,6 +182,9 @@ export default async function PlanView({
           </div>
         </section>
       )}
+
+      {/* ── log a home reading ──────────────────────────────── */}
+      <LogHomeReading planToken={planToken} />
 
       {/* Nothing outstanding — the calm case deserves a picture too. */}
       {meds.length === 0 && tests.length === 0 && !followUp && (

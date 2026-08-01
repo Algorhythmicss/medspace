@@ -51,6 +51,13 @@ model Patient {
   planSharedAt   DateTime?
   planShareCount Int       @default(0)
 
+  // The patient's answer to a follow-up, tapped on their own plan link. Opens
+  // tell you the message was seen; this tells you their *intent* — so the
+  // doctor calls the silent quitter, not the person already coming. One of
+  // coming | booked | not_coming, never free text.
+  planReplyAt   DateTime?
+  planReplyKind String?
+
   // Bumping this invalidates every plan link already sent for this patient —
   // the one "cut this person off" primitive. The token carries the version it
   // was minted at (`v`); the patient page rejects any token whose `v` no longer

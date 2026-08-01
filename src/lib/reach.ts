@@ -18,12 +18,17 @@ export type ReachState =
   | "opened" // they have opened it at least once
   | "silent"; // sent enough, long enough ago, still nothing
 
+export type PlanReplyKind = "coming" | "booked" | "not_coming";
+
 export type PlanReach = {
   state: ReachState;
   label: string;
   tone: "ok" | "warn" | "muted";
   /** WhatsApp is not reaching this patient — phone them instead. */
   callFirst: boolean;
+  /** The patient's explicit answer, if they tapped one. Overrides open-based
+   *  inference: a reply is intent, an open is only attention. */
+  reply?: PlanReplyKind;
 };
 
 /** Sent this many times with no open at all — stop sending, start calling. */
@@ -36,9 +41,30 @@ export type ReachInput = {
   planSharedAt: Date | null;
   planOpenCount: number;
   planLastOpenedAt: Date | null;
+  planReplyKind?: string | null;
 };
 
 export function planReach(p: ReachInput, now = new Date()): PlanReach {
+  // An explicit reply beats any open-based guess — it is stated intent.
+  if (p.planReplyKind === "coming" || p.planReplyKind === "booked") {
+    return {
+      state: "opened",
+      label: p.planReplyKind === "booked" ? "Replied: already booked" : "Replied: coming",
+      tone: "ok",
+      callFirst: false,
+      reply: p.planReplyKind,
+    };
+  }
+  if (p.planReplyKind === "not_coming") {
+    return {
+      state: "opened",
+      label: "Replied: not coming",
+      tone: "warn",
+      callFirst: true, // a decline is the one worth a call — find out why
+      reply: "not_coming",
+    };
+  }
+
   if (p.planOpenCount > 0) {
     return {
       state: "opened",

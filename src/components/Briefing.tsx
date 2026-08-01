@@ -1,5 +1,6 @@
-import { Ban } from "lucide-react";
+import { Ban, House } from "lucide-react";
 import type { MemoryCard, MemoryLine } from "@/lib/memory";
+import { relDay } from "@/lib/format";
 import Sparkline from "@/components/Sparkline";
 import StickyNoteEditor from "@/components/StickyNoteEditor";
 
@@ -106,6 +107,26 @@ export default function Briefing({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* patient-logged home readings — tagged, kept apart from the trend */}
+        {card.homeReadings.length > 0 && (
+          <div className="relative mt-3 rounded-2xl bg-white/10 px-3 py-2.5 backdrop-blur-sm">
+            <div className="t-micro mb-1 flex items-center gap-1.5 text-periink2">
+              <House size={11} strokeWidth={2.4} /> Logged at home
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {card.homeReadings.map((h) => (
+                <span key={h.label} className="t-num text-[15px] text-white">
+                  {h.label}{" "}
+                  <span className="tnum">{h.value}</span>
+                  <span className="ml-1 text-[10.5px] font-medium tracking-normal text-periink2">
+                    {relDay(h.measuredAt)}
+                  </span>
+                </span>
+              ))}
+            </div>
           </div>
         )}
 

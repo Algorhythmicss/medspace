@@ -68,6 +68,26 @@ expect(
   "a single stale send reads as time, not a count of one"
 );
 
+// reply — stated intent overrides every open-based guess
+expect(
+  reach({ planReplyKind: "coming" }).reply === "coming" && reach({ planReplyKind: "coming" }).tone === "ok",
+  "a 'coming' reply reads ok"
+);
+expect(
+  reach({ planReplyKind: "booked" }).label === "Replied: already booked",
+  "a 'booked' reply is labelled as booked"
+);
+expect(reach({ planReplyKind: "coming" }).callFirst === false, "a patient who says they're coming is not called");
+expect(
+  reach({ planReplyKind: "not_coming" }).callFirst === true && reach({ planReplyKind: "not_coming" }).tone === "warn",
+  "a 'not coming' reply is the one that pushes a call"
+);
+// a reply beats even a silent send record
+expect(
+  reach({ planShareCount: 4, planSharedAt: daysAgo(5), planReplyKind: "coming" }).state === "opened",
+  "an explicit reply overrides a silent send history"
+);
+
 // inconsistent data must not crash or claim a send happened
 expect(reach({ planShareCount: 5, planSharedAt: null }).state === "never", "a count with no timestamp fails closed to never");
 expect(

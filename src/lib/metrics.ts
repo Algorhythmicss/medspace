@@ -24,3 +24,26 @@ export const REPORT_METRICS: Array<{
   { type: "VITD", label: "Vitamin D", unit: "ng/mL", aliases: ["vitamin", "vitd"] },
   { type: "B12", label: "Vitamin B12", unit: "pg/mL", aliases: ["b12"] },
 ];
+
+// The only metrics a patient may log from home. Deliberately just three — the
+// chronic vitals a patient can measure with a cuff, glucometer or scale — not a
+// wellness tracker. A `bp` reading writes two Observations (BP_SYS + BP_DIA);
+// the others write one. Everything is stored with source:"patient" so the
+// doctor's clinical trend line never silently fuses home data (see memory.ts).
+export const HOME_METRICS: Array<{
+  key: "bp" | "sugar" | "weight";
+  label: string;
+  unit: string;
+  fields: { type: string; placeholder: string }[];
+}> = [
+  { key: "bp", label: "Blood pressure", unit: "mmHg", fields: [
+    { type: "BP_SYS", placeholder: "Upper (e.g. 130)" },
+    { type: "BP_DIA", placeholder: "Lower (e.g. 85)" },
+  ] },
+  { key: "sugar", label: "Blood sugar (fasting)", unit: "mg/dL", fields: [
+    { type: "FBS", placeholder: "e.g. 120" },
+  ] },
+  { key: "weight", label: "Weight", unit: "kg", fields: [
+    { type: "WEIGHT", placeholder: "e.g. 72" },
+  ] },
+];

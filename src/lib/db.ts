@@ -11,11 +11,15 @@ function makeClient(): PrismaClient {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
+// One client (one connection pool) reused across every query. Cache it on the
+// global in ALL environments: in dev it survives hot-reload; on serverless it is
+// reused across warm invocations of the same instance, so the pool is opened
+// once per instance rather than once per query. (The previous code returned a
+// fresh client on every access in production, which leaks a new pg pool per
+// query and exhausts the Supabase pooler under load.)
 function client(): PrismaClient {
   if (!globalForPrisma.prisma) {
-    const c = makeClient();
-    if (process.env.NODE_ENV === "production") return c;
-    globalForPrisma.prisma = c;
+    globalForPrisma.prisma = makeClient();
   }
   return globalForPrisma.prisma;
 }

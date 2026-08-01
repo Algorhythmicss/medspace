@@ -28,9 +28,13 @@ export async function loadPlanData(patientId: string) {
       where: { id: patientId },
       include: {
         tasks: { where: { status: "pending" }, orderBy: { dueDate: "asc" } },
+        // A follow-up visit often carries no new prescription — the patient
+        // simply continues what they're on. Look back a few visits so "your
+        // medicines" reflects the active prescription, not a blank because the
+        // last visit didn't re-issue one.
         visits: {
           orderBy: { visitDate: "desc" },
-          take: 1,
+          take: 5,
           include: {
             prescription: { include: { items: { orderBy: { sortOrder: "asc" } } } },
           },
@@ -61,8 +65,13 @@ export default async function PlanView({
   planToken?: string;
 }) {
   const firstName = patient.name.split(" ")[0];
-  const lastVisit = patient.visits[0];
-  const meds = lastVisit?.prescription?.items ?? [];
+  // The active prescription is the most recent one on record — not necessarily
+  // the last visit, which may have been a lab-review with nothing re-issued.
+  const rxVisit = patient.visits.find(
+    (v) => v.prescription && (v.prescription.items.length > 0 || v.prescription.advice)
+  );
+  const meds = rxVisit?.prescription?.items ?? [];
+  const advice = rxVisit?.prescription?.advice ?? null;
   const followUp = patient.tasks.find((t) => t.kind === "FOLLOW_UP");
   const tests = patient.tasks.filter((t) => t.kind === "LAB_TEST");
   const now = new Date();
@@ -135,9 +144,18 @@ export default async function PlanView({
               </div>
             ))}
           </div>
-          {lastVisit?.prescription?.advice && (
-            <p className="t-cap mt-2 px-1 text-ink2">{lastVisit.prescription.advice}</p>
-          )}
+          {advice && <p className="t-cap mt-2 px-1 text-ink2">{advice}</p>}
+        </section>
+      )}
+
+      {/* advice with no medicines (e.g. "rest, plenty of fluids") — still shown */}
+      {meds.length === 0 && advice && (
+        <section className="mt-6">
+          <div className="mb-2 flex items-center gap-2 px-1">
+            <Pill size={16} className="text-peri" />
+            <h2 className="t-head">From your doctor</h2>
+          </div>
+          <p className="card px-5 py-4 t-body text-ink2">{advice}</p>
         </section>
       )}
 
@@ -187,7 +205,7 @@ export default async function PlanView({
       <LogHomeReading planToken={planToken} />
 
       {/* Nothing outstanding — the calm case deserves a picture too. */}
-      {meds.length === 0 && tests.length === 0 && !followUp && (
+      {meds.length === 0 && tests.length === 0 && !followUp && !advice && (
         <section className="mt-8 text-center">
           <ArtSpot name="room" className="mb-5" />
           <p className="t-head">Nothing pending right now</p>

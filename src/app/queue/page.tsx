@@ -74,6 +74,7 @@ export default async function QueueScreen() {
                     {patientAgeSex(e.patient) ? ` · ${patientAgeSex(e.patient)}` : ""} · arrived{" "}
                     {relDay(e.arrivedAt)}
                   </span>
+                  {e.note && <span className="t-cap mt-0.5 block truncate text-ink2">{e.note}</span>}
                 </span>
                 <RemoveFromQueue entryId={e.id} />
               </li>

@@ -58,14 +58,18 @@ export default async function Login({
     } catch (err) {
       console.error("login throttle check failed", err);
     }
-    if (failures >= MAX_FAILURES) {
-      redirect(`/login?e=slow${keepNext}`);
-    }
 
-    // One passcode field, two doors: the doctor's, or the front desk's.
+    // One passcode field, two doors: the doctor's, or the front desk's. Evaluate
+    // the code BEFORE the throttle gate — a correct passcode IS the credential,
+    // so it must never be blocked, and only a wrong guess counts against the
+    // limit. Both roles share this one IP bucket; gating on the guess (not on
+    // arrival) is what stops one role's typos from locking the other out.
     const isDoctor = passcodeMatches(code);
     const isStaff = !isDoctor && staffPasscodeMatches(code);
     if (!isDoctor && !isStaff) {
+      if (failures >= MAX_FAILURES) {
+        redirect(`/login?e=slow${keepNext}`);
+      }
       try {
         await db.loginAttempt.create({ data: { key } });
       } catch (err) {

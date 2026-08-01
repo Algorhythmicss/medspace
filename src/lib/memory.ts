@@ -32,6 +32,7 @@ export type HomeReading = {
   label: string; // "BP", "Sugar (fasting)", "Weight"
   value: string; // "150/95", "140 mg/dL", "81 kg"
   measuredAt: Date;
+  count: number; // how many of this reading the patient has logged in-window
 };
 
 export type MemoryCard = {
@@ -96,26 +97,42 @@ function conditionAbbrev(name: string): string {
 
 export async function buildMemoryCard(patientId: string): Promise<MemoryCard | null> {
   const now = new Date();
-  const patient = await db.patient.findUnique({
-    where: { id: patientId },
-    include: {
-      conditions: { where: { status: "active" }, orderBy: { since: "asc" } },
-      allergies: true,
-      tasks: { where: { status: "pending" }, orderBy: { dueDate: "asc" } },
-      visits: {
-        orderBy: { visitDate: "desc" },
-        take: 2,
-        include: { prescription: { include: { items: { orderBy: { sortOrder: "asc" } } } } },
+  const [patient, homeObs] = await Promise.all([
+    db.patient.findUnique({
+      where: { id: patientId },
+      include: {
+        conditions: { where: { status: "active" }, orderBy: { since: "asc" } },
+        allergies: true,
+        tasks: { where: { status: "pending" }, orderBy: { dueDate: "asc" } },
+        visits: {
+          orderBy: { visitDate: "desc" },
+          take: 5,
+          include: { prescription: { include: { items: { orderBy: { sortOrder: "asc" } } } } },
+        },
+        // Clinic/lab-measured only. Patient home readings are fetched separately
+        // (below) so a burst of home logging can never crowd real clinic history
+        // out of this window and blank the trend lines and sparklines.
+        observations: {
+          where: { source: { not: "patient" } },
+          orderBy: { measuredAt: "desc" },
+          take: 60,
+        },
+        // select explicitly: fileData holds attachment bytes and must not be loaded
+        reports: {
+          orderBy: { reportDate: "desc" },
+          take: 1,
+          select: { title: true, reportDate: true },
+        },
       },
-      observations: { orderBy: { measuredAt: "desc" }, take: 60 },
-      // select explicitly: fileData holds attachment bytes and must not be loaded
-      reports: {
-        orderBy: { reportDate: "desc" },
-        take: 1,
-        select: { title: true, reportDate: true },
-      },
-    },
-  });
+    }),
+    // Patient-logged readings on their own window, so home history survives no
+    // matter how much clinic history exists (and vice versa).
+    db.observation.findMany({
+      where: { patientId, source: "patient" },
+      orderBy: { measuredAt: "desc" },
+      take: 60,
+    }),
+  ]);
   if (!patient) return null;
 
   // -------- headline --------
@@ -134,27 +151,29 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   // Clinical trends and sparklines use CLINIC/LAB measurements only. Patient-
   // logged home readings are surfaced separately (below) and never fused into
   // the arrow that drives a clinical decision — a safety rule, not cosmetics.
+  // patient.observations is already clinic/lab-only (query excludes source:"patient")
   const byType = new Map<string, { value: number; unit: string | null; measuredAt: Date }[]>();
   for (const o of patient.observations) {
-    if (o.source === "patient") continue;
     if (!byType.has(o.type)) byType.set(o.type, []);
     byType.get(o.type)!.push({ value: o.value, unit: o.unit, measuredAt: o.measuredAt });
   }
 
   // -------- home readings (patient-logged, tagged, kept off the trend) --------
-  const patientObs = patient.observations.filter((o) => o.source === "patient");
   const latestHome = (type: string) =>
-    patientObs.find((o) => o.type === type); // observations come newest-first
+    homeObs.find((o) => o.type === type); // fetched newest-first
+  const countHome = (type: string) =>
+    homeObs.reduce((n, o) => (o.type === type ? n + 1 : n), 0);
   const homeReadings: HomeReading[] = [];
   const homeBpSys = latestHome("BP_SYS");
   if (homeBpSys) {
-    const dia = patientObs.find(
+    const dia = homeObs.find(
       (o) => o.type === "BP_DIA" && Math.abs(o.measuredAt.getTime() - homeBpSys.measuredAt.getTime()) < 3600000
     );
     homeReadings.push({
       label: "BP",
       value: `${homeBpSys.value.toFixed(0)}/${dia?.value.toFixed(0) ?? "?"}`,
       measuredAt: homeBpSys.measuredAt,
+      count: countHome("BP_SYS"),
     });
   }
   const homeSugar = latestHome("FBS");
@@ -163,6 +182,7 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       label: "Sugar (F)",
       value: `${homeSugar.value.toFixed(0)} mg/dL`,
       measuredAt: homeSugar.measuredAt,
+      count: countHome("FBS"),
     });
   }
   const homeWeight = latestHome("WEIGHT");
@@ -171,6 +191,7 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       label: "Weight",
       value: `${homeWeight.value.toFixed(1)} kg`,
       measuredAt: homeWeight.measuredAt,
+      count: countHome("WEIGHT"),
     });
   }
 
@@ -306,7 +327,12 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       .slice(0, 5),
     metrics: metrics.slice(0, 4),
     homeReadings,
+    // Active meds = the most recent prescription on record, not necessarily the
+    // last visit's (a lab-review visit re-issues nothing). Same rule the patient
+    // plan uses, so the two surfaces never disagree on what the patient is on.
     activeMeds:
-      lastVisit?.prescription?.items.map((i) => ({ drugName: i.drugName, frequency: i.frequency })) ?? [],
+      (patient.visits.find((v) => (v.prescription?.items.length ?? 0) > 0)?.prescription?.items ?? []).map(
+        (i) => ({ drugName: i.drugName, frequency: i.frequency })
+      ),
   };
 }

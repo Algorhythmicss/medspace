@@ -123,6 +123,7 @@ export default function Briefing({
                   <span className="tnum">{h.value}</span>
                   <span className="ml-1 text-[10.5px] font-medium tracking-normal text-periink2">
                     {relDay(h.measuredAt)}
+                    {h.count > 1 ? ` · ${h.count} logs` : ""}
                   </span>
                 </span>
               ))}

@@ -582,8 +582,14 @@ async function main() {
   // Front-desk queue: two walk-ins waiting right now.
   const q1 = await db.patient.findFirst({ where: { fileNumber: 106 } });
   const q2 = await db.patient.findFirst({ where: { fileNumber: 102 } });
-  if (q1) await db.queueEntry.create({ data: { patientId: q1.id, arrivedAt: new Date(now.getTime() - 18 * 60000) } });
-  if (q2) await db.queueEntry.create({ data: { patientId: q2.id, arrivedAt: new Date(now.getTime() - 5 * 60000) } });
+  if (q1)
+    await db.queueEntry.create({
+      data: { patientId: q1.id, arrivedAt: new Date(now.getTime() - 18 * 60000), note: "BP recheck" },
+    });
+  if (q2)
+    await db.queueEntry.create({
+      data: { patientId: q2.id, arrivedAt: new Date(now.getTime() - 5 * 60000), note: "Fever, 3 days" },
+    });
 
   const counts = {
     patients: await db.patient.count(),

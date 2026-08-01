@@ -138,7 +138,29 @@ export async function createVisit(input: NewVisitInput) {
   revalidatePath(`/patients/${input.patientId}`);
   revalidatePath("/");
   revalidatePath("/followups");
+  revalidatePath("/queue"); // the patient just came off the front-desk queue
   redirect(`/visits/${visit.id}/rx`);
+}
+
+// File numbers are the clinic's human-facing id and must be unique. Allocating
+// them as max()+1 races when two intakes land together (doctor + front desk),
+// so retry a few times on the unique-collision before giving up — cheap, and it
+// keeps a simultaneous walk-in registration from throwing in the staff's face.
+async function createPatientWithFileNumber(
+  data: Omit<Parameters<typeof db.patient.create>[0]["data"], "fileNumber">
+) {
+  for (let attempt = 0; ; attempt++) {
+    const maxFile = await db.patient.aggregate({ _max: { fileNumber: true } });
+    try {
+      return await db.patient.create({
+        data: { ...data, fileNumber: (maxFile._max.fileNumber ?? 100) + 1 },
+      });
+    } catch (err) {
+      const isCollision = (err as { code?: string }).code === "P2002";
+      if (isCollision && attempt < 4) continue;
+      throw err;
+    }
+  }
 }
 
 export async function createPatient(formData: FormData) {
@@ -149,15 +171,11 @@ export async function createPatient(formData: FormData) {
   const ageRaw = String(formData.get("age") ?? "").trim();
   const sex = String(formData.get("sex") ?? "").trim() || null;
 
-  const maxFile = await db.patient.aggregate({ _max: { fileNumber: true } });
-  const patient = await db.patient.create({
-    data: {
-      fileNumber: (maxFile._max.fileNumber ?? 100) + 1,
-      name,
-      phone,
-      sex,
-      ageYears: ageRaw ? parseInt(ageRaw, 10) : null,
-    },
+  const patient = await createPatientWithFileNumber({
+    name,
+    phone,
+    sex,
+    ageYears: ageRaw ? parseInt(ageRaw, 10) : null,
   });
   revalidatePath("/");
   redirect(`/patients/${patient.id}`);
@@ -294,12 +312,7 @@ export async function recordPlanShare(patientId: string) {
 const REPLY_KINDS = new Set(["coming", "booked", "not_coming"]);
 export async function recordPlanReply(kind: string, planToken?: string) {
   if (!REPLY_KINDS.has(kind)) return;
-  let patientId: string | null = null;
-  if (planToken) {
-    patientId = (await readPatientLink(planToken))?.p ?? null;
-  } else {
-    patientId = (await readPatientSession())?.p ?? null;
-  }
+  const patientId = await authedPatientId(planToken);
   if (!patientId) return;
   try {
     await db.patient.update({
@@ -309,6 +322,22 @@ export async function recordPlanReply(kind: string, planToken?: string) {
   } catch (err) {
     console.error("failed to record plan reply", err);
   }
+}
+
+// Resolve the patient a token/session may write for, and re-check the link
+// version. Both carry {p, v}; a revoked link (linkVersion bumped) must not still
+// be able to write, exactly as the read path rejects a stale token. Token or
+// session only — never the clinic passcode, so one patient can't answer for
+// another. Returns the patient id only when the version still matches.
+async function authedPatientId(planToken?: string): Promise<string | null> {
+  const ref = planToken ? await readPatientLink(planToken) : await readPatientSession();
+  if (!ref) return null;
+  const patient = await db.patient.findUnique({
+    where: { id: ref.p },
+    select: { linkVersion: true },
+  });
+  if (!patient || patient.linkVersion !== ref.v) return null;
+  return ref.p;
 }
 
 // Patient-side: log a home reading. Writes Observation rows with
@@ -323,9 +352,7 @@ export async function recordHomeReading(
   const metric = HOME_METRICS.find((m) => m.key === key);
   if (!metric) return { error: "bad_metric" };
 
-  let patientId: string | null = null;
-  if (planToken) patientId = (await readPatientLink(planToken))?.p ?? null;
-  else patientId = (await readPatientSession())?.p ?? null;
+  const patientId = await authedPatientId(planToken);
   if (!patientId) return { error: "expired" };
 
   const rows = metric.fields.map((f) => ({ type: f.type, value: Number(values[f.type]) }));
@@ -358,8 +385,14 @@ export async function recordHomeReading(
 export async function addToQueue(patientId: string, note?: string) {
   await assertQueueAccess();
   if (!patientId) return;
-  // don't double-queue a patient who is already waiting
-  const existing = await db.queueEntry.findFirst({ where: { patientId, status: "waiting" } });
+  // Don't double-queue someone already waiting TODAY. Scoping to today matters:
+  // yesterday's "seen"-that-never-happened or a stale waiting row must not block
+  // today's check-in (and flash a false "added") when they walk back in.
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const existing = await db.queueEntry.findFirst({
+    where: { patientId, status: "waiting", arrivedAt: { gte: dayStart } },
+  });
   if (!existing) {
     await db.queueEntry.create({ data: { patientId, note: note?.trim() || null } });
   }
@@ -372,11 +405,9 @@ export async function staffRegisterAndQueue(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
   const phone = String(formData.get("phone") ?? "").trim() || null;
-  const maxFile = await db.patient.aggregate({ _max: { fileNumber: true } });
-  const patient = await db.patient.create({
-    data: { fileNumber: (maxFile._max.fileNumber ?? 100) + 1, name, phone },
-  });
-  await db.queueEntry.create({ data: { patientId: patient.id } });
+  const note = String(formData.get("note") ?? "").trim() || null;
+  const patient = await createPatientWithFileNumber({ name, phone });
+  await db.queueEntry.create({ data: { patientId: patient.id, note } });
   revalidatePath("/queue");
   revalidatePath("/");
 }

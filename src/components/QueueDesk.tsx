@@ -22,6 +22,7 @@ export default function QueueDesk() {
   const [results, setResults] = useState<Result[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [note, setNote] = useState("");
   const [added, setAdded] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -38,10 +39,11 @@ export default function QueueDesk() {
 
   function add(p: Result) {
     start(async () => {
-      await addToQueue(p.id);
+      await addToQueue(p.id, note.trim() || undefined);
       flash(p.name);
       setQ("");
       setResults([]);
+      setNote("");
     });
   }
 
@@ -51,11 +53,13 @@ export default function QueueDesk() {
     const fd = new FormData();
     fd.set("name", name.trim());
     fd.set("phone", phone.trim());
+    fd.set("note", note.trim());
     start(async () => {
       await staffRegisterAndQueue(fd);
       flash(name.trim());
       setName("");
       setPhone("");
+      setNote("");
       setMode("search");
     });
   }
@@ -78,6 +82,13 @@ export default function QueueDesk() {
           <UserPlus size={14} strokeWidth={2.2} /> New patient
         </button>
       </div>
+
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Reason for visit (optional)"
+        className="field ring-focus mb-2 w-full"
+      />
 
       {mode === "search" ? (
         <div>

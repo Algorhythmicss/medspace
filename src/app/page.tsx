@@ -87,7 +87,10 @@ export default async function Home() {
                 </span>
                 <Link href={`/patients/${e.patient.id}`} className="min-w-0 flex-1 active:opacity-60">
                   <span className="t-bodyL block truncate">{e.patient.name}</span>
-                  <span className="t-micro text-ink3">arrived {relDay(e.arrivedAt)}</span>
+                  <span className="t-micro text-ink3">
+                    arrived {relDay(e.arrivedAt)}
+                    {e.note ? ` · ${e.note}` : ""}
+                  </span>
                 </Link>
                 <MarkSeen entryId={e.id} />
               </div>

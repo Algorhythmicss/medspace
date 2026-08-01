@@ -60,8 +60,29 @@ export async function mergePatients(keeperId: string, duplicateId: string) {
       }
     }
 
+    // front-desk queue: move the duplicate's entries onto the keeper — the
+    // Cascade on the patient row would otherwise delete a waiting walk-in the
+    // moment we merge — then collapse a double check-in to the earliest arrival.
+    await tx.queueEntry.updateMany({ where: { patientId: duplicateId }, data: { patientId: keeperId } });
+    const waiting = await tx.queueEntry.findMany({
+      where: { patientId: keeperId, status: "waiting" },
+      orderBy: { arrivedAt: "asc" },
+      select: { id: true },
+    });
+    if (waiting.length > 1) {
+      await tx.queueEntry.deleteMany({ where: { id: { in: waiting.slice(1).map((e) => e.id) } } });
+    }
+
     // demographics: never overwrite the keeper, only fill its blanks
     const notes = [keeper.stickyNote, duplicate.stickyNote].filter(Boolean) as string[];
+    // plan engagement is cumulative for the same person: sum the counters, keep
+    // the widest open window, and carry the more recent follow-up reply as an
+    // intact (kind, at) pair — so a merge never silently loses that the patient
+    // opened their plan or answered "not coming".
+    const earliest = (a: Date | null, b: Date | null) => (a && b ? (a < b ? a : b) : a ?? b);
+    const latest = (a: Date | null, b: Date | null) => (a && b ? (a > b ? a : b) : a ?? b);
+    const replyFromDup =
+      !!duplicate.planReplyAt && (!keeper.planReplyAt || duplicate.planReplyAt > keeper.planReplyAt);
     await tx.patient.update({
       where: { id: keeperId },
       data: {
@@ -72,6 +93,13 @@ export async function mergePatients(keeperId: string, duplicateId: string) {
         address: keeper.address ?? duplicate.address,
         abhaId: keeper.abhaId ?? duplicate.abhaId,
         stickyNote: notes.length > 0 ? [...new Set(notes)].join(" · ") : null,
+        planFirstOpenedAt: earliest(keeper.planFirstOpenedAt, duplicate.planFirstOpenedAt),
+        planLastOpenedAt: latest(keeper.planLastOpenedAt, duplicate.planLastOpenedAt),
+        planOpenCount: keeper.planOpenCount + duplicate.planOpenCount,
+        planSharedAt: latest(keeper.planSharedAt, duplicate.planSharedAt),
+        planShareCount: keeper.planShareCount + duplicate.planShareCount,
+        planReplyAt: replyFromDup ? duplicate.planReplyAt : keeper.planReplyAt,
+        planReplyKind: replyFromDup ? duplicate.planReplyKind : keeper.planReplyKind,
         updatedAt: new Date(),
       },
     });

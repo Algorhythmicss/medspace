@@ -1,6 +1,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { isValidSession, sessionCookieName } from "@/lib/auth";
+import {
+  isValidSession,
+  sessionCookieName,
+  createSessionValue,
+  sessionMaxAge,
+} from "@/lib/auth";
 import {
   createPatientSession,
   readPatientSessionValue,
@@ -24,6 +29,38 @@ export async function hasClinicSession(): Promise<boolean> {
 /** Throws a redirect to /login if there is no valid clinic session. */
 export async function assertClinicSession(): Promise<void> {
   if (!(await hasClinicSession())) redirect("/login");
+}
+
+// ── Front-desk (staff) session ──────────────────────────────────────────────
+// A separate cookie so a staff login can never satisfy a doctor check. Same
+// HMAC + secret and a 12h life; the ONLY thing it grants is the /queue screen.
+
+const STAFF_COOKIE = "medspace_staff";
+
+export async function setStaffSession(): Promise<void> {
+  const jar = await cookies();
+  jar.set(STAFF_COOKIE, await createSessionValue(), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: sessionMaxAge,
+  });
+}
+
+export async function hasStaffSession(): Promise<boolean> {
+  const jar = await cookies();
+  return isValidSession(jar.get(STAFF_COOKIE)?.value);
+}
+
+export async function clearStaffSession(): Promise<void> {
+  const jar = await cookies();
+  jar.delete(STAFF_COOKIE);
+}
+
+/** The queue is reachable by either the doctor or the front desk. */
+export async function assertQueueAccess(): Promise<void> {
+  if (!(await hasClinicSession()) && !(await hasStaffSession())) redirect("/login");
 }
 
 // ── Patient session ─────────────────────────────────────────────────────────

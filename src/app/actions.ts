@@ -10,6 +10,8 @@ import {
   setPatientSession,
   clearPatientSession,
   readPatientSession,
+  assertQueueAccess,
+  clearStaffSession,
 } from "@/lib/session";
 import { supabaseForAuth } from "@/lib/supabase";
 import { bindIdentity, hasActiveAccess } from "@/lib/patientAccess";
@@ -116,6 +118,12 @@ export async function createVisit(input: NewVisitInput) {
       visitId: { not: visit.id },
     },
     data: { status: "done", completedAt: now },
+  });
+
+  // the doctor is now seeing this patient — clear them off the front-desk queue
+  await db.queueEntry.updateMany({
+    where: { patientId: input.patientId, status: "waiting" },
+    data: { status: "seen", seenAt: now },
   });
 
   // touch patient so they surface in "recent"; bump drug usage for autosuggest learning
@@ -342,6 +350,80 @@ export async function recordHomeReading(
     return { error: "failed" };
   }
   return { ok: true };
+}
+
+// ── Front-desk queue ────────────────────────────────────────────────────────
+// Reachable by staff (queue-only session) OR the doctor. Never assertClinicSession.
+
+export async function addToQueue(patientId: string, note?: string) {
+  await assertQueueAccess();
+  if (!patientId) return;
+  // don't double-queue a patient who is already waiting
+  const existing = await db.queueEntry.findFirst({ where: { patientId, status: "waiting" } });
+  if (!existing) {
+    await db.queueEntry.create({ data: { patientId, note: note?.trim() || null } });
+  }
+  revalidatePath("/queue");
+  revalidatePath("/");
+}
+
+export async function staffRegisterAndQueue(formData: FormData) {
+  await assertQueueAccess();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const maxFile = await db.patient.aggregate({ _max: { fileNumber: true } });
+  const patient = await db.patient.create({
+    data: { fileNumber: (maxFile._max.fileNumber ?? 100) + 1, name, phone },
+  });
+  await db.queueEntry.create({ data: { patientId: patient.id } });
+  revalidatePath("/queue");
+  revalidatePath("/");
+}
+
+export async function removeFromQueue(entryId: string) {
+  await assertQueueAccess();
+  if (!entryId) return;
+  await db.queueEntry.delete({ where: { id: entryId } }).catch(() => {});
+  revalidatePath("/queue");
+  revalidatePath("/");
+}
+
+export async function markQueueSeen(entryId: string) {
+  await assertQueueAccess();
+  if (!entryId) return;
+  await db.queueEntry
+    .update({ where: { id: entryId }, data: { status: "seen", seenAt: new Date() } })
+    .catch(() => {});
+  revalidatePath("/");
+  revalidatePath("/queue");
+}
+
+// Staff-safe lookup for the queue: enough to find and identify a patient
+// (name, file no., phone, age/sex) but NO clinical data — no conditions, no
+// last visit. The front desk sees who, never why.
+export async function searchPatientsForQueue(q: string) {
+  await assertQueueAccess();
+  const query = q.trim();
+  if (!query) return [];
+  const asNumber = Number(query);
+  return db.patient.findMany({
+    where: {
+      OR: [
+        { name: { contains: query, mode: "insensitive" } },
+        { phone: { contains: query } },
+        ...(Number.isInteger(asNumber) && asNumber > 0 ? [{ fileNumber: asNumber }] : []),
+      ],
+    },
+    select: { id: true, name: true, fileNumber: true, phone: true, ageYears: true, sex: true },
+    take: 8,
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+export async function staffSignOut() {
+  await clearStaffSession();
+  redirect("/login");
 }
 
 export async function completeTask(taskId: string) {

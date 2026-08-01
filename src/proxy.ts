@@ -23,8 +23,23 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const ok = await isValidSession(req.cookies.get(sessionCookieName)?.value);
-  if (ok) return NextResponse.next();
+  const isDoctor = await isValidSession(req.cookies.get(sessionCookieName)?.value);
+  const isStaff = await isValidSession(req.cookies.get("medspace_staff")?.value);
+
+  // The front-desk queue is the one gated screen staff may reach. Everything
+  // else clinical is doctor-only; a staff session on any of those is bounced to
+  // the queue, never to the patient records it must not see.
+  const isQueue = pathname === "/queue" || pathname.startsWith("/queue/");
+  if (isQueue) {
+    if (isDoctor || isStaff) return NextResponse.next();
+  } else if (isDoctor) {
+    return NextResponse.next();
+  } else if (isStaff) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/queue";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
 
   const url = req.nextUrl.clone();
   // Someone landing on the bare domain is asked who they are; a deep link into

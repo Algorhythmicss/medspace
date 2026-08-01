@@ -74,6 +74,7 @@ model Patient {
   reports      Report[]
   tasks        CarePlanTask[]
   access       PatientAccess[]
+  queueEntries QueueEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -242,6 +243,24 @@ model PatientAccess {
   lastUsedAt     DateTime?
 
   @@unique([provider, providerUserId, patientId])
+  @@index([patientId, status])
+}
+
+// Front-desk live queue: who is in the clinic right now, in arrival order.
+// Populated by staff (a separate passcode that opens ONLY the queue, no charts)
+// and worked by the doctor. A walk-in list, deliberately NOT a booking calendar
+// — scheduling/slots are the bloat this project refuses. An entry becomes "seen"
+// automatically when the doctor starts that patient's visit, or when marked done.
+model QueueEntry {
+  id        String    @id @default(cuid())
+  patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String
+  status    String    @default("waiting") // waiting | seen
+  arrivedAt DateTime  @default(now())
+  seenAt    DateTime?
+  note      String? // optional reason for visit, front-desk entered
+
+  @@index([status, arrivedAt])
   @@index([patientId, status])
 }
 

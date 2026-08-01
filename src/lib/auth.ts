@@ -64,11 +64,23 @@ export async function hashLoginKey(raw: string): Promise<string> {
   return b64url(new Uint8Array(digest));
 }
 
-export function passcodeMatches(input: string): boolean {
-  const expected = process.env.MEDSPACE_PASSCODE;
+function constantEquals(input: string, expected: string | undefined): boolean {
   if (!expected) return false;
   if (input.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < expected.length; i++) diff |= input.charCodeAt(i) ^ expected.charCodeAt(i);
   return diff === 0;
+}
+
+export function passcodeMatches(input: string): boolean {
+  return constantEquals(input, process.env.MEDSPACE_PASSCODE);
+}
+
+/** Front-desk passcode — opens ONLY the queue, no clinical access. Distinct
+ *  from the doctor passcode; if unset, staff login is simply disabled. */
+export function staffPasscodeMatches(input: string): boolean {
+  const staff = process.env.MEDSPACE_STAFF_PASSCODE;
+  // never let an empty/unset staff passcode collide with the doctor's
+  if (!staff || staff === process.env.MEDSPACE_PASSCODE) return false;
+  return constantEquals(input, staff);
 }

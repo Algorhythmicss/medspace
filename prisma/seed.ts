@@ -54,6 +54,7 @@ const FORMULARY: Array<{
 
 async function main() {
   // idempotent re-seed
+  await db.queueEntry.deleteMany();
   await db.patientAccess.deleteMany();
   await db.carePlanTask.deleteMany();
   await db.observation.deleteMany();
@@ -577,6 +578,12 @@ async function main() {
       ],
     });
   }
+
+  // Front-desk queue: two walk-ins waiting right now.
+  const q1 = await db.patient.findFirst({ where: { fileNumber: 106 } });
+  const q2 = await db.patient.findFirst({ where: { fileNumber: 102 } });
+  if (q1) await db.queueEntry.create({ data: { patientId: q1.id, arrivedAt: new Date(now.getTime() - 18 * 60000) } });
+  if (q2) await db.queueEntry.create({ data: { patientId: q2.id, arrivedAt: new Date(now.getTime() - 5 * 60000) } });
 
   const counts = {
     patients: await db.patient.count(),

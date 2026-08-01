@@ -7,9 +7,11 @@ import {
   createSessionValue,
   hashLoginKey,
   passcodeMatches,
+  staffPasscodeMatches,
   sessionCookieName,
   sessionMaxAge,
 } from "@/lib/auth";
+import { setStaffSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +60,10 @@ export default async function Login({
       redirect(`/login?e=slow${keepNext}`);
     }
 
-    if (!passcodeMatches(code)) {
+    // One passcode field, two doors: the doctor's, or the front desk's.
+    const isDoctor = passcodeMatches(code);
+    const isStaff = !isDoctor && staffPasscodeMatches(code);
+    if (!isDoctor && !isStaff) {
       try {
         await db.loginAttempt.create({ data: { key } });
       } catch (err) {
@@ -67,11 +72,17 @@ export default async function Login({
       redirect(`/login?e=1${keepNext}`);
     }
 
-    // Clean slate on success so a legitimate doctor never inherits a lockout.
+    // Clean slate on success so a legitimate user never inherits a lockout.
     try {
       await db.loginAttempt.deleteMany({ where: { key } });
     } catch {
       // non-fatal — the window entries expire from relevance on their own
+    }
+
+    // Staff get the queue and nothing else; the doctor gets everything.
+    if (isStaff) {
+      await setStaffSession();
+      redirect("/queue");
     }
 
     const jar = await cookies();

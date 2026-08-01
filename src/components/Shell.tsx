@@ -12,6 +12,9 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPatient = pathname.startsWith("/p/") || pathname === "/plan";
   const isPublic = pathname === "/login" || pathname.startsWith("/welcome");
+  // The front-desk queue is its own bare screen — staff (and the doctor when
+  // they open it directly) get the list, not the full clinic chrome.
+  const isQueue = pathname === "/queue" || pathname.startsWith("/queue/");
 
   if (isPatient) {
     return (
@@ -21,6 +24,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   if (isPublic) {
     return <main className="mx-auto w-full max-w-[460px] px-4">{children}</main>;
+  }
+
+  if (isQueue) {
+    return <main className="mx-auto w-full max-w-[560px] px-4">{children}</main>;
   }
 
   return (

@@ -159,7 +159,7 @@ export default async function Login({
       </form>
 
       <p className="t-cap mt-5 text-center text-ink3">
-        Not the doctor?{" "}
+        {isDesk ? "Not the receptionist?" : "Not the doctor?"}{" "}
         <a href="/welcome" className="font-semibold text-peri">
           Go back
         </a>

@@ -448,13 +448,19 @@ export async function searchPatientsForQueue(q: string) {
   await assertQueueAccess();
   const query = q.trim();
   if (!query) return [];
+  // A file number is a small int; a phone-length number overflows Postgres int4
+  // and makes the whole query throw "out of range for integer" — which is why
+  // searching by phone used to fail intermittently. Only match a file number
+  // when the value actually fits one.
   const asNumber = Number(query);
+  const asFileNumber =
+    Number.isInteger(asNumber) && asNumber > 0 && asNumber <= 2147483647 ? asNumber : null;
   return db.patient.findMany({
     where: {
       OR: [
         { name: { contains: query, mode: "insensitive" } },
         { phone: { contains: query } },
-        ...(Number.isInteger(asNumber) && asNumber > 0 ? [{ fileNumber: asNumber }] : []),
+        ...(asFileNumber !== null ? [{ fileNumber: asFileNumber }] : []),
       ],
     },
     select: { id: true, name: true, fileNumber: true, phone: true, ageYears: true, sex: true },

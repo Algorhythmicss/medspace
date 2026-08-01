@@ -16,6 +16,11 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json({ patients: [] });
 
   const asNumber = Number(q);
+  // A file number is a small int; a phone-length number overflows Postgres int4
+  // and throws "out of range for integer", crashing the whole lookup — so only
+  // treat the query as a file number when it fits one.
+  const asFileNumber =
+    Number.isInteger(asNumber) && asNumber > 0 && asNumber <= 2147483647 ? asNumber : null;
   // Case-insensitive on name so "verma" finds "Verma" — the doctor types fast
   // and lowercase on the ≤5s lookup path. Phone stays a plain substring (digits
   // typed against stored numbers); formatted-number matching is a known gap
@@ -25,7 +30,7 @@ export async function GET(req: NextRequest) {
       OR: [
         { name: { contains: q, mode: "insensitive" } },
         { phone: { contains: q } },
-        ...(Number.isInteger(asNumber) && asNumber > 0 ? [{ fileNumber: asNumber }] : []),
+        ...(asFileNumber !== null ? [{ fileNumber: asFileNumber }] : []),
       ],
     },
     include: {

@@ -25,9 +25,11 @@ const WINDOW_MS = 15 * 60 * 1000;
 export default async function Login({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; e?: string }>;
+  searchParams: Promise<{ next?: string; e?: string; desk?: string }>;
 }) {
-  const { next, e } = await searchParams;
+  const { next, e, desk } = await searchParams;
+  // Cosmetic only — the passcode itself decides doctor vs front-desk routing.
+  const isDesk = desk === "1";
 
   async function signIn(formData: FormData) {
     "use server";
@@ -106,8 +108,10 @@ export default async function Login({
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-perisoft text-peri">
           <Lock size={20} strokeWidth={2} />
         </div>
-        <h1 className="t-title">medSpace</h1>
-        <p className="t-body mt-1 text-ink2">Enter the clinic passcode</p>
+        <h1 className="t-title">{isDesk ? "Reception" : "medSpace"}</h1>
+        <p className="t-body mt-1 text-ink2">
+          {isDesk ? "Enter your reception passcode" : "Enter the clinic passcode"}
+        </p>
       </div>
 
       <form action={signIn} className="space-y-2.5">

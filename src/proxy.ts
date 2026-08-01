@@ -18,8 +18,7 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/welcome") ||
     pathname.startsWith("/p/") ||
     pathname.startsWith("/auth/") ||
-    pathname === "/plan" ||
-    pathname === "/api/dbcheck" // TEMPORARY deploy diagnostic — remove after
+    pathname === "/plan"
   ) {
     return NextResponse.next();
   }

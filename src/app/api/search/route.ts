@@ -8,10 +8,14 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json({ patients: [] });
 
   const asNumber = Number(q);
+  // Case-insensitive on name so "verma" finds "Verma" — the doctor types fast
+  // and lowercase on the ≤5s lookup path. Phone stays a plain substring (digits
+  // typed against stored numbers); formatted-number matching is a known gap
+  // (stored phones aren't normalised — see AGENTS.md).
   const patients = await db.patient.findMany({
     where: {
       OR: [
-        { name: { contains: q } },
+        { name: { contains: q, mode: "insensitive" } },
         { phone: { contains: q } },
         ...(Number.isInteger(asNumber) && asNumber > 0 ? [{ fileNumber: asNumber }] : []),
       ],

@@ -65,7 +65,7 @@ export default async function QueueScreen() {
             <span className="t-body">No one waiting. Add a patient above as they arrive.</span>
           </div>
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="stagger space-y-2.5">
             {waiting.map((e, i) => (
               <li key={e.id} className="card flex items-center gap-3 p-4">
                 <span className="t-num flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-perisoft text-[15px] text-peri">

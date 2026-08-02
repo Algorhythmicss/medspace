@@ -324,12 +324,12 @@ body {
 /* Page transition. `app/template.tsx` re-mounts on every navigation, so the
    incoming screen springs up-and-in instead of hard-cutting. The nav chrome
    lives in the layout (outside the template), so only the content moves — the
-   frame stays put, the way a native tab switch feels. Short and gentle so it
-   reads as responsive, never as a thing you wait through. */
+   frame stays put, the way a native tab switch feels. A hair of scale on top of
+   the lift makes it read as settling into place rather than just sliding. */
 @keyframes page-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 9px, 0);
+    transform: translate3d(0, 10px, 0) scale(0.992);
   }
   to {
     opacity: 1;
@@ -337,7 +337,56 @@ body {
   }
 }
 .page-enter {
-  animation: page-in 0.32s var(--spring) both;
+  animation: page-in 0.4s var(--spring) both;
+}
+
+/* Tactile press feedback — the single strongest "native app" tell. Anything you
+   can tap gives a little under the finger and springs back on the iOS spring
+   curve. Put `pressable` on interactive cards / rows / list items (not
+   decorative ones). */
+.pressable {
+  transition: transform 0.24s var(--spring), box-shadow 0.24s var(--spring),
+    background-color 0.16s ease;
+}
+.pressable:active {
+  transform: scale(0.976);
+}
+
+/* Staggered entrance — list items settle in sequence, the way an iOS list fills
+   in, instead of appearing as one block. Put `stagger` on the list container;
+   the delay is capped so a long list never crawls. */
+.stagger > * {
+  animation: rise 0.5s var(--spring) both;
+}
+.stagger > *:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.stagger > *:nth-child(2) {
+  animation-delay: 0.06s;
+}
+.stagger > *:nth-child(3) {
+  animation-delay: 0.1s;
+}
+.stagger > *:nth-child(4) {
+  animation-delay: 0.14s;
+}
+.stagger > *:nth-child(5) {
+  animation-delay: 0.18s;
+}
+.stagger > *:nth-child(6) {
+  animation-delay: 0.22s;
+}
+.stagger > *:nth-child(7) {
+  animation-delay: 0.26s;
+}
+.stagger > *:nth-child(n + 8) {
+  animation-delay: 0.3s;
+}
+
+/* Content that appears after the page has settled (search results, an inline
+   panel) — a quick fade-and-lift so it arrives rather than blinking in. */
+.appear {
+  animation: rise 0.3s var(--spring) both;
 }
 
 /* Skeletons. A `loading.tsx` paints these the instant you tap, so a screen

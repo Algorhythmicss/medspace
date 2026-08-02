@@ -74,7 +74,7 @@ export default async function FollowUps() {
           <h2 className="label mb-2 px-1">
             Overdue · {byPatient.size} patient{byPatient.size > 1 ? "s" : ""}
           </h2>
-          <ul className="space-y-3">
+          <ul className="stagger space-y-3">
             {[...byPatient.values()].map(({ patient, tasks: patientTasks }) => {
               const worst = patientTasks[0];
               const reminderText = [
@@ -153,7 +153,7 @@ export default async function FollowUps() {
               Chronic patients with nothing scheduled and no visit in {DRIFT_MONTHS}+ months.
             </p>
           </div>
-          <ul className="space-y-3">
+          <ul className="stagger space-y-3">
             {drifters.map((d) => {
               const recallText = [
                 `Namaste ${d.name} ji, this is ${clinic?.clinicName ?? "the clinic"}${clinic?.doctorName ? ` (${clinic.doctorName})` : ""}.`,

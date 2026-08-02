@@ -41,7 +41,7 @@ export default async function Welcome() {
       <div className="space-y-3">
         <Link
           href="/login"
-          className="card group flex items-center gap-4 p-5 transition-transform active:scale-[0.99]"
+          className="card pressable group flex items-center gap-4 p-5"
         >
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-perisoft text-peri">
             <Stethoscope size={22} strokeWidth={2} />
@@ -57,7 +57,7 @@ export default async function Welcome() {
 
         <Link
           href="/welcome/patient"
-          className="card group flex items-center gap-4 p-5 transition-transform active:scale-[0.99]"
+          className="card pressable group flex items-center gap-4 p-5"
         >
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-tealsoft text-teal">
             <HeartPulse size={22} strokeWidth={2} />
@@ -74,7 +74,7 @@ export default async function Welcome() {
         {hasStaff && (
           <Link
             href="/login?desk=1"
-            className="card group flex items-center gap-4 p-5 transition-transform active:scale-[0.99]"
+            className="card pressable group flex items-center gap-4 p-5"
           >
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-buttersoft text-butter">
               <ClipboardList size={22} strokeWidth={2} />

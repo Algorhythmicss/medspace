@@ -225,7 +225,7 @@ export default async function PatientChart({
       {/* ── history ──────────────────────────────────────────── */}
       <section className="mt-6 pb-8 lg:order-1 lg:col-span-7 lg:mt-4">
         <h2 className="label mb-2 px-1">History</h2>
-        <ol className="space-y-2.5">
+        <ol className="stagger space-y-2.5">
           {visits.map((v) => (
             <li key={v.id} className="card p-4">
               <div className="flex items-baseline justify-between gap-2">

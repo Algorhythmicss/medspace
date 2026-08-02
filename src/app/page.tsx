@@ -103,7 +103,7 @@ export default async function Home() {
       {overdueCount > 0 && (
         <Link
           href="/followups"
-          className="hero mt-5 flex items-center gap-4 px-5 py-5 transition-transform active:scale-[0.99]"
+          className="hero pressable mt-5 flex items-center gap-4 px-5 py-5"
         >
           <span className="t-num relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-[22px] text-white">
             {overdueCount}

@@ -156,7 +156,7 @@ export default function QueueDesk() {
             </button>
           ) : (
             results.length > 0 && (
-              <div className="rows mt-2 overflow-hidden rounded-2xl border border-hairline">
+              <div className="appear rows mt-2 overflow-hidden rounded-2xl border border-hairline">
                 {results.map((p) => (
                   <button
                     key={p.id}
@@ -202,7 +202,7 @@ export default function QueueDesk() {
               family member sharing the handset. Offer to add the existing record
               so a second, empty history doesn't get started by accident. */}
           {dupes.length > 0 && (
-            <div className="rounded-2xl bg-buttersoft p-2.5">
+            <div className="appear rounded-2xl bg-buttersoft p-2.5">
               <p className="t-micro mb-1.5 px-1 font-semibold text-butter">
                 Already on this number — add them instead of a duplicate
               </p>

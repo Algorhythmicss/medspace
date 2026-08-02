@@ -1,4 +1,4 @@
-import { Ban, House } from "lucide-react";
+import { Ban, House, Activity } from "lucide-react";
 import type { MemoryCard, MemoryLine } from "@/lib/memory";
 import { relDay } from "@/lib/format";
 import Sparkline from "@/components/Sparkline";
@@ -56,6 +56,18 @@ export default function Briefing({
             ))}
           </div>
         </div>
+
+        {/* freshest thing the doctor has walking in: today's check-in vitals */}
+        {card.checkin && (
+          <div
+            className={`relative mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-semibold text-white ${
+              card.checkin.flag ? "bg-coral/30" : "bg-white/15"
+            }`}
+          >
+            <Activity size={12} strokeWidth={2.6} />
+            <span className="tnum">Checked in · {card.checkin.text}</span>
+          </div>
+        )}
 
         {/* the one thing that matters most */}
         {lead && (

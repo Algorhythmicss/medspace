@@ -10,7 +10,9 @@ export const dynamic = "force-dynamic";
 
 export default async function NewVisit({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [patient, card] = await Promise.all([
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const [patient, card, checkin] = await Promise.all([
     db.patient.findUnique({
       where: { id },
       include: {
@@ -22,6 +24,21 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
       },
     }),
     buildMemoryCard(id),
+    // Vitals the front desk took at check-in — so the doctor never re-types them.
+    db.queueEntry.findFirst({
+      where: {
+        patientId: id,
+        arrivedAt: { gte: todayStart },
+        OR: [
+          { bpSys: { not: null } },
+          { pulse: { not: null } },
+          { weight: { not: null } },
+          { tempF: { not: null } },
+        ],
+      },
+      orderBy: { arrivedAt: "desc" },
+      select: { bpSys: true, bpDia: true, pulse: true, weight: true, tempF: true },
+    }),
   ]);
   if (!patient || !card) notFound();
 
@@ -32,6 +49,14 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
       duration: i.duration ?? undefined,
       instructions: i.instructions ?? undefined,
     })) ?? [];
+
+  const checkinVitals = {
+    bpSys: checkin?.bpSys != null ? String(checkin.bpSys) : "",
+    bpDia: checkin?.bpDia != null ? String(checkin.bpDia) : "",
+    pulse: checkin?.pulse != null ? String(checkin.pulse) : "",
+    weight: checkin?.weight != null ? String(checkin.weight) : "",
+    tempF: checkin?.tempF != null ? String(checkin.tempF) : "",
+  };
 
   return (
     <div className="mx-auto w-full max-w-[720px] pt-3">
@@ -58,7 +83,7 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
         />
       </div>
 
-      <VisitForm patientId={patient.id} lastRxItems={lastRxItems} />
+      <VisitForm patientId={patient.id} lastRxItems={lastRxItems} checkinVitals={checkinVitals} />
     </div>
   );
 }

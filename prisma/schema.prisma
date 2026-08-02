@@ -33,7 +33,8 @@ model Patient {
   ageYears   Int? // fallback when DOB unknown (common in Indian OPD)
   address    String?
   abhaId     String?
-  stickyNote String? // durable context: language, caregiver, temperament
+  stickyNote String? // durable context: caregiver, temperament, anything human
+  language   String    @default("en") // preferred plan language: en | hi. Set once by the doctor, then the patient's plan opens in it every time.
 
   // Whether the patient has actually opened the plan link the doctor sent.
   // Engagement — not messaging — is the binding constraint in the field
@@ -259,6 +260,18 @@ model QueueEntry {
   arrivedAt DateTime  @default(now())
   seenAt    DateTime?
   note      String? // optional reason for visit, front-desk entered
+
+  // Vitals the front desk / nurse takes at check-in, while the patient waits.
+  // The doctor sees them on the chart the moment they open it, and the visit
+  // form pre-fills from them — so a vital is measured once, never re-typed. Temp
+  // in °F (the Indian OPD convention). Left on the queue entry, not written as
+  // Observations, until the doctor saves the visit — which is what makes them
+  // durable trend data — so a bare check-in never doubles up a reading.
+  bpSys  Int?
+  bpDia  Int?
+  pulse  Int?
+  weight Float?
+  tempF  Float?
 
   @@index([status, arrivedAt])
   @@index([patientId, status])

@@ -23,6 +23,8 @@ type DrugSuggestion = {
   defaultInstructions: string | null;
 };
 
+type Vitals = { bpSys: string; bpDia: string; pulse: string; weight: string; tempF: string };
+
 type Draft = {
   complaint: string;
   diagnosis: string;
@@ -30,6 +32,7 @@ type Draft = {
   bpDia: string;
   pulse: string;
   weight: string;
+  tempF: string;
   items: RxItemInput[];
   advice: string;
   followUpInDays: number | null;
@@ -43,6 +46,7 @@ const EMPTY: Draft = {
   bpDia: "",
   pulse: "",
   weight: "",
+  tempF: "",
   items: [],
   advice: "",
   followUpInDays: null,
@@ -57,10 +61,25 @@ function isEmpty(d: Draft) {
     !d.bpDia &&
     !d.pulse &&
     !d.weight &&
+    !d.tempF &&
     d.items.length === 0 &&
     !d.advice.trim() &&
     d.followUpInDays === null &&
     d.labTasks.length === 0
+  );
+}
+
+// Real clinical work, ignoring vitals — vitals alone are usually just the
+// check-in reading the form pre-filled, not something the doctor typed, so a
+// vitals-only saved draft shouldn't trigger the "restored what you typed" banner.
+function hasWork(d: Draft) {
+  return !!(
+    d.complaint.trim() ||
+    d.diagnosis.trim() ||
+    d.items.length ||
+    d.advice.trim() ||
+    d.followUpInDays !== null ||
+    d.labTasks.length
   );
 }
 
@@ -98,13 +117,18 @@ function Chip({
 export default function VisitForm({
   patientId,
   lastRxItems,
+  checkinVitals,
 }: {
   patientId: string;
   lastRxItems: RxItemInput[];
+  checkinVitals?: Vitals;
 }) {
   const draftKey = `medspace:visit-draft:${patientId}`;
 
-  const [draft, setDraft] = useState<Draft>(EMPTY);
+  // Seed the vitals from the front desk's check-in reading. checkinVitals is a
+  // server prop (same on server and client), so it's safe in the initializer —
+  // no hydration mismatch, and no fighting the localStorage-restore effect.
+  const [draft, setDraft] = useState<Draft>(() => ({ ...EMPTY, ...(checkinVitals ?? {}) }));
   const [restored, setRestored] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [drugQuery, setDrugQuery] = useState("");
@@ -115,14 +139,22 @@ export default function VisitForm({
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
-  // Recover anything typed before a reload, crash, or failed save.
+  // Recover anything typed before a reload, crash, or failed save. With no
+  // work-in-progress to restore, start from the vitals the front desk took at
+  // check-in — measured once, never re-typed.
   useEffect(() => {
+    // Restoring a localStorage draft after a reload/crash is exactly what an
+    // on-mount effect is for — client-only state that can't be read during
+    // render without a hydration mismatch. Only restore (and flag) real work; a
+    // vitals-only autosave is just the check-in reading, already seeded above.
     try {
       const raw = localStorage.getItem(draftKey);
       if (raw) {
         const parsed = JSON.parse(raw) as Draft;
-        if (!isEmpty(parsed)) {
+        if (hasWork(parsed)) {
+          /* eslint-disable-next-line react-hooks/set-state-in-effect */
           setDraft({ ...EMPTY, ...parsed });
+          /* eslint-disable-next-line react-hooks/set-state-in-effect */
           setRestored(true);
         }
       }
@@ -217,6 +249,7 @@ export default function VisitForm({
             bpDia: draft.bpDia ? Number(draft.bpDia) : undefined,
             pulse: draft.pulse ? Number(draft.pulse) : undefined,
             weight: draft.weight ? Number(draft.weight) : undefined,
+            tempF: draft.tempF ? Number(draft.tempF) : undefined,
           },
           items: draft.items,
           advice: draft.advice.trim() || undefined,
@@ -286,13 +319,14 @@ export default function VisitForm({
         <h3 className="label mb-2 px-1">
           Vitals
         </h3>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           {(
             [
               ["Sys", "bpSys", "numeric"],
               ["Dia", "bpDia", "numeric"],
               ["Pulse", "pulse", "numeric"],
               ["Wt kg", "weight", "decimal"],
+              ["°F", "tempF", "decimal"],
             ] as const
           ).map(([ph, key, mode]) => (
             <input

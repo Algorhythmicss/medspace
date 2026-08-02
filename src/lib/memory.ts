@@ -35,6 +35,15 @@ export type HomeReading = {
   count: number; // how many of this reading the patient has logged in-window
 };
 
+// Vitals the front desk took at today's check-in, taken by a nurse with a cuff
+// (so clinically valid, unlike a home reading). Shown at the top of the card
+// because it's the freshest thing the doctor has walking into the room.
+export type Checkin = {
+  text: string; // "BP 148/94 · 72 kg · 99.2°F"
+  flag: boolean; // BP high or febrile — worth the eye
+  at: Date;
+};
+
 export type MemoryCard = {
   headline: string; // "58 M · DM 8y · HTN 6y"
   allergies: string[];
@@ -42,6 +51,7 @@ export type MemoryCard = {
   metrics: MemoryMetric[];
   homeReadings: HomeReading[];
   activeMeds: { drugName: string; frequency: string }[];
+  checkin: Checkin | null;
 };
 
 // Most urgent first. An overdue follow-up outranks a drifting number, and a
@@ -97,7 +107,9 @@ function conditionAbbrev(name: string): string {
 
 export async function buildMemoryCard(patientId: string): Promise<MemoryCard | null> {
   const now = new Date();
-  const [patient, homeObs] = await Promise.all([
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const [patient, homeObs, checkinRow] = await Promise.all([
     db.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -132,8 +144,39 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       orderBy: { measuredAt: "desc" },
       take: 60,
     }),
+    // Today's front-desk check-in vitals, if any were taken.
+    db.queueEntry.findFirst({
+      where: {
+        patientId,
+        arrivedAt: { gte: todayStart },
+        OR: [
+          { bpSys: { not: null } },
+          { pulse: { not: null } },
+          { weight: { not: null } },
+          { tempF: { not: null } },
+        ],
+      },
+      orderBy: { arrivedAt: "desc" },
+      select: { bpSys: true, bpDia: true, pulse: true, weight: true, tempF: true, arrivedAt: true },
+    }),
   ]);
   if (!patient) return null;
+
+  let checkin: Checkin | null = null;
+  if (checkinRow) {
+    const bits: string[] = [];
+    if (checkinRow.bpSys) bits.push(`BP ${checkinRow.bpSys}/${checkinRow.bpDia ?? "?"}`);
+    if (checkinRow.pulse) bits.push(`${checkinRow.pulse} bpm`);
+    if (checkinRow.weight) bits.push(`${checkinRow.weight} kg`);
+    if (checkinRow.tempF) bits.push(`${checkinRow.tempF}°F`);
+    if (bits.length > 0) {
+      const flag =
+        (checkinRow.bpSys != null && checkinRow.bpSys >= 140) ||
+        (checkinRow.bpDia != null && checkinRow.bpDia >= 90) ||
+        (checkinRow.tempF != null && checkinRow.tempF >= 100);
+      checkin = { text: bits.join(" · "), flag, at: checkinRow.arrivedAt };
+    }
+  }
 
   // -------- headline --------
   const age = patient.dob ? differenceInYears(now, patient.dob) : patient.ageYears;
@@ -348,6 +391,7 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       .slice(0, 5),
     metrics: metrics.slice(0, 4),
     homeReadings,
+    checkin,
     // Active meds = the most recent prescription on record, not necessarily the
     // last visit's (a lab-review visit re-issues nothing). Same rule the patient
     // plan uses, so the two surfaces never disagree on what the patient is on.

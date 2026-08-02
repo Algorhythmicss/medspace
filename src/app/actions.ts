@@ -37,7 +37,7 @@ export type NewVisitInput = {
   patientId: string;
   complaint?: string;
   diagnosis?: string;
-  vitals?: { bpSys?: number; bpDia?: number; pulse?: number; weight?: number };
+  vitals?: { bpSys?: number; bpDia?: number; pulse?: number; weight?: number; tempF?: number };
   items: RxItemInput[];
   advice?: string;
   followUpInDays?: number;
@@ -83,6 +83,7 @@ export async function createVisit(input: NewVisitInput) {
   if (input.vitals?.bpDia) obs.push({ type: "BP_DIA", value: input.vitals.bpDia, unit: "mmHg" });
   if (input.vitals?.pulse) obs.push({ type: "PULSE", value: input.vitals.pulse, unit: "bpm" });
   if (input.vitals?.weight) obs.push({ type: "WEIGHT", value: input.vitals.weight, unit: "kg" });
+  if (input.vitals?.tempF) obs.push({ type: "TEMP", value: input.vitals.tempF, unit: "°F" });
   if (obs.length > 0) {
     await db.observation.createMany({
       data: obs.map((o) => ({ ...o, patientId: input.patientId, visitId: visit.id, measuredAt: now })),
@@ -382,7 +383,29 @@ export async function recordHomeReading(
 // ── Front-desk queue ────────────────────────────────────────────────────────
 // Reachable by staff (queue-only session) OR the doctor. Never assertClinicSession.
 
-export async function addToQueue(patientId: string, note?: string) {
+export type CheckinVitals = {
+  bpSys?: number | null;
+  bpDia?: number | null;
+  pulse?: number | null;
+  weight?: number | null;
+  tempF?: number | null;
+};
+
+// Keep only physiologically-sane readings — a fat-fingered "1400" for BP must
+// never reach the chart or the trend. Anything out of range is dropped to null.
+function saneVitals(v: CheckinVitals | undefined) {
+  const clamp = (x: number | null | undefined, lo: number, hi: number) =>
+    x != null && Number.isFinite(x) && x >= lo && x <= hi ? x : null;
+  return {
+    bpSys: clamp(v?.bpSys, 50, 300),
+    bpDia: clamp(v?.bpDia, 30, 200),
+    pulse: clamp(v?.pulse, 30, 250),
+    weight: clamp(v?.weight, 1, 400),
+    tempF: clamp(v?.tempF, 90, 115),
+  };
+}
+
+export async function addToQueue(patientId: string, note?: string, vitals?: CheckinVitals) {
   await assertQueueAccess();
   if (!patientId) return;
   // Don't double-queue someone already waiting TODAY. Scoping to today matters:
@@ -390,11 +413,21 @@ export async function addToQueue(patientId: string, note?: string) {
   // today's check-in (and flash a false "added") when they walk back in.
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
+  const v = saneVitals(vitals);
   const existing = await db.queueEntry.findFirst({
     where: { patientId, status: "waiting", arrivedAt: { gte: dayStart } },
   });
-  if (!existing) {
-    await db.queueEntry.create({ data: { patientId, note: note?.trim() || null } });
+  if (existing) {
+    // Already waiting — fold in any vitals or reason taken now, but never blank
+    // out what's already there.
+    const patch: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(v)) if (val != null) patch[k] = val;
+    if (note?.trim()) patch.note = note.trim();
+    if (Object.keys(patch).length > 0) {
+      await db.queueEntry.update({ where: { id: existing.id }, data: patch });
+    }
+  } else {
+    await db.queueEntry.create({ data: { patientId, note: note?.trim() || null, ...v } });
   }
   revalidatePath("/queue");
   revalidatePath("/");
@@ -412,13 +445,24 @@ export async function staffRegisterAndQueue(formData: FormData) {
   const ageRaw = String(formData.get("age") ?? "").trim();
   const age = ageRaw ? parseInt(ageRaw, 10) : null;
   const sex = String(formData.get("sex") ?? "").trim() || null;
+  const num = (k: string) => {
+    const n = Number(String(formData.get(k) ?? "").trim());
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const vitals = saneVitals({
+    bpSys: num("bpSys"),
+    bpDia: num("bpDia"),
+    pulse: num("pulse"),
+    weight: num("weight"),
+    tempF: num("tempF"),
+  });
   const patient = await createPatientWithFileNumber({
     name,
     phone,
     ageYears: age != null && Number.isFinite(age) ? age : null,
     sex,
   });
-  await db.queueEntry.create({ data: { patientId: patient.id, note } });
+  await db.queueEntry.create({ data: { patientId: patient.id, note, ...vitals } });
   revalidatePath("/queue");
   revalidatePath("/");
 }

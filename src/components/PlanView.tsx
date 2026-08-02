@@ -10,17 +10,21 @@ import { db } from "@/lib/db";
 import { plainFrequency, plainInstruction } from "@/lib/dosage";
 import { relDay, shortDate } from "@/lib/format";
 import { waLink, telLink } from "@/lib/phone";
+import { PLAN_TEXT, planDuration, type PlanLang } from "@/lib/planText";
 import { ArtBand, ArtSpot } from "@/components/Art";
 import ContinueWithGoogle from "@/components/ContinueWithGoogle";
 import PatientSignOut from "@/components/PatientSignOut";
 import PlanReply from "@/components/PlanReply";
 import LogHomeReading from "@/components/LogHomeReading";
+import PlanLangToggle from "@/components/PlanLangToggle";
 
 // The patient's plan, rendered identically whether they arrived by tapping
 // their WhatsApp link (/p/<token>) or by signing in with Google (/plan). The
 // only differences are the footer: a not-yet-linked link-visitor is offered
 // "sign in so you don't need the link next time"; a signed-in visitor gets
-// "not you? sign out" for the shared-family-phone case.
+// "not you? sign out" for the shared-family-phone case. Everything the patient
+// reads is language-aware — drug names stay, the plain-language around them
+// (timings, instructions, headings) switches.
 
 export async function loadPlanData(patientId: string) {
   const [patient, clinic] = await Promise.all([
@@ -58,13 +62,17 @@ export default async function PlanView({
   clinic,
   signedIn,
   planToken,
+  lang = "en",
 }: {
   patient: NonNullable<PlanData["patient"]>;
   clinic: PlanData["clinic"];
   signedIn: boolean;
   planToken?: string;
+  lang?: PlanLang;
 }) {
+  const t = PLAN_TEXT[lang];
   const firstName = patient.name.split(" ")[0];
+  const doctor = clinic?.doctorName ?? "";
   // The active prescription is the most recent one on record — not necessarily
   // the last visit, which may have been a lab-review with nothing re-issued.
   const rxVisit = patient.visits.find(
@@ -89,12 +97,13 @@ export default async function PlanView({
       <header className="relative overflow-hidden rounded-[26px] shadow-[var(--lift-lg)]">
         <ArtBand name="consultation" height="h-[190px] lg:h-[230px]" priority />
         <div className="absolute inset-0 bg-gradient-to-t from-[rgba(70,79,150,0.9)] via-[rgba(70,79,150,0.5)] to-transparent" />
+        <div className="absolute right-3 top-3">
+          <PlanLangToggle lang={lang} />
+        </div>
         <div className="absolute inset-x-0 bottom-0 p-5">
           <p className="t-cap text-periink2">{clinic?.clinicName}</p>
-          <h1 className="t-title text-white">Hello, {firstName}</h1>
-          <p className="t-cap mt-1 text-periink2">
-            Your care plan from {clinic?.doctorName}
-          </p>
+          <h1 className="t-title text-white">{t.hello(firstName)}</h1>
+          <p className="t-cap mt-1 text-periink2">{t.careFrom(doctor)}</p>
         </div>
       </header>
 
@@ -108,9 +117,7 @@ export default async function PlanView({
               <CalendarCheck size={22} strokeWidth={2} />
             </span>
             <div className="min-w-0">
-              <p className="t-head">
-                {followUp.dueDate < now ? "Your visit is due" : "Your next visit"}
-              </p>
+              <p className="t-head">{followUp.dueDate < now ? t.visitDue : t.nextVisit}</p>
               <p className="t-body text-ink2">
                 {shortDate(followUp.dueDate)}
                 {followUp.dueDate < now && (
@@ -119,7 +126,7 @@ export default async function PlanView({
               </p>
             </div>
           </div>
-          <PlanReply planToken={planToken} initial={patient.planReplyKind} />
+          <PlanReply planToken={planToken} initial={patient.planReplyKind} lang={lang} />
         </section>
       )}
 
@@ -128,18 +135,18 @@ export default async function PlanView({
         <section className="mt-6">
           <div className="mb-2 flex items-center gap-2 px-1">
             <Pill size={16} className="text-peri" />
-            <h2 className="t-head">Your medicines</h2>
+            <h2 className="t-head">{t.medicines}</h2>
           </div>
           <div className="card rows overflow-hidden">
             {meds.map((m) => (
               <div key={m.id} className="px-5 py-4">
                 <p className="t-bodyL">{m.drugName}</p>
                 <p className="t-cap mt-0.5 text-ink2">
-                  {plainFrequency(m.frequency)}
-                  {m.duration ? ` · for ${m.duration}` : ""}
+                  {plainFrequency(m.frequency, lang)}
+                  {m.duration ? ` · ${t.forDuration(planDuration(m.duration, lang))}` : ""}
                 </p>
-                {plainInstruction(m.instructions) && (
-                  <p className="t-cap mt-0.5 text-ink3">{plainInstruction(m.instructions)}</p>
+                {plainInstruction(m.instructions, lang) && (
+                  <p className="t-cap mt-0.5 text-ink3">{plainInstruction(m.instructions, lang)}</p>
                 )}
               </div>
             ))}
@@ -153,7 +160,7 @@ export default async function PlanView({
         <section className="mt-6">
           <div className="mb-2 flex items-center gap-2 px-1">
             <Pill size={16} className="text-peri" />
-            <h2 className="t-head">From your doctor</h2>
+            <h2 className="t-head">{t.fromDoctor}</h2>
           </div>
           <p className="card px-5 py-4 t-body text-ink2">{advice}</p>
         </section>
@@ -167,16 +174,16 @@ export default async function PlanView({
             <div className="absolute inset-0 bg-gradient-to-r from-[rgba(70,79,150,0.86)] to-[rgba(70,79,150,0.25)]" />
             <div className="absolute inset-0 flex items-center px-5">
               <div>
-                <p className="t-head text-white">Tests to get done</p>
-                <p className="t-cap text-periink2">Please bring the reports to your visit</p>
+                <p className="t-head text-white">{t.testsTitle}</p>
+                <p className="t-cap text-periink2">{t.testsSub}</p>
               </div>
             </div>
           </div>
           <div className="card rows overflow-hidden">
-            {tests.map((t) => (
-              <div key={t.id} className="flex items-center gap-3 px-5 py-3.5">
+            {tests.map((task) => (
+              <div key={task.id} className="flex items-center gap-3 px-5 py-3.5">
                 <FlaskConical size={15} className="shrink-0 text-peri" />
-                <span className="t-body min-w-0 flex-1">{t.title}</span>
+                <span className="t-body min-w-0 flex-1">{task.title}</span>
               </div>
             ))}
           </div>
@@ -188,7 +195,7 @@ export default async function PlanView({
         <section className="mt-6">
           <div className="mb-2 flex items-center gap-2 px-1">
             <FileText size={16} className="text-peri" />
-            <h2 className="t-head">Reports on file</h2>
+            <h2 className="t-head">{t.reports}</h2>
           </div>
           <div className="card rows overflow-hidden">
             {patient.reports.map((r) => (
@@ -202,17 +209,14 @@ export default async function PlanView({
       )}
 
       {/* ── log a home reading ──────────────────────────────── */}
-      <LogHomeReading planToken={planToken} />
+      <LogHomeReading planToken={planToken} lang={lang} />
 
       {/* Nothing outstanding — the calm case deserves a picture too. */}
       {meds.length === 0 && tests.length === 0 && !followUp && !advice && (
         <section className="mt-8 text-center">
           <ArtSpot name="room" className="mb-5" />
-          <p className="t-head">Nothing pending right now</p>
-          <p className="t-cap mx-auto mt-1 max-w-[280px] text-ink3">
-            When {clinic?.doctorName ?? "your doctor"} adds medicines, tests or a
-            next visit, they will appear here.
-          </p>
+          <p className="t-head">{t.nothingTitle}</p>
+          <p className="t-cap mx-auto mt-1 max-w-[280px] text-ink3">{t.nothingSub(doctor)}</p>
         </section>
       )}
 
@@ -220,11 +224,8 @@ export default async function PlanView({
       {offerGoogle && (
         <section className="mt-8">
           <div className="card p-5">
-            <p className="t-head">Sign in for next time</p>
-            <p className="t-body mt-1 text-ink2">
-              Use your Google account and your plan opens on its own — no need to
-              find this link again.
-            </p>
+            <p className="t-head">{t.signInTitle}</p>
+            <p className="t-body mt-1 text-ink2">{t.signInBody}</p>
             <div className="mt-4">
               <ContinueWithGoogle planToken={planToken} />
             </div>
@@ -238,7 +239,7 @@ export default async function PlanView({
           <ArtBand name="reception" height="h-[150px]" small />
           <div className="absolute inset-0 bg-gradient-to-t from-[rgba(70,79,150,0.92)] to-[rgba(70,79,150,0.3)]" />
           <div className="absolute inset-x-0 bottom-0 p-5">
-            <p className="t-head text-white">Questions about your care?</p>
+            <p className="t-head text-white">{t.questions}</p>
             <p className="t-cap text-periink2">{clinic?.clinicName}</p>
             <div className="mt-3 flex gap-2">
               {waHref && (
@@ -256,7 +257,7 @@ export default async function PlanView({
                   href={telHref}
                   className="btn inline-flex items-center gap-1.5 bg-white/20 px-4 py-2 text-[14px] text-white backdrop-blur-sm"
                 >
-                  <Phone size={15} strokeWidth={2.2} /> Call
+                  <Phone size={15} strokeWidth={2.2} /> {t.call}
                 </a>
               )}
             </div>
@@ -265,9 +266,7 @@ export default async function PlanView({
       </section>
 
       {!signedIn && (
-        <p className="t-micro mt-6 px-2 text-center text-ink3">
-          This page is private to you. Please don’t forward the link.
-        </p>
+        <p className="t-micro mt-6 px-2 text-center text-ink3">{t.privateNote}</p>
       )}
     </div>
   );

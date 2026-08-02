@@ -4,12 +4,7 @@ import { useState, useTransition } from "react";
 import { Check, CalendarCheck, X } from "lucide-react";
 import { recordPlanReply } from "@/app/actions";
 import type { PlanReplyKind } from "@/lib/reach";
-
-const OPTIONS: { kind: PlanReplyKind; label: string; icon: typeof Check }[] = [
-  { kind: "coming", label: "I’ll come", icon: Check },
-  { kind: "booked", label: "Already booked", icon: CalendarCheck },
-  { kind: "not_coming", label: "Can’t come", icon: X },
-];
+import { PLAN_TEXT, type PlanLang } from "@/lib/planText";
 
 // One tap tells the clinic whether the patient is coming — so the doctor calls
 // the person who said "can't come", not the one already booked. A fixed three
@@ -18,10 +13,18 @@ const OPTIONS: { kind: PlanReplyKind; label: string; icon: typeof Check }[] = [
 export default function PlanReply({
   planToken,
   initial,
+  lang = "en",
 }: {
   planToken?: string;
   initial?: string | null;
+  lang?: PlanLang;
 }) {
+  const t = PLAN_TEXT[lang];
+  const options: { kind: PlanReplyKind; label: string; icon: typeof Check }[] = [
+    { kind: "coming", label: t.replyComing, icon: Check },
+    { kind: "booked", label: t.replyBooked, icon: CalendarCheck },
+    { kind: "not_coming", label: t.replyCant, icon: X },
+  ];
   const [reply, setReply] = useState<string | null>(initial ?? null);
   const [, start] = useTransition();
 
@@ -33,9 +36,9 @@ export default function PlanReply({
 
   return (
     <div className="card mt-3 p-4">
-      <p className="t-cap text-ink2">Are you coming for this visit?</p>
+      <p className="t-cap text-ink2">{t.comingQ}</p>
       <div className="mt-2.5 flex flex-wrap gap-2">
-        {OPTIONS.map((o) => {
+        {options.map((o) => {
           const on = reply === o.kind;
           const Icon = o.icon;
           return (
@@ -51,11 +54,7 @@ export default function PlanReply({
           );
         })}
       </div>
-      {reply && (
-        <p className="t-cap mt-2.5 text-jade">
-          Thank you — the clinic has been told.
-        </p>
-      )}
+      {reply && <p className="t-cap mt-2.5 text-jade">{t.replyThanks}</p>}
     </div>
   );
 }

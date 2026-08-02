@@ -247,6 +247,7 @@ export async function updatePatient(formData: FormData) {
       ageYears: age != null && Number.isFinite(age) ? age : null,
       address: String(formData.get("address") ?? "").trim() || null,
       abhaId: String(formData.get("abhaId") ?? "").trim() || null,
+      language: String(formData.get("language") ?? "") === "hi" ? "hi" : "en",
     },
   });
 

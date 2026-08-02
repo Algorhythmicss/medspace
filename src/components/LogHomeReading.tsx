@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Activity, Droplet, Scale, Check } from "lucide-react";
 import { recordHomeReading } from "@/app/actions";
 import { HOME_METRICS } from "@/lib/metrics";
+import { PLAN_TEXT, type PlanLang } from "@/lib/planText";
 
 const ICONS: Record<string, typeof Activity> = {
   bp: Activity,
@@ -14,7 +15,14 @@ const ICONS: Record<string, typeof Activity> = {
 // Lets a returning patient record a home BP / sugar / weight. Each entry flows
 // to the doctor's chart tagged as self-logged. Deliberately three metrics, no
 // history graph, no goals, no nagging — a logger, not a wellness app.
-export default function LogHomeReading({ planToken }: { planToken?: string }) {
+export default function LogHomeReading({
+  planToken,
+  lang = "en",
+}: {
+  planToken?: string;
+  lang?: PlanLang;
+}) {
+  const t = PLAN_TEXT[lang];
   const [open, setOpen] = useState<string | null>(null);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState(false);
@@ -31,7 +39,7 @@ export default function LogHomeReading({ planToken }: { planToken?: string }) {
     const values: Record<string, number> = {};
     for (const f of metric.fields) values[f.type] = Number(vals[f.type]);
     if (metric.fields.some((f) => !vals[f.type] || !Number.isFinite(values[f.type]) || values[f.type] <= 0)) {
-      setError("Please enter a valid number.");
+      setError(t.errInvalid);
       return;
     }
     start(async () => {
@@ -42,7 +50,7 @@ export default function LogHomeReading({ planToken }: { planToken?: string }) {
         setVals({});
         setTimeout(() => setSaved(false), 3000);
       } else {
-        setError(res.error === "expired" ? "This link has expired." : "Couldn’t save — try again.");
+        setError(res.error === "expired" ? t.errExpired : t.errGeneric);
       }
     });
   }
@@ -51,12 +59,10 @@ export default function LogHomeReading({ planToken }: { planToken?: string }) {
     <section className="mt-6">
       <div className="mb-2 flex items-center gap-2 px-1">
         <Activity size={16} className="text-peri" />
-        <h2 className="t-head">Log a home reading</h2>
+        <h2 className="t-head">{t.homeTitle}</h2>
       </div>
       <div className="card p-4">
-        <p className="t-cap text-ink3">
-          Taken your BP, sugar or weight at home? Add it here — your doctor sees it at your next visit.
-        </p>
+        <p className="t-cap text-ink3">{t.homeSub}</p>
 
         <div className="mt-3 flex flex-wrap gap-2">
           {HOME_METRICS.map((m) => {
@@ -68,7 +74,8 @@ export default function LogHomeReading({ planToken }: { planToken?: string }) {
                 data-on={open === m.key}
                 className="chip inline-flex items-center gap-1.5 px-3.5 py-2 text-[14px]"
               >
-                <Icon size={14} strokeWidth={2.2} /> {m.label.replace(" (fasting)", "")}
+                <Icon size={14} strokeWidth={2.2} />{" "}
+                {t.homeMetric[m.key as keyof typeof t.homeMetric] ?? m.label.replace(" (fasting)", "")}
               </button>
             );
           })}
@@ -96,7 +103,7 @@ export default function LogHomeReading({ planToken }: { planToken?: string }) {
                 disabled={pending}
                 className="btn btn-primary shrink-0 px-4 py-2.5 text-[14px] disabled:opacity-60"
               >
-                {pending ? "Saving…" : "Save"}
+                {pending ? t.saving : t.save}
               </button>
             </div>
             {error && <p className="t-cap mt-1.5 px-1 text-coral">{error}</p>}
@@ -105,7 +112,7 @@ export default function LogHomeReading({ planToken }: { planToken?: string }) {
 
         {saved && (
           <p className="t-cap mt-3 inline-flex items-center gap-1.5 text-jade">
-            <Check size={14} strokeWidth={2.4} /> Saved — your doctor will see it.
+            <Check size={14} strokeWidth={2.4} /> {t.homeSaved}
           </p>
         )}
       </div>

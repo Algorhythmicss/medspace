@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import PlanView, { loadPlanData } from "@/components/PlanView";
 import { readPatientSession } from "@/lib/session";
+import { toPlanLang } from "@/lib/planText";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,12 @@ export const metadata: Metadata = {
   title: "Your care plan",
 };
 
-export default async function SignedInPlan() {
+export default async function SignedInPlan({
+  searchParams,
+}: {
+  searchParams: Promise<{ lang?: string }>;
+}) {
+  const { lang: langParam } = await searchParams;
   const session = await readPatientSession();
   if (!session) redirect("/welcome/patient");
 
@@ -23,5 +29,6 @@ export default async function SignedInPlan() {
   // to sign in, which will only succeed if their binding is still active.
   if (!patient || session.v !== patient.linkVersion) redirect("/welcome/patient");
 
-  return <PlanView patient={patient} clinic={clinic} signedIn />;
+  const lang = toPlanLang(langParam ?? patient.language);
+  return <PlanView patient={patient} clinic={clinic} signedIn lang={lang} />;
 }

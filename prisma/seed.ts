@@ -91,6 +91,7 @@ async function main() {
       sex: "M",
       ageYears: 58,
       address: "Aliganj, Lucknow",
+      language: "hi", // his note says he prefers Hindi — so his plan opens in it
       stickyNote: "Prefers Hindi. Usually comes with son Ankit.",
       conditions: {
         create: [

@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { readPatientLink } from "@/lib/patientLink";
+import { toPlanLang } from "@/lib/planText";
 import PlanView, { loadPlanData } from "@/components/PlanView";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +17,13 @@ export const metadata: Metadata = {
 
 export default async function PatientView({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ lang?: string }>;
 }) {
   const { token } = await params;
+  const { lang: langParam } = await searchParams;
   const link = await readPatientLink(token);
   if (!link) notFound();
 
@@ -56,5 +60,10 @@ export default async function PatientView({
     });
   }
 
-  return <PlanView patient={patient} clinic={clinic} signedIn={false} planToken={token} />;
+  // The patient can flip language on the plan (?lang); until then, the language
+  // the doctor set on the record.
+  const lang = toPlanLang(langParam ?? patient.language);
+  return (
+    <PlanView patient={patient} clinic={clinic} signedIn={false} planToken={token} lang={lang} />
+  );
 }

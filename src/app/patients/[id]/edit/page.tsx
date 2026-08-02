@@ -102,6 +102,19 @@ export default async function EditPatient({ params }: { params: Promise<{ id: st
           placeholder="ABHA number (optional)"
           className={fieldCls}
         />
+        <div>
+          <label className="mb-1 block px-1 text-[13px] font-medium text-ink3">
+            Plan language — the language their plan opens in
+          </label>
+          <select
+            name="language"
+            defaultValue={patient.language}
+            className="w-full appearance-none rounded-xl bg-sunk px-3.5 py-3 text-[17px] outline-none"
+          >
+            <option value="en">English</option>
+            <option value="hi">हिन्दी · Hindi</option>
+          </select>
+        </div>
         <button
           type="submit"
           className="mt-2 w-full rounded-2xl bg-peri py-3.5 text-[17px] font-semibold text-white active:opacity-80"

@@ -446,24 +446,28 @@ export async function staffRegisterAndQueue(formData: FormData) {
   const ageRaw = String(formData.get("age") ?? "").trim();
   const age = ageRaw ? parseInt(ageRaw, 10) : null;
   const sex = String(formData.get("sex") ?? "").trim() || null;
-  const num = (k: string) => {
-    const n = Number(String(formData.get(k) ?? "").trim());
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
-  const vitals = saneVitals({
-    bpSys: num("bpSys"),
-    bpDia: num("bpDia"),
-    pulse: num("pulse"),
-    weight: num("weight"),
-    tempF: num("tempF"),
-  });
   const patient = await createPatientWithFileNumber({
     name,
     phone,
     ageYears: age != null && Number.isFinite(age) ? age : null,
     sex,
   });
-  await db.queueEntry.create({ data: { patientId: patient.id, note, ...vitals } });
+  // Vitals are recorded against the waiting entry once the nurse takes them.
+  await db.queueEntry.create({ data: { patientId: patient.id, note } });
+  revalidatePath("/queue");
+  revalidatePath("/");
+}
+
+// Vitals recorded against a patient who is already waiting — the nurse takes
+// them while the patient waits for the doctor. They land on the doctor's chart
+// (the "checked in" line) and pre-fill the visit form. Replaces the whole set
+// (the editor sends every field), clamped to sane ranges.
+export async function setQueueVitals(entryId: string, vitals: CheckinVitals) {
+  await assertQueueAccess();
+  if (!entryId) return;
+  await db.queueEntry
+    .update({ where: { id: entryId }, data: saneVitals(vitals) })
+    .catch(() => {});
   revalidatePath("/queue");
   revalidatePath("/");
 }

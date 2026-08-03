@@ -80,9 +80,9 @@ export default async function Welcome() {
               <ClipboardList size={22} strokeWidth={2} />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="t-head block">I’m the receptionist</span>
+              <span className="t-head block">I’m clinic staff</span>
               <span className="t-cap block text-ink3">
-                Check patients in as they arrive
+                Check patients in and record their vitals
               </span>
             </span>
             <ChevronRight size={18} className="shrink-0 text-ink3" />

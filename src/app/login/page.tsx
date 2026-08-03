@@ -132,9 +132,9 @@ export default async function Login({
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-perisoft text-peri">
           <Lock size={20} strokeWidth={2} />
         </div>
-        <h1 className="t-title">{isDesk ? "Reception" : "medSpace"}</h1>
+        <h1 className="t-title">{isDesk ? "Staff" : "medSpace"}</h1>
         <p className="t-body mt-1 text-ink2">
-          {isDesk ? "Enter your reception passcode" : "Enter the clinic passcode"}
+          {isDesk ? "Enter your staff passcode" : "Enter the clinic passcode"}
         </p>
       </div>
 
@@ -159,7 +159,7 @@ export default async function Login({
       </form>
 
       <p className="t-cap mt-5 text-center text-ink3">
-        {isDesk ? "Not the receptionist?" : "Not the doctor?"}{" "}
+        {isDesk ? "Not staff?" : "Not the doctor?"}{" "}
         <Link href="/welcome" className="font-semibold text-peri">
           Go back
         </Link>

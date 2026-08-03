@@ -6,6 +6,7 @@ import { relDay, patientAgeSex } from "@/lib/format";
 import { hasStaffSession } from "@/lib/session";
 import { staffSignOut } from "@/app/actions";
 import QueueDesk from "@/components/QueueDesk";
+import QueueVitals from "@/components/QueueVitals";
 import { RemoveFromQueue } from "@/components/QueueControls";
 
 export const dynamic = "force-dynamic";
@@ -39,9 +40,9 @@ export default async function QueueScreen() {
         <div>
           <p className="t-cap text-ink3">{clinic?.clinicName ?? "Front desk"}</p>
           <h1 className="t-hero">Today’s queue</h1>
-          <p className="t-cap mt-1 max-w-[340px] text-ink3">
-            Add each patient as they arrive — the doctor sees who’s waiting and
-            checks them off after the visit.
+          <p className="t-cap mt-1 max-w-[360px] text-ink3">
+            Add each patient as they arrive and record their vitals — the doctor
+            sees who’s waiting, and their vitals, on their own screen.
           </p>
         </div>
         {staff && (
@@ -67,20 +68,32 @@ export default async function QueueScreen() {
         ) : (
           <ul className="stagger space-y-2.5">
             {waiting.map((e, i) => (
-              <li key={e.id} className="card flex items-center gap-3 p-4">
-                <span className="t-num flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-perisoft text-[15px] text-peri">
-                  {i + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="t-head block truncate">{e.patient.name}</span>
-                  <span className="t-micro text-ink3">
-                    #{e.patient.fileNumber}
-                    {patientAgeSex(e.patient) ? ` · ${patientAgeSex(e.patient)}` : ""} · arrived{" "}
-                    {relDay(e.arrivedAt)}
+              <li key={e.id} className="card p-4">
+                <div className="flex items-center gap-3">
+                  <span className="t-num flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-perisoft text-[15px] text-peri">
+                    {i + 1}
                   </span>
-                  {e.note && <span className="t-cap mt-0.5 block truncate text-ink2">{e.note}</span>}
-                </span>
-                <RemoveFromQueue entryId={e.id} />
+                  <span className="min-w-0 flex-1">
+                    <span className="t-head block truncate">{e.patient.name}</span>
+                    <span className="t-micro text-ink3">
+                      #{e.patient.fileNumber}
+                      {patientAgeSex(e.patient) ? ` · ${patientAgeSex(e.patient)}` : ""} · arrived{" "}
+                      {relDay(e.arrivedAt)}
+                    </span>
+                    {e.note && <span className="t-cap mt-0.5 block truncate text-ink2">{e.note}</span>}
+                  </span>
+                  <RemoveFromQueue entryId={e.id} />
+                </div>
+                <QueueVitals
+                  entryId={e.id}
+                  vitals={{
+                    bpSys: e.bpSys,
+                    bpDia: e.bpDia,
+                    pulse: e.pulse,
+                    weight: e.weight,
+                    tempF: e.tempF,
+                  }}
+                />
               </li>
             ))}
           </ul>
@@ -89,7 +102,7 @@ export default async function QueueScreen() {
 
       {staff && (
         <p className="t-micro mt-6 px-2 text-center text-ink3">
-          Front-desk view — patient records stay with the doctor.
+          Staff view — patient records stay with the doctor.
         </p>
       )}
 

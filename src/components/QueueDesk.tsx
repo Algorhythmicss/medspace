@@ -1,10 +1,8 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Search, UserPlus, Plus, Check, Activity } from "lucide-react";
+import { Search, UserPlus, Plus, Check } from "lucide-react";
 import { searchPatientsForQueue, addToQueue, staffRegisterAndQueue } from "@/app/actions";
-
-const EMPTY_VITALS = { bpSys: "", bpDia: "", pulse: "", weight: "", tempF: "" };
 
 type Result = {
   id: string;
@@ -29,23 +27,9 @@ export default function QueueDesk() {
   const [age, setAge] = useState("");
   const [sex, setSex] = useState("");
   const [note, setNote] = useState("");
-  const [vitals, setVitals] = useState(EMPTY_VITALS);
   const [dupes, setDupes] = useState<Result[]>([]); // existing records on this phone
   const [added, setAdded] = useState<string | null>(null);
   const [pending, start] = useTransition();
-
-  const setV = (k: keyof typeof EMPTY_VITALS, v: string) =>
-    setVitals((s) => ({ ...s, [k]: v }));
-  const vitalsNum = () => {
-    const n = (s: string) => (s.trim() ? Number(s) : null);
-    return {
-      bpSys: n(vitals.bpSys),
-      bpDia: n(vitals.bpDia),
-      pulse: n(vitals.pulse),
-      weight: n(vitals.weight),
-      tempF: n(vitals.tempF),
-    };
-  };
 
   // One debounced, latest-wins searcher for both the search box and the
   // new-patient phone check. Debounce keeps us from firing a server action on
@@ -89,13 +73,12 @@ export default function QueueDesk() {
     setAge("");
     setSex("");
     setNote("");
-    setVitals(EMPTY_VITALS);
     setDupes([]);
   }
 
   function add(p: Result) {
     start(async () => {
-      await addToQueue(p.id, note.trim() || undefined, vitalsNum());
+      await addToQueue(p.id, note.trim() || undefined);
       flash(p.name);
       setQ("");
       setResults([]);
@@ -113,7 +96,6 @@ export default function QueueDesk() {
     fd.set("age", age.trim());
     fd.set("sex", sex);
     fd.set("note", note.trim());
-    for (const [k, v] of Object.entries(vitals)) fd.set(k, v);
     start(async () => {
       await staffRegisterAndQueue(fd);
       flash(name.trim());
@@ -147,36 +129,6 @@ export default function QueueDesk() {
         placeholder="Reason for visit (optional)"
         className="field ring-focus mb-2 w-full"
       />
-
-      {/* Vitals the front desk takes while the patient waits — the doctor sees
-          them the moment they open the chart, and the visit pre-fills from them.
-          All optional: fill in whatever was measured. */}
-      <div className="mb-3">
-        <div className="mb-1 flex items-center gap-1.5 px-1 text-ink3">
-          <Activity size={12} strokeWidth={2.4} />
-          <span className="t-micro font-semibold">Vitals — optional</span>
-        </div>
-        <div className="grid grid-cols-5 gap-1.5">
-          {(
-            [
-              ["bpSys", "Sys", "numeric"],
-              ["bpDia", "Dia", "numeric"],
-              ["pulse", "Pulse", "numeric"],
-              ["weight", "Wt", "decimal"],
-              ["tempF", "°F", "decimal"],
-            ] as const
-          ).map(([key, ph, mode]) => (
-            <input
-              key={key}
-              value={vitals[key]}
-              onChange={(e) => setV(key, e.target.value)}
-              placeholder={ph}
-              inputMode={mode}
-              className="ring-focus w-full rounded-xl bg-sunk px-1.5 py-2 text-center text-[15px] outline-none placeholder:text-ink3"
-            />
-          ))}
-        </div>
-      </div>
 
       {mode === "search" ? (
         <div>

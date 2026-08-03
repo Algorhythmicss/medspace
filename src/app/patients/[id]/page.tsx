@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ChevronLeft,
-  ChevronRight,
   FlaskConical,
   RefreshCw,
   FileText,
@@ -76,6 +75,11 @@ export default async function PatientChart({
   const visits = showAll ? patient.visits : patient.visits.slice(0, VISIBLE_VISITS);
   const hidden = patient.visits.length - visits.length;
   const now = new Date();
+  // The most recent prescription, for one-tap "give me the Rx again" — reprint,
+  // re-share on WhatsApp, or show the pharmacy — without hunting the timeline.
+  const latestRx = patient.visits.find(
+    (v) => v.prescription && v.prescription.items.length > 0
+  );
 
   return (
     <div className="pt-3 lg:pt-6">
@@ -113,6 +117,15 @@ export default async function PatientChart({
       >
         Start a visit
       </Link>
+
+      {latestRx && (
+        <Link
+          href={`/visits/${latestRx.id}/rx`}
+          className="pressable mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl bg-perisoft py-3.5 text-[15.5px] font-semibold text-peri"
+        >
+          <FileText size={17} strokeWidth={2.2} /> View &amp; print prescription
+        </Link>
+      )}
 
       <SendPlanLink
         waHref={waLink(patient.phone, planMessage)}
@@ -265,9 +278,9 @@ export default async function PatientChart({
                   ))}
                   <Link
                     href={`/visits/${v.id}/rx`}
-                    className="t-micro ml-auto inline-flex items-center font-semibold text-peri active:opacity-60"
+                    className="ml-auto inline-flex items-center gap-1 rounded-full bg-perisoft px-2.5 py-1 text-[12px] font-semibold text-peri active:opacity-70"
                   >
-                    Rx <ChevronRight size={13} />
+                    <FileText size={12} strokeWidth={2.4} /> Rx
                   </Link>
                 </div>
               )}

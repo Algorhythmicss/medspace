@@ -110,10 +110,10 @@ export default async function PatientChart({
       <div className="lg:grid lg:grid-cols-12 lg:items-start lg:gap-6">
       {/* the rail: what to do next, and what is owed — stays put while
           history scrolls on a laptop */}
-      <div className="lg:sticky lg:top-6 lg:order-2 lg:col-span-5 lg:space-y-5">
+      <div className="mt-4 space-y-3 lg:mt-0 lg:space-y-4 lg:sticky lg:top-6 lg:order-2 lg:col-span-5">
       <Link
         href={`/patients/${patient.id}/visit/new`}
-        className="btn btn-primary mt-4 block w-full py-4 text-center text-[16.5px] lg:mt-0"
+        className="btn btn-primary block w-full py-4 text-center text-[16.5px]"
       >
         Start a visit
       </Link>
@@ -121,7 +121,7 @@ export default async function PatientChart({
       {latestRx && (
         <Link
           href={`/visits/${latestRx.id}/rx`}
-          className="pressable mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl bg-perisoft py-3.5 text-[15.5px] font-semibold text-peri"
+          className="pressable flex w-full items-center justify-center gap-2 rounded-2xl bg-perisoft py-3.5 text-[15.5px] font-semibold text-peri"
         >
           <FileText size={17} strokeWidth={2.2} /> View &amp; print prescription
         </Link>
@@ -147,7 +147,7 @@ export default async function PatientChart({
 
       {/* ── open items: what is owed, in one place ───────────── */}
       {(patient.tasks.length > 0 || patient.reports.length > 0) && (
-        <section className="mt-6">
+        <section className="pt-1">
           <div className="mb-2 flex items-baseline justify-between px-1">
             <h2 className="label">Open items</h2>
             <Link
@@ -220,7 +220,7 @@ export default async function PatientChart({
       )}
 
       {patient.tasks.length === 0 && patient.reports.length === 0 && (
-        <section className="mt-6">
+        <section className="pt-1">
           <div className="card flex items-center justify-between px-4 py-3.5">
             <span className="t-body text-ink3">Nothing pending — records are current.</span>
             <Link

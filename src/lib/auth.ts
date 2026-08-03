@@ -2,7 +2,7 @@
 // so the same code runs in middleware (Edge) and in server actions.
 
 const COOKIE = "medspace_session";
-const MAX_AGE_SECONDS = 60 * 60 * 12; // a clinic day; re-entry each morning
+const MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // a week — sign in once, not every day
 
 function secret(): string {
   const s = process.env.MEDSPACE_SESSION_SECRET;

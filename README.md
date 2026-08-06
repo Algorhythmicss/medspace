@@ -9,7 +9,7 @@ A memory-first clinic OS for Indian private OPD. It enters a clinic as a *faster
 
 ## For engineers / agents
 
-**[`AGENTS.md`](AGENTS.md) is the ground truth** — architecture, data model, auth, the design system, security posture, and the traps that have cost time. Read it before making changes. (`CLAUDE.md` just imports it.)
+Picking this up cold? **Start with [`HANDOFF.md`](HANDOFF.md)** — the vision, the anti-bloat guardrails, a snapshot of what's built, and exactly what's next. Then **[`AGENTS.md`](AGENTS.md) is the technical ground truth** — architecture, data model, auth, the design system, security posture, and the traps that have cost time. (`CLAUDE.md` imports both, so a fresh session auto-loads them.)
 
 ## Quick start
 

@@ -35,8 +35,8 @@ export async function assertClinicSession(): Promise<void> {
 // A separate cookie whose value is ROLE-BOUND: it is signed with kind "staff",
 // so it can never satisfy a doctor check even though it shares the HMAC secret.
 // (Cookie-name separation alone would not — the values would be interchangeable,
-// letting a receptionist rename their cookie into the clinical records.) 12h
-// life; the ONLY thing it grants is the /queue screen.
+// letting a receptionist rename their cookie into the clinical records.) Same
+// week-long life as the doctor's; the ONLY thing it grants is the /queue screen.
 
 const STAFF_COOKIE = "medspace_staff";
 

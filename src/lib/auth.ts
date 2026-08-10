@@ -64,7 +64,7 @@ export async function isValidSession(
 
   // payload is "<expires>:<kind>". The role must match the door being checked;
   // a legacy value without a role no longer validates (its holder simply signs
-  // in again — a session only lasts a clinic day anyway).
+  // in again — one re-login, and the session then lasts a week).
   const sep = payload.lastIndexOf(":");
   if (sep < 1) return false;
   if (payload.slice(sep + 1) !== kind) return false;

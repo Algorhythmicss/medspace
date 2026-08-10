@@ -88,8 +88,13 @@ Three surfaces on one Next.js 16 deployment. This is a *snapshot*; file-level de
 
 ### Go-live blockers (before real patients)
 1. **Dedicated Google Cloud project + OAuth consent screen.** Prod currently borrows another product's ("Leetify") OAuth client — data-isolated, but the consent screen shows the wrong name. Create a medSpace project, set External user type, **publish to production** (Testing mode caps 100 users and expires consent in 7 days).
-2. **Wipe the 8 fictional demo patients from prod** before real data lands (the DELETE block atop `scripts/seed-sql.ts`).
+2. **Clear the fictional data from prod** before real data lands. Verified on prod 9 Aug 2026 — it is more than the patient list:
+   - **11 patients**, not 8: fileNumbers 101–109 (the seeded panel, incl. the drifter Geeta Rao) plus **110 and 111, both named "ayush"** — throwaway walk-ins left over from queue testing.
+   - **The `Clinic` row is fictional** — "Shri Krishna Clinic" / "Dr. A. K. Verma" / regNumber **`MCI-45821`**. That reg number prints on every prescription and is legally mandatory, so this is arguably the most urgent item here, not the patients. Insert the real clinic row before anything prints an Rx.
+   - **Patient 101 carries a live `PatientAccess` row** — a real Google account bound to a fictional patient during the 1 Aug auth bring-up. Remove it.
+   - Use only the **DELETE half** of the block atop `scripts/seed-sql.ts`: that script emits wipe *and reseed*, so running it whole just replaces the demo panel with a fresh one — and its wipe includes `DELETE FROM "Clinic"`, which drops the letterhead too.
 3. Confirm all env vars are set in Vercel — including `MEDSPACE_STAFF_PASSCODE` (already set: the staff card shows in prod) and `MEDSPACE_SITE_URL` matching Supabase's redirect allow-list.
+4. **Prod schema is current** — all 10 local migrations have a prod counterpart and the RLS posture is clean (verified 9 Aug 2026). Nothing to do; re-verify with the Supabase MCP before each deploy rather than trusting this line.
 
 ### Strong candidate features (offered to the user; not yet built)
 These came up in a capability discussion; the user chose vitals + Hindi first and these remain the best next bets (all reuse existing infra, none are bloat):

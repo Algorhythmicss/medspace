@@ -76,16 +76,20 @@ function patient(o: {
   age: number;
   address?: string;
   sticky?: string;
+  language?: string; // en | hi — the language their plan opens in
 }) {
   out.push(
-    `INSERT INTO "Patient" ("id","fileNumber","name","phone","sex","ageYears","address","stickyNote","createdAt","updatedAt") VALUES (${q(o.key)},${o.fileNumber},${q(o.name)},${q(o.phone)},${q(o.sex)},${o.age},${q(o.address)},${q(o.sticky)},${t(now)},${t(now)});`
+    `INSERT INTO "Patient" ("id","fileNumber","name","phone","sex","ageYears","address","stickyNote","language","createdAt","updatedAt") VALUES (${q(o.key)},${o.fileNumber},${q(o.name)},${q(o.phone)},${q(o.sex)},${o.age},${q(o.address)},${q(o.sticky)},${q(o.language ?? "en")},${t(now)},${t(now)});`
   );
   return o.key;
 }
 
-function condition(pid: string, name: string, sinceYears: number) {
+// `sinceDaysAgo` wins when given — a couple of conditions are dated in days
+// rather than whole years, and rounding them to years would move the headline.
+function condition(pid: string, name: string, sinceYears: number | null, sinceDaysAgo?: number) {
+  const since = sinceDaysAgo != null ? subDays(now, sinceDaysAgo) : subYears(now, sinceYears ?? 0);
   out.push(
-    `INSERT INTO "Condition" ("id","patientId","name","status","since","createdAt") VALUES (${q(id("c"))},${q(pid)},${q(name)},'active',${t(subYears(now, sinceYears))},${t(now)});`
+    `INSERT INTO "Condition" ("id","patientId","name","status","since","createdAt") VALUES (${q(id("c"))},${q(pid)},${q(name)},'active',${t(since)},${t(now)});`
   );
 }
 
@@ -154,6 +158,40 @@ function report(o: {
   );
 }
 
+// How far the plan link actually got with this patient — the pilot's core
+// metric, and what `reach.ts` reads to decide "send again" vs "phone them".
+function reach(
+  pid: string,
+  r: { shares: number; sharedDaysAgo: number; opens: number; openedDaysAgo?: number }
+) {
+  out.push(
+    `UPDATE "Patient" SET "planShareCount"=${r.shares},"planSharedAt"=${t(subDays(now, r.sharedDaysAgo))},"planOpenCount"=${r.opens},"planFirstOpenedAt"=${t(r.opens ? subDays(now, r.sharedDaysAgo - 1) : null)},"planLastOpenedAt"=${t(r.openedDaysAgo != null ? subDays(now, r.openedDaysAgo) : null)} WHERE "id"=${q(pid)};`
+  );
+}
+
+// The patient's own answer, tapped on their plan: coming | booked | not_coming.
+function planReply(pid: string, kind: string, daysAgo: number) {
+  out.push(
+    `UPDATE "Patient" SET "planReplyKind"=${q(kind)},"planReplyAt"=${t(subDays(now, daysAgo))} WHERE "id"=${q(pid)};`
+  );
+}
+
+// A reading the patient logged at home: source "patient" and NO visit, so it
+// shows in the tagged strip and never fuses into the clinical trend.
+function homeReading(pid: string, type: string, value: number, unit: string, daysAgo: number) {
+  out.push(
+    `INSERT INTO "Observation" ("id","patientId","visitId","type","value","unit","measuredAt","source") VALUES (${q(id("o"))},${q(pid)},NULL,${q(type)},${value},${q(unit)},${t(subDays(now, daysAgo))},'patient');`
+  );
+}
+
+// A walk-in waiting at the front desk right now. Vitals are left null — they
+// arrive when the nurse takes them, not at check-in.
+function queueEntry(pid: string, minutesAgo: number, note: string) {
+  out.push(
+    `INSERT INTO "QueueEntry" ("id","patientId","status","arrivedAt","note") VALUES (${q(id("qe"))},${q(pid)},'waiting',${t(new Date(now.getTime() - minutesAgo * 60000))},${q(note)});`
+  );
+}
+
 // ---------- 1: Ramesh Gupta — worsening T2DM, overdue labs ----------
 const ramesh = patient({
   key: "p101",
@@ -163,6 +201,7 @@ const ramesh = patient({
   sex: "M",
   age: 58,
   address: "Aliganj, Lucknow",
+  language: "hi", // his note says he prefers Hindi — so his plan opens in it
   sticky: "Prefers Hindi. Usually comes with son Ankit.",
 });
 condition(ramesh, "Type 2 Diabetes", 8);
@@ -421,5 +460,51 @@ for (const [daysAgo, hba1c] of [
   });
 }
 task({ pid: lakshmi, vid: lastLakshmiVid, kind: "FOLLOW_UP", title: "Quarterly diabetes review", dueInDays: 0 });
+
+// ---------- Plan-link reach ----------
+// Sending is easy; being read is not. The demo panel reflects the field
+// numbers rather than a happy path — SPRINT India got 17% to acknowledge a
+// message, 99DOTS 33% to ever use the channel. So: some opened, some sent
+// once and still waiting, some sent repeatedly and never opened (the ones
+// the app should stop messaging and start phoning), some never sent.
+reach(ramesh, { shares: 3, sharedDaysAgo: 4, opens: 0 }); // Ramesh — never opens; call him
+reach(sunita, { shares: 2, sharedDaysAgo: 9, opens: 5, openedDaysAgo: 1 }); // Sunita — engaged
+reach(abdul, { shares: 1, sharedDaysAgo: 1, opens: 0 }); // Abdul — sent yesterday, fair enough
+reach(mohan, { shares: 1, sharedDaysAgo: 6, opens: 0 }); // Mohan — one send, gone quiet
+reach(kavita, { shares: 1, sharedDaysAgo: 12, opens: 2, openedDaysAgo: 11 }); // Kavita — opened once, long ago
+reach(lakshmi, { shares: 4, sharedDaysAgo: 2, opens: 0 }); // Lakshmi — four sends, nothing
+// Priya (104) and Rajiv (107): link never sent
+
+// ---------- 9: Geeta Rao — a chronic drifter ----------
+// Active problem, nothing scheduled, no visit in months — exactly who
+// /followups' "Haven't been back" section is built to surface.
+const geeta = patient({
+  key: "p109",
+  fileNumber: 109,
+  name: "Geeta Rao",
+  phone: "9876543109",
+  sex: "F",
+  age: 61,
+});
+condition(geeta, "Hypertension", null, 1400);
+visit({
+  pid: geeta,
+  daysAgo: 168,
+  complaint: "BP review",
+  diagnosis: "Essential hypertension",
+});
+
+// Follow-up replies: one coming, one declining (the decline is the call).
+planReply(abdul, "coming", 1);
+planReply(lakshmi, "not_coming", 1);
+
+// Patient-logged home readings for Ramesh — show tagged, off the clinical trend.
+homeReading(ramesh, "BP_SYS", 152, "mmHg", 2);
+homeReading(ramesh, "BP_DIA", 96, "mmHg", 2);
+homeReading(ramesh, "FBS", 148, "mg/dL", 3);
+
+// Front-desk queue: two walk-ins waiting right now.
+queueEntry(kavita, 18, "BP recheck");
+queueEntry(sunita, 5, "Fever, 3 days");
 
 console.log(out.join("\n"));

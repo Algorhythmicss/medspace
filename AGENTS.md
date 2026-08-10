@@ -26,7 +26,7 @@ The passcode gate lives in **`src/proxy.ts`** — Next 16 renamed the `middlewar
 `src/lib/db.ts` constructs the client **lazily behind a Proxy**: a build with no `DATABASE_URL` must succeed (verified), otherwise Vercel can't build before env vars exist. Supabase auth uses `@supabase/ssr` + `@supabase/supabase-js`.
 
 ## Commands
-- `pnpm dev` — dev server (or `preview_start` with launch config `medspace-dev`)
+- `pnpm dev` — dev server (or `preview_start` with launch config `dev`, checked in at `.claude/launch.json`)
 - `npx prisma migrate deploy` — apply migrations · `npx tsx prisma/seed.ts` — reseed the demo panel
 - `npx tsc --noEmit` — typecheck · `npx next build` — production build
 - Test suites (reseed after): `npx tsx scripts/` → `test-merge.ts`, `test-report.ts`, `test-supersede.ts`, `test-patient-link.ts`, `test-phone.ts`, `test-reach.ts`, `test-revocation.ts`, `test-patient-access.ts`. No framework — each is a plain script with an `expect(cond, label)` helper printing `ALL PASS` / `TESTS FAILED`.

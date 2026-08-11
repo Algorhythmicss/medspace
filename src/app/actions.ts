@@ -16,6 +16,7 @@ import {
 import { supabaseForAuth } from "@/lib/supabase";
 import { bindIdentity, hasActiveAccess } from "@/lib/patientAccess";
 import { HOME_METRICS } from "@/lib/metrics";
+import { storablePhone, phoneQuery } from "@/lib/phone";
 import {
   readPatientLink,
   createBindToken,
@@ -130,9 +131,22 @@ export async function createVisit(input: NewVisitInput) {
   // touch patient so they surface in "recent"; bump drug usage for autosuggest learning
   await db.patient.update({ where: { id: input.patientId }, data: { updatedAt: now } });
   for (const item of input.items) {
-    await db.drug.updateMany({
+    // upsert, not updateMany: a free-typed drug matched no row, so the update hit
+    // nothing and nothing ever inserted it — the autosuggest could only ever
+    // re-rank the seeded formulary, never learn a drug this doctor actually uses.
+    // The frequency/duration/instructions they just typed become its defaults, so
+    // the second prescription of it fills itself in. A typo does get stored, but
+    // lands at useCount 1 and therefore sorts below everything real.
+    await db.drug.upsert({
       where: { name: item.drugName },
-      data: { useCount: { increment: 1 } },
+      create: {
+        name: item.drugName,
+        defaultFrequency: item.frequency || null,
+        defaultDuration: item.duration || null,
+        defaultInstructions: item.instructions || null,
+        useCount: 1,
+      },
+      update: { useCount: { increment: 1 } },
     });
   }
 
@@ -168,7 +182,9 @@ export async function createPatient(formData: FormData) {
   await assertClinicSession();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
-  const phone = String(formData.get("phone") ?? "").trim() || null;
+  // Normalised on write — see storablePhone. Search and duplicate detection both
+  // depend on one patient having exactly one representation of their number.
+  const phone = storablePhone(String(formData.get("phone") ?? ""));
   const ageRaw = String(formData.get("age") ?? "").trim();
   const sex = String(formData.get("sex") ?? "").trim() || null;
 
@@ -242,7 +258,7 @@ export async function updatePatient(formData: FormData) {
     where: { id: patientId },
     data: {
       name,
-      phone: String(formData.get("phone") ?? "").trim() || null,
+      phone: storablePhone(String(formData.get("phone") ?? "")),
       sex: String(formData.get("sex") ?? "").trim() || null,
       ageYears: age != null && Number.isFinite(age) ? age : null,
       address: String(formData.get("address") ?? "").trim() || null,
@@ -438,7 +454,7 @@ export async function staffRegisterAndQueue(formData: FormData) {
   await assertQueueAccess();
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
-  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const phone = storablePhone(String(formData.get("phone") ?? ""));
   const note = String(formData.get("note") ?? "").trim() || null;
   // Capture the same identity fields the doctor's intake does, so a walk-in
   // registered at the front desk isn't a half-empty record — age and sex are
@@ -504,11 +520,13 @@ export async function searchPatientsForQueue(q: string) {
   const asNumber = Number(query);
   const asFileNumber =
     Number.isInteger(asNumber) && asNumber > 0 && asNumber <= 2147483647 ? asNumber : null;
+  // Match phones on digits alone, so "+91 98765-43101" finds a stored 9876543101.
+  const digits = phoneQuery(query);
   return db.patient.findMany({
     where: {
       OR: [
         { name: { contains: query, mode: "insensitive" } },
-        { phone: { contains: query } },
+        ...(digits ? [{ phone: { contains: digits } }] : []),
         ...(asFileNumber !== null ? [{ fileNumber: asFileNumber }] : []),
       ],
     },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hasClinicSession } from "@/lib/session";
+import { phoneQuery } from "@/lib/phone";
 
 // Instant patient lookup: name fragment, phone fragment, or file number.
 // Budget: whole round trip well under a second on clinic hardware.
@@ -22,14 +23,15 @@ export async function GET(req: NextRequest) {
   const asFileNumber =
     Number.isInteger(asNumber) && asNumber > 0 && asNumber <= 2147483647 ? asNumber : null;
   // Case-insensitive on name so "verma" finds "Verma" — the doctor types fast
-  // and lowercase on the ≤5s lookup path. Phone stays a plain substring (digits
-  // typed against stored numbers); formatted-number matching is a known gap
-  // (stored phones aren't normalised — see AGENTS.md).
+  // and lowercase on the ≤5s lookup path. Phones match on digits alone (see
+  // phoneQuery): numbers are stored canonicalised, so a pasted "+91 98765-43101"
+  // has to be reduced the same way before it can match.
+  const digits = phoneQuery(q);
   const patients = await db.patient.findMany({
     where: {
       OR: [
         { name: { contains: q, mode: "insensitive" } },
-        { phone: { contains: q } },
+        ...(digits ? [{ phone: { contains: digits } }] : []),
         ...(asFileNumber !== null ? [{ fileNumber: asFileNumber }] : []),
       ],
     },

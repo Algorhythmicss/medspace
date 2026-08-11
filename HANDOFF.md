@@ -80,7 +80,7 @@ Three surfaces on one Next.js 16 deployment. This is a *snapshot*; file-level de
 - **14 tables**, deny-all RLS **and** revoked anon/authenticated grants (belt-and-suspenders; app reads via Prisma as owner). See `AGENTS.md` § Databases.
 - **Auth** (`auth.ts`): HMAC session with the **role baked into the signed payload** (a staff cookie can't satisfy a doctor check), **7-day** lifetime, fail-closed secret; login throttle keyed on the trusted platform IP.
 - **Security**: route-handler self-auth, CSP + HSTS + Referrer-Policy, patient-token-in-URL never leaked. A full adversarial audit was done (commit `9d405fe`); posture documented in `AGENTS.md`.
-- **8 test suites** (`scripts/test-*.ts`, plain `tsx`, no framework). `test-patient-link.ts` **must pass unmodified**. Reseed after the DB-touching ones.
+- **9 test suites** (`scripts/test-*.ts`, plain `tsx`, no framework). `test-patient-link.ts` **must pass unmodified**. Reseed after the DB-touching ones. `test-seed-parity.ts` guards the two seed scripts against drifting apart — the failure that went unnoticed for a week.
 
 ---
 
@@ -102,8 +102,8 @@ These came up in a capability discussion; the user chose vitals + Hindi first an
 - **Rx protocols / saved sets** — save a named med set ("Fever pack", "DM starter") and insert in one tap; speeds prescribing for *new* patients (repeat-Rx only helps returning ones). DocOn's proven time-saver. Extends the visit form, no new module.
 
 ### Known gaps / partial features (fix when relevant)
-- **Phone normalisation on write** — phones are stored exactly as typed, so search-by-phone and duplicate detection miss formatted numbers. A `normaliseIndianMobile` helper exists (`src/lib/phone.ts`) but is used only for `wa.me`/`tel:` links. Fix: normalise on write.
-- **Free-typed drugs don't become future suggestions** — only the seeded formulary is re-ranked by `useCount`; a "+ Add '<name>'" drug is stored on the item only.
+- ~~Phone normalisation on write~~ — **fixed 11 Aug 2026.** Mobiles are stored canonical and queries are reduced the same way, so search and duplicate detection no longer miss formatted numbers; non-mobiles are still kept as typed.
+- ~~Free-typed drugs don't become future suggestions~~ — **fixed 11 Aug 2026.** `createVisit` upserts the drug, so the autosuggest learns what this doctor actually prescribes instead of only re-ranking the seed.
 - **Demographics edit form lacks draft recovery** (VisitForm/ReportForm have it).
 - **Hindi**: free-text advice isn't machine-translated (deterministic path, no LLM). The i18n structure (`planText.ts` + `dosage.ts`) cleanly supports adding more languages if needed.
 - By-design quirks not to "fix": "Recently seen" is really recently-*modified*; "overdue" is counted two ways on Today vs `/followups`; the Prisma vs Supabase migration ledgers diverge intentionally.

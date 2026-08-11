@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
+import { storablePhone } from "@/lib/phone";
 import { updatePatient } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,12 @@ export default async function EditPatient({ params }: { params: Promise<{ id: st
 
   // Another record on the same phone almost always means one person split
   // across two memories — surface it rather than silently allowing the drift.
-  const phoneTwin = patient.phone
+  // Compare on the canonical form: numbers are normalised on write, so matching
+  // that rather than the raw string also catches a legacy row stored as typed.
+  const twinPhone = storablePhone(patient.phone);
+  const phoneTwin = twinPhone
     ? await db.patient.findFirst({
-        where: { phone: patient.phone, id: { not: patient.id } },
+        where: { phone: twinPhone, id: { not: patient.id } },
         select: { id: true, name: true, fileNumber: true },
       })
     : null;

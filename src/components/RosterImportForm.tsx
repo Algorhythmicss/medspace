@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { FileSpreadsheet, Upload } from "lucide-react";
+import { Upload } from "lucide-react";
 import Link from "next/link";
 import { importPatientRoster, type RosterImportState } from "@/app/actions";
 
@@ -13,14 +13,9 @@ export default function RosterImportForm() {
 
   return (
     <form action={action} className="card space-y-4 p-5">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-perisoft text-peri">
-          <FileSpreadsheet size={18} />
-        </span>
-        <div>
-          <h2 className="t-head">Patient list CSV</h2>
-          <p className="t-cap mt-0.5 text-ink3">Up to 500 rows. Existing phone numbers are skipped to prevent duplicate histories.</p>
-        </div>
+      <div>
+        <h2 className="t-head">Choose your patient list</h2>
+        <p className="t-cap mt-1 text-ink3">Up to 500 patients. Matching phone numbers are skipped.</p>
       </div>
 
       {state.ok ? (
@@ -49,9 +44,12 @@ export default function RosterImportForm() {
         </>
       ) : (
         <>
-          <label className="pressable flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-hairline px-4 py-4">
+          <label className="pressable flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border border-hairline bg-sunk px-4 py-3.5">
             <Upload size={18} className="text-peri" />
-            <span className="t-body min-w-0 flex-1 truncate">{fileName || "Choose CSV file"}</span>
+            <span className="min-w-0 flex-1">
+              <span className="t-body block truncate">{fileName || "Choose CSV file"}</span>
+              {!fileName && <span className="t-micro block text-ink3">Tap to browse files</span>}
+            </span>
             <input
               name="file"
               type="file"

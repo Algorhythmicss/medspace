@@ -36,9 +36,8 @@ export default async function FrontDeskHistory({
           <p className="t-cap text-ink3">{patient.name} · #{patient.fileNumber}</p>
         </div>
       </header>
-      <PatientHistorySubmission audience="staff" patientId={patient.id} />
-      <p className="t-micro mt-4 px-4 text-center text-ink3">This submission goes to the doctor’s review queue. Front-desk staff cannot see the patient’s chart.</p>
+      <PatientHistorySubmission audience="staff" patientId={patient.id} embedded />
+      <p className="t-micro mt-4 px-4 text-center text-ink3">The doctor reviews this next. Staff cannot open the chart.</p>
     </div>
   );
 }
-

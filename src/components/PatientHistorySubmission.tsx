@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { CheckCircle2, FileUp, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ChevronDown, FileUp, ShieldCheck } from "lucide-react";
 import {
   submitPatientHistory,
   submitStaffHistory,
@@ -14,10 +14,13 @@ const COPY = {
   en: {
     eyebrow: "Prepare the next visit",
     title: "Share an older prescription or report",
-    body: "Add only what you already know. The doctor reviews it before it becomes part of the chart.",
-    conditions: "Known conditions (diabetes, BP, thyroid…)",
-    medicines: "Medicines currently being taken",
+    body: "Share what matters now. The doctor reviews it before it enters the chart.",
+    conditions: "Known conditions",
+    conditionsHint: "Diabetes, BP, thyroid…",
+    medicines: "Current medicines",
+    medicinesHint: "Name, strength, and how often",
     allergies: "Medicine allergies",
+    allergiesHint: "Leave blank if none are known",
     note: "Anything else the doctor should know",
     titleField: "Record name (optional)",
     date: "Date on the record",
@@ -27,6 +30,8 @@ const COPY = {
     imaging: "Scan / imaging",
     other: "Other record",
     choose: "Attach photo or PDF",
+    details: "Record details",
+    optional: "Optional",
     submit: "Send for doctor review",
     pending: "Sending securely…",
     trust: "Nothing is added as verified history until the doctor accepts it.",
@@ -37,10 +42,13 @@ const COPY = {
   hi: {
     eyebrow: "अगली मुलाकात की तैयारी",
     title: "पुरानी पर्ची या रिपोर्ट भेजें",
-    body: "जो जानकारी आपके पास है वही भरें। डॉक्टर की जाँच के बाद ही यह रिकॉर्ड में जुड़ेगी।",
-    conditions: "पुरानी बीमारी (शुगर, बीपी, थायरॉइड…)",
+    body: "अभी काम की जानकारी साझा करें। डॉक्टर की जाँच के बाद ही यह रिकॉर्ड में जुड़ेगी।",
+    conditions: "पुरानी बीमारी",
+    conditionsHint: "शुगर, बीपी, थायरॉइड…",
     medicines: "अभी चल रही दवाइयाँ",
+    medicinesHint: "नाम, मात्रा और कितनी बार",
     allergies: "दवा से एलर्जी",
+    allergiesHint: "पता न हो तो खाली छोड़ें",
     note: "डॉक्टर को और क्या पता होना चाहिए",
     titleField: "रिकॉर्ड का नाम (वैकल्पिक)",
     date: "रिकॉर्ड की तारीख",
@@ -50,6 +58,8 @@ const COPY = {
     imaging: "स्कैन / इमेजिंग",
     other: "अन्य रिकॉर्ड",
     choose: "फोटो या PDF लगाएँ",
+    details: "रिकॉर्ड की जानकारी",
+    optional: "वैकल्पिक",
     submit: "डॉक्टर की जाँच के लिए भेजें",
     pending: "सुरक्षित रूप से भेज रहे हैं…",
     trust: "डॉक्टर की स्वीकृति तक कोई जानकारी सत्यापित रिकॉर्ड नहीं बनेगी।",
@@ -64,11 +74,13 @@ export default function PatientHistorySubmission({
   planToken,
   patientId,
   lang = "en",
+  embedded = false,
 }: {
   audience?: "patient" | "staff";
   planToken?: string;
   patientId?: string;
   lang?: "en" | "hi";
+  embedded?: boolean;
 }) {
   const action = audience === "staff" ? submitStaffHistory : submitPatientHistory;
   const [state, formAction, pending] = useActionState(action, INITIAL);
@@ -99,31 +111,30 @@ export default function PatientHistorySubmission({
       {planToken && <input type="hidden" name="planToken" value={planToken} />}
       {patientId && <input type="hidden" name="patientId" value={patientId} />}
 
-      <div>
-        <p className="t-micro font-semibold uppercase tracking-[0.08em] text-peri">
-          {audience === "staff" ? "Front-desk intake" : t.eyebrow}
-        </p>
-        <h2 className="t-head mt-1">{t.title}</h2>
-        <p className="t-cap mt-1 text-ink3">{t.body}</p>
-      </div>
+      {!embedded && (
+        <div>
+          <p className="t-micro font-semibold text-peri">
+            {audience === "staff" ? "Front-desk intake" : t.eyebrow}
+          </p>
+          <h2 className="t-head mt-1">{t.title}</h2>
+          <p className="t-cap mt-1 text-ink3">{t.body}</p>
+        </div>
+      )}
 
-      <textarea name="conditions" aria-label={t.conditions} rows={2} placeholder={t.conditions} className="field ring-focus w-full resize-y" />
-      <textarea name="medications" aria-label={t.medicines} rows={2} placeholder={t.medicines} className="field ring-focus w-full resize-y" />
-      <textarea name="allergies" aria-label={t.allergies} rows={2} placeholder={t.allergies} className="field ring-focus w-full resize-y" />
-      <textarea name="note" aria-label={t.note} rows={2} placeholder={t.note} className="field ring-focus w-full resize-y" />
+      <label className="block">
+        <span className="t-cap mb-1.5 block font-semibold text-ink2">{t.conditions}</span>
+        <textarea name="conditions" rows={2} placeholder={t.conditionsHint} className="field ring-focus w-full resize-y" />
+      </label>
+      <label className="block">
+        <span className="t-cap mb-1.5 block font-semibold text-ink2">{t.medicines}</span>
+        <textarea name="medications" rows={2} placeholder={t.medicinesHint} className="field ring-focus w-full resize-y" />
+      </label>
+      <label className="block">
+        <span className="t-cap mb-1.5 block font-semibold text-ink2">{t.allergies}</span>
+        <textarea name="allergies" rows={2} placeholder={t.allergiesHint} className="field ring-focus w-full resize-y" />
+      </label>
 
-      <div className="grid grid-cols-2 gap-2">
-        <select name="kind" aria-label={t.recordType} defaultValue="outside_rx" className="field ring-focus w-full">
-          <option value="outside_rx">{t.prescription}</option>
-          <option value="lab">{t.labReport}</option>
-          <option value="imaging">{t.imaging}</option>
-          <option value="other">{t.other}</option>
-        </select>
-        <input name="reportDate" type="date" aria-label={t.date} className="field ring-focus w-full" />
-      </div>
-      <input name="title" aria-label={t.titleField} placeholder={t.titleField} className="field ring-focus w-full" />
-
-      <label className="pressable flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-hairline px-4 py-3 text-ink2">
+      <label className="pressable flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border border-hairline bg-sunk px-4 py-3 text-ink2">
         <FileUp size={18} className="shrink-0 text-peri" />
         <span className="t-cap min-w-0 flex-1 truncate">{fileName || `${t.choose} · max 4MB`}</span>
         <input
@@ -135,6 +146,27 @@ export default function PatientHistorySubmission({
           className="sr-only"
         />
       </label>
+
+      <details className="group/record-details rounded-2xl border border-hairline">
+        <summary className="pressable flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <span className="t-cap flex-1 font-semibold text-ink2">{t.details}</span>
+          <span className="t-micro text-ink3">{t.optional}</span>
+          <ChevronDown size={16} className="shrink-0 text-ink3 transition-transform group-open/record-details:rotate-180" />
+        </summary>
+        <div className="space-y-2 border-t border-hairline p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <select name="kind" aria-label={t.recordType} defaultValue="outside_rx" className="field ring-focus w-full">
+              <option value="outside_rx">{t.prescription}</option>
+              <option value="lab">{t.labReport}</option>
+              <option value="imaging">{t.imaging}</option>
+              <option value="other">{t.other}</option>
+            </select>
+            <input name="reportDate" type="date" aria-label={t.date} className="field ring-focus w-full" />
+          </div>
+          <input name="title" aria-label={t.titleField} placeholder={t.titleField} className="field ring-focus w-full" />
+          <textarea name="note" aria-label={t.note} rows={2} placeholder={t.note} className="field ring-focus w-full resize-y" />
+        </div>
+      </details>
 
       {state.message && !state.ok && (
         <p role="alert" className="t-cap rounded-xl bg-coralsoft px-3 py-2 text-coral">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, ShieldCheck } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { updateClinicSettings } from "@/app/actions";
 
@@ -16,7 +16,7 @@ export default async function ClinicSetup() {
         </Link>
         <div>
           <h1 className="t-title">Clinic setup</h1>
-          <p className="t-cap text-ink3">Used on prescriptions and patient care links</p>
+          <p className="t-cap text-ink3">Your prescription identity</p>
         </div>
       </header>
 
@@ -48,11 +48,8 @@ export default async function ClinicSetup() {
           <textarea name="address" rows={3} defaultValue={clinic?.address ?? ""} className="field ring-focus w-full resize-y" />
         </label>
         <button type="submit" className="btn btn-primary w-full py-3.5">Save clinic</button>
-        <p className="t-micro flex items-start gap-1.5 text-ink3">
-          <ShieldCheck size={13} className="mt-0.5 shrink-0" /> Registration number is required because it appears on every electronic prescription.
-        </p>
+        <p className="t-micro text-center text-ink3">Registration number appears on every electronic prescription.</p>
       </form>
     </div>
   );
 }
-

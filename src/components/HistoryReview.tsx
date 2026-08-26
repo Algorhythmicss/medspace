@@ -1,4 +1,4 @@
-import { Check, FileText, Paperclip, UserRound, X } from "lucide-react";
+import { Check, FileText, X } from "lucide-react";
 import { reviewPatientHistory } from "@/app/actions";
 import { shortDate } from "@/lib/format";
 
@@ -17,26 +17,24 @@ export default function HistoryReview({ submissions }: { submissions: PendingHis
   return (
     <section className="pt-1">
       <div className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="label">History to review · {submissions.length}</h2>
-        <span className="t-micro text-ink3">Not yet in the chart</span>
+        <h2 className="label">Needs review · {submissions.length}</h2>
+        <span className="t-micro text-ink3">Not in chart yet</span>
       </div>
       <div className="space-y-2.5">
         {submissions.map((submission) => (
           <article key={submission.id} className="card overflow-hidden">
             <div className="p-4">
-              <div className="flex items-start gap-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-buttersoft text-butter">
-                  {submission.fileName ? <Paperclip size={16} /> : <UserRound size={16} />}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="t-head truncate">{submission.title}</p>
-                  <p className="t-micro text-ink3">
-                    {submission.source === "staff" ? "Added at front desk" : "Patient submitted"} · {shortDate(submission.reportDate)}
-                  </p>
-                </div>
+              <div className="min-w-0">
+                <p className="t-micro mb-1 flex items-center gap-1.5 text-butter">
+                  <span className="h-2 w-2 rounded-full bg-butter" /> Awaiting review
+                </p>
+                <p className="t-head truncate">{submission.title}</p>
+                <p className="t-micro text-ink3">
+                  {submission.source === "staff" ? "Added at front desk" : "Patient submitted"} · {shortDate(submission.reportDate)}
+                </p>
               </div>
               {submission.summary && (
-                <p className="t-cap mt-3 whitespace-pre-line rounded-xl bg-sunk px-3 py-2.5 text-ink2">
+                <p className="t-cap mt-3 whitespace-pre-line border-l-2 border-hairline pl-3 text-ink2">
                   {submission.summary}
                 </p>
               )}

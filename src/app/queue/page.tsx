@@ -113,9 +113,9 @@ export default async function QueueScreen() {
                 />
                 <Link
                   href={`/queue/intake/${e.patient.id}`}
-                  className="t-cap mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-perisoft px-3 py-2.5 font-semibold text-peri active:opacity-60"
+                  className="t-cap mt-3 flex min-h-11 items-center justify-center gap-1.5 border-t border-hairline pt-3 font-semibold text-peri active:opacity-60"
                 >
-                  <FolderInput size={14} /> Add older records
+                  <FolderInput size={14} /> Add patient history
                 </Link>
               </li>
             ))}

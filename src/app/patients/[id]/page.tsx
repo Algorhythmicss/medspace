@@ -188,10 +188,10 @@ export default async function PatientChart({
         <section className="card p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="t-head">First-visit readiness</p>
-              <p className="t-cap mt-0.5 text-ink3">Make the next consultation useful without migrating the whole file.</p>
+              <p className="t-head">Prepare first visit</p>
+              <p className="t-cap mt-0.5 text-ink3">Only the essentials for a useful consult.</p>
             </div>
-            <span className="t-num shrink-0 rounded-full bg-perisoft px-2.5 py-1 text-[13px] text-peri">{readyCount}/3</span>
+            <span className="t-cap shrink-0 font-semibold text-peri">{readyCount} of 3</span>
           </div>
           <ul className="mt-3 space-y-1.5">
             {readiness.map((item) => (
@@ -205,9 +205,9 @@ export default async function PatientChart({
             href={`/patients/${patient.id}/history`}
             className="t-cap mt-4 flex items-center justify-center gap-1.5 rounded-xl bg-perisoft px-3 py-2.5 font-semibold text-peri active:opacity-60"
           >
-            <FolderInput size={14} /> Add previous history
+            <FolderInput size={14} /> Add patient history
           </Link>
-          <p className="t-micro mt-2 text-center text-ink3">Or send the care link above—the patient can submit records from their phone.</p>
+          <p className="t-micro mt-2 text-center text-ink3">The patient can also add it from their care link.</p>
         </section>
       )}
 

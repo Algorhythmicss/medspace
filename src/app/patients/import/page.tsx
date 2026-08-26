@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import RosterImportForm from "@/components/RosterImportForm";
 
 export default function ImportPatients() {
@@ -17,21 +17,29 @@ export default function ImportPatients() {
 
       <RosterImportForm />
 
-      <section className="mt-4 rounded-2xl bg-perisoft p-4">
-        <h2 className="t-head text-peri">Accepted columns</h2>
-        <p className="t-cap mt-1 text-ink2">Name is required. Phone, age, sex and file number are optional.</p>
-        <code className="t-micro mt-3 block overflow-x-auto rounded-xl bg-surface px-3 py-2 text-ink2">
-          Name,Phone,Age,Sex,File Number
-        </code>
-        <a
-          href="/patient-import-template.csv"
-          download
-          className="t-cap mt-3 inline-flex font-semibold text-peri underline decoration-peri/30 underline-offset-4"
-        >
-          Download CSV template
-        </a>
-        <p className="t-micro mt-3 text-ink3">Import only the patients expected in the next few weeks first. Their older clinical history can be added progressively.</p>
-      </section>
+      <details className="group card mt-3 overflow-hidden">
+        <summary className="pressable flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="t-cap block font-semibold text-ink2">CSV format and template</span>
+            <span className="t-micro block text-ink3">Name is the only required column</span>
+          </span>
+          <ChevronDown size={17} className="shrink-0 text-ink3 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-hairline px-4 py-3.5">
+          <p className="t-cap text-ink2">Phone, age, sex and file number are optional.</p>
+          <code className="t-micro mt-2 block overflow-x-auto rounded-xl bg-sunk px-3 py-2 text-ink2">
+            Name,Phone,Age,Sex,File Number
+          </code>
+          <a
+            href="/patient-import-template.csv"
+            download
+            className="t-cap mt-3 inline-flex font-semibold text-peri active:opacity-60"
+          >
+            Download CSV template
+          </a>
+          <p className="t-micro mt-3 text-ink3">Start with patients expected in the next few weeks. Add older history only when it becomes useful.</p>
+        </div>
+      </details>
     </div>
   );
 }

@@ -9,7 +9,6 @@ import {
   Plus,
 } from "lucide-react";
 import { headers } from "next/headers";
-import { ArtSpot } from "@/components/Art";
 import SendPlanLink from "@/components/SendPlanLink";
 import LinkedAccounts from "@/components/LinkedAccounts";
 import { createPatientToken } from "@/lib/patientLink";

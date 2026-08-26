@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Search, UserPlus, Plus, Check } from "lucide-react";
 import { searchPatientsForQueue, addToQueue, staffRegisterAndQueue } from "@/app/actions";
 
@@ -29,6 +29,8 @@ export default function QueueDesk() {
   const [note, setNote] = useState("");
   const [dupes, setDupes] = useState<Result[]>([]); // existing records on this phone
   const [added, setAdded] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const [pending, start] = useTransition();
 
   // One debounced, latest-wins searcher for both the search box and the
@@ -37,22 +39,48 @@ export default function QueueDesk() {
   // bug); the seq guard drops any answer that a newer query has superseded.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
-  function runSearch(query: string, apply: (r: Result[]) => void) {
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    []
+  );
+
+  function runSearch(
+    query: string,
+    apply: (r: Result[]) => void,
+    setWorking?: (working: boolean) => void,
+    setFailed?: (failed: boolean) => void
+  ) {
     if (timer.current) clearTimeout(timer.current);
+    const mine = ++seq.current;
     if (!query.trim()) {
       apply([]);
+      setWorking?.(false);
+      setFailed?.(false);
       return;
     }
-    const mine = ++seq.current;
+    setWorking?.(true);
+    setFailed?.(false);
     timer.current = setTimeout(async () => {
-      const r = await searchPatientsForQueue(query);
-      if (mine === seq.current) apply(r);
+      try {
+        const r = await searchPatientsForQueue(query);
+        if (mine === seq.current) apply(r);
+      } catch {
+        if (mine === seq.current) {
+          apply([]);
+          setFailed?.(true);
+        }
+      } finally {
+        if (mine === seq.current) setWorking?.(false);
+      }
     }, 180);
   }
 
   function onSearch(v: string) {
     setQ(v);
-    runSearch(v, setResults);
+    runSearch(v, setResults, setSearching, setSearchFailed);
   }
 
   function onPhone(v: string) {
@@ -108,6 +136,7 @@ export default function QueueDesk() {
     <div className="card p-4">
       <div className="mb-3 flex gap-2">
         <button
+          type="button"
           onClick={() => setMode("search")}
           data-on={mode === "search"}
           className="chip inline-flex items-center gap-1.5 px-3.5 py-2 text-[14px]"
@@ -115,6 +144,7 @@ export default function QueueDesk() {
           <Search size={14} strokeWidth={2.2} /> Find patient
         </button>
         <button
+          type="button"
           onClick={() => setMode("new")}
           data-on={mode === "new"}
           className="chip inline-flex items-center gap-1.5 px-3.5 py-2 text-[14px]"
@@ -122,13 +152,6 @@ export default function QueueDesk() {
           <UserPlus size={14} strokeWidth={2.2} /> New patient
         </button>
       </div>
-
-      <input
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        placeholder="Reason for visit (optional)"
-        className="field ring-focus mb-2 w-full"
-      />
 
       {mode === "search" ? (
         <div>
@@ -139,7 +162,28 @@ export default function QueueDesk() {
             autoFocus
             className="field ring-focus w-full"
           />
-          {q.trim() && results.length === 0 ? (
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Reason for visit (optional)"
+            className="field ring-focus mt-2 w-full"
+          />
+          {searching && (
+            <p className="t-cap mt-2 px-1 text-ink3">Looking for a match…</p>
+          )}
+          {q.trim() && !searching && searchFailed && (
+            <div className="t-cap mt-2 flex items-center justify-between gap-3 rounded-2xl bg-buttersoft px-4 py-3 text-butter">
+              <span>Couldn’t check patient records. Check the connection.</span>
+              <button
+                type="button"
+                onClick={() => runSearch(q, setResults, setSearching, setSearchFailed)}
+                className="shrink-0 font-semibold text-peri active:opacity-60"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+          {q.trim() && !searching && !searchFailed && results.length === 0 ? (
             <button
               onClick={() => {
                 setName(q.trim());
@@ -248,6 +292,12 @@ export default function QueueDesk() {
               <option value="O">Other</option>
             </select>
           </div>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Reason for visit (optional)"
+            className="field ring-focus w-full"
+          />
           <button
             type="submit"
             disabled={pending || !name.trim()}

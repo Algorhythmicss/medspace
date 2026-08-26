@@ -26,6 +26,11 @@ export type Drifter = {
   dob: Date | null;
   conditions: string[];
   lastVisit: Date | null;
+  planShareCount: number;
+  planSharedAt: Date | null;
+  planOpenCount: number;
+  planLastOpenedAt: Date | null;
+  planReplyKind: string | null;
 };
 
 export async function findChronicDrifters(
@@ -54,6 +59,11 @@ export async function findChronicDrifters(
       ageYears: true,
       sex: true,
       dob: true,
+      planShareCount: true,
+      planSharedAt: true,
+      planOpenCount: true,
+      planLastOpenedAt: true,
+      planReplyKind: true,
       conditions: { where: { status: "active" }, select: { name: true } },
       visits: { orderBy: { visitDate: "desc" }, take: 1, select: { visitDate: true } },
     },
@@ -70,6 +80,11 @@ export async function findChronicDrifters(
       dob: p.dob,
       conditions: p.conditions.map((c) => c.name),
       lastVisit: p.visits[0]?.visitDate ?? null,
+      planShareCount: p.planShareCount,
+      planSharedAt: p.planSharedAt,
+      planOpenCount: p.planOpenCount,
+      planLastOpenedAt: p.planLastOpenedAt,
+      planReplyKind: p.planReplyKind,
     }))
     // longest-gone first — the doctor works down from the coldest
     .sort((a, b) => (a.lastVisit?.getTime() ?? 0) - (b.lastVisit?.getTime() ?? 0));

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Activity, Pencil } from "lucide-react";
+import { Activity, CheckCircle2 } from "lucide-react";
 import { setQueueVitals } from "@/app/actions";
 
 type V = {
@@ -26,6 +26,7 @@ const FIELDS = [
 export default function QueueVitals({ entryId, vitals }: { entryId: string; vitals: V }) {
   const has =
     vitals.bpSys != null ||
+    vitals.bpDia != null ||
     vitals.pulse != null ||
     vitals.weight != null ||
     vitals.tempF != null;
@@ -66,10 +67,17 @@ export default function QueueVitals({ entryId, vitals }: { entryId: string; vita
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-perisoft px-3 py-1.5 text-[13px] font-semibold text-peri active:opacity-70"
+        aria-expanded={open}
+        className={`t-cap mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold active:opacity-70 ${
+          has ? "bg-jadesoft text-jade" : "bg-buttersoft text-butter"
+        }`}
       >
-        {has ? <Pencil size={12} strokeWidth={2.4} /> : <Activity size={13} strokeWidth={2.4} />}
-        {has ? summary : "Record vitals"}
+        {has ? (
+          <CheckCircle2 size={13} strokeWidth={2.4} />
+        ) : (
+          <Activity size={13} strokeWidth={2.4} />
+        )}
+        {has ? `Ready · ${summary}` : "Vitals pending — record"}
       </button>
     );
   }

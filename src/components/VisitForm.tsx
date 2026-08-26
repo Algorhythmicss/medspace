@@ -154,7 +154,6 @@ export default function VisitForm({
         if (hasWork(parsed)) {
           /* eslint-disable-next-line react-hooks/set-state-in-effect */
           setDraft({ ...EMPTY, ...parsed });
-          /* eslint-disable-next-line react-hooks/set-state-in-effect */
           setRestored(true);
         }
       }

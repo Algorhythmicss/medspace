@@ -8,7 +8,6 @@ const out: string[] = [];
 const q = (s: string | null | undefined) =>
   s == null ? "NULL" : `'${String(s).replace(/'/g, "''")}'`;
 const t = (d: Date | null | undefined) => (d == null ? "NULL" : `'${d.toISOString()}'`);
-const n = (v: number | null | undefined) => (v == null ? "NULL" : String(v));
 
 // wipe then rebuild
 out.push(

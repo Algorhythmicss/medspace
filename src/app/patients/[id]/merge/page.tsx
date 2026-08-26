@@ -18,6 +18,46 @@ async function summarise(id: string) {
   return patient ? { patient, visits, reports, tasks, lastVisit } : null;
 }
 
+type PatientSummary = NonNullable<Awaited<ReturnType<typeof summarise>>>;
+
+function PatientSummaryCard({
+  summary,
+  role,
+}: {
+  summary: PatientSummary;
+  role: string;
+}) {
+  return (
+    <div className="card p-4">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[17px] font-semibold">{summary.patient.name}</span>
+        <span className="rounded-full bg-sunk px-2 py-0.5 text-[11.5px] font-medium text-ink2">
+          {role}
+        </span>
+      </div>
+      <p className="text-[13px] text-ink2">
+        #{summary.patient.fileNumber}
+        {summary.patient.phone ? ` · ${summary.patient.phone}` : ""}
+        {patientAgeSex(summary.patient) ? ` · ${patientAgeSex(summary.patient)}` : ""}
+      </p>
+      <p className="mt-1.5 text-[13px]">
+        {summary.visits} visit{summary.visits === 1 ? "" : "s"} · {summary.reports} report
+        {summary.reports === 1 ? "" : "s"} · {summary.tasks} pending
+      </p>
+      {summary.lastVisit && (
+        <p className="text-[13px] text-ink2">
+          Last seen {relDay(summary.lastVisit.visitDate)}
+        </p>
+      )}
+      {summary.patient.conditions.length > 0 && (
+        <p className="mt-1 text-[13px] text-ink2">
+          {summary.patient.conditions.map((condition) => condition.name).join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default async function MergePatients({
   params,
   searchParams,
@@ -35,32 +75,6 @@ export default async function MergePatients({
   // Default keeper = the record with more history, so the smaller stub folds in.
   const [keeper, dup] = a.visits >= b.visits ? [a, b] : [b, a];
 
-  const Card = ({ s, role }: { s: typeof a; role: string }) => (
-    <div className="card p-4">
-      <div className="flex items-baseline justify-between">
-        <span className="text-[17px] font-semibold">{s.patient.name}</span>
-        <span className="rounded-full bg-sunk px-2 py-0.5 text-[11.5px] font-medium text-ink2">{role}</span>
-      </div>
-      <p className="text-[13px] text-ink2">
-        #{s.patient.fileNumber}
-        {s.patient.phone ? ` · ${s.patient.phone}` : ""}
-        {patientAgeSex(s.patient) ? ` · ${patientAgeSex(s.patient)}` : ""}
-      </p>
-      <p className="mt-1.5 text-[13px]">
-        {s.visits} visit{s.visits === 1 ? "" : "s"} · {s.reports} report{s.reports === 1 ? "" : "s"} ·{" "}
-        {s.tasks} pending
-      </p>
-      {s.lastVisit && (
-        <p className="text-[13px] text-ink2">Last seen {relDay(s.lastVisit.visitDate)}</p>
-      )}
-      {s.patient.conditions.length > 0 && (
-        <p className="mt-1 text-[13px] text-ink2">
-          {s.patient.conditions.map((c) => c.name).join(", ")}
-        </p>
-      )}
-    </div>
-  );
-
   return (
     <div className="mx-auto w-full max-w-[560px] pt-3">
       <header className="mb-4 flex items-center gap-1">
@@ -74,12 +88,12 @@ export default async function MergePatients({
       </header>
 
       <div className="space-y-2.5">
-        <Card s={keeper} role="Keep" />
+        <PatientSummaryCard summary={keeper} role="Keep" />
         <div className="flex items-center justify-center gap-2 text-[13px] text-ink2">
           <ArrowRight size={16} className="rotate-90" />
           folds into the record above
         </div>
-        <Card s={dup} role="Merge in" />
+        <PatientSummaryCard summary={dup} role="Merge in" />
       </div>
 
       <div className="mt-4 rounded-2xl bg-buttersoft p-4">

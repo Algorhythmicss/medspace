@@ -18,12 +18,12 @@ export default function NewPatientForm() {
   // a second, empty history gets started.
   useEffect(() => {
     const digits = phone.replace(/\D/g, "");
-    if (digits.length < 6) {
-      setMatches([]);
-      return;
-    }
     const controller = new AbortController();
     const t = setTimeout(async () => {
+      if (digits.length < 6) {
+        setMatches([]);
+        return;
+      }
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(digits)}`, {
           signal: controller.signal,
@@ -33,7 +33,7 @@ export default function NewPatientForm() {
       } catch {
         // aborted or offline
       }
-    }, 200);
+    }, digits.length < 6 ? 0 : 200);
     return () => {
       clearTimeout(t);
       controller.abort();

@@ -29,8 +29,11 @@ export default function SearchBox() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [searchAttempt, setSearchAttempt] = useState(0);
   const router = useRouter();
   const abortRef = useRef<AbortController | null>(null);
+  const requestSeq = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,32 +59,31 @@ export default function SearchBox() {
   }, []);
 
   useEffect(() => {
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
+    const mine = ++requestSeq.current;
+    if (!q.trim()) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setLoading(true);
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
           signal: controller.signal,
         });
+        if (!res.ok) throw new Error("search failed");
         const data = await res.json();
-        setResults(data.patients);
-      } catch {
-        // aborted or offline — keep last results
+        if (mine === requestSeq.current) setResults(data.patients);
+      } catch (error) {
+        const aborted = error instanceof DOMException && error.name === "AbortError";
+        if (mine === requestSeq.current && !aborted) setFailed(true);
       } finally {
-        setLoading(false);
+        if (mine === requestSeq.current) setLoading(false);
       }
     }, 120);
     return () => {
       clearTimeout(t);
       controller.abort();
     };
-  }, [q]);
+  }, [q, searchAttempt]);
 
   return (
     <div>
@@ -93,7 +95,13 @@ export default function SearchBox() {
         <input
           ref={inputRef}
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            setQ(value);
+            setResults([]);
+            setFailed(false);
+            setLoading(Boolean(value.trim()));
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && results.length > 0) {
               router.push(`/patients/${results[0].id}`);
@@ -145,7 +153,24 @@ export default function SearchBox() {
         </div>
       )}
 
-      {q.trim() && !loading && results.length === 0 && (
+      {q.trim() && !loading && failed && (
+        <div className="t-cap mt-3 flex items-center justify-between gap-3 rounded-2xl bg-buttersoft px-4 py-3 text-butter">
+          <span>Couldn’t check patient records. Check the connection.</span>
+          <button
+            type="button"
+            onClick={() => {
+              setFailed(false);
+              setLoading(true);
+              setSearchAttempt((attempt) => attempt + 1);
+            }}
+            className="shrink-0 font-semibold text-peri active:opacity-60"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {q.trim() && !loading && !failed && results.length === 0 && (
         <p className="mt-3 text-center text-[15px] text-ink2">
           No match.{" "}
           <Link href="/patients/new" className="font-medium text-peri">

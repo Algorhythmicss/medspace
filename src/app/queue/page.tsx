@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Users } from "lucide-react";
+import { Activity, Clock3, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { relDay, patientAgeSex } from "@/lib/format";
 import { hasStaffSession } from "@/lib/session";
@@ -33,6 +33,14 @@ export default async function QueueScreen() {
     }),
     hasStaffSession(),
   ]);
+  const readyCount = waiting.filter(
+    (entry) =>
+      entry.bpSys != null ||
+      entry.bpDia != null ||
+      entry.pulse != null ||
+      entry.weight != null ||
+      entry.tempF != null
+  ).length;
 
   return (
     <div className="py-5">
@@ -41,8 +49,8 @@ export default async function QueueScreen() {
           <p className="t-cap text-ink3">{clinic?.clinicName ?? "Front desk"}</p>
           <h1 className="t-hero">Today’s queue</h1>
           <p className="t-cap mt-1 max-w-[360px] text-ink3">
-            Add each patient as they arrive and record their vitals — the doctor
-            sees who’s waiting, and their vitals, on their own screen.
+            Find them, note why they came, and take vitals. The doctor gets a
+            consult-ready handoff.
           </p>
         </div>
         {staff && (
@@ -53,6 +61,15 @@ export default async function QueueScreen() {
           </form>
         )}
       </header>
+
+      <div className="mb-4 flex gap-2">
+        <span className="t-cap inline-flex items-center gap-1.5 rounded-full bg-perisoft px-3 py-1.5 font-semibold text-peri">
+          <Clock3 size={13} strokeWidth={2.3} /> {waiting.length} waiting
+        </span>
+        <span className="t-cap inline-flex items-center gap-1.5 rounded-full bg-jadesoft px-3 py-1.5 font-semibold text-jade">
+          <Activity size={13} strokeWidth={2.3} /> {readyCount} ready
+        </span>
+      </div>
 
       <QueueDesk />
 

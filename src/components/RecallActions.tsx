@@ -2,6 +2,7 @@
 
 import { Phone, MessageCircle } from "lucide-react";
 import { recordPlanShare } from "@/app/actions";
+import type { PlanReach } from "@/lib/reach";
 
 // One-tap recall for a drifted patient: the doctor's own WhatsApp with the
 // message prefilled, or a call. No "Done" — there is no task to close; the
@@ -11,11 +12,15 @@ export default function RecallActions({
   waHref,
   telHref,
   patientId,
+  reach,
 }: {
   waHref: string | null;
   telHref: string | null;
   patientId: string;
+  reach: PlanReach;
 }) {
+  const callFirst = reach.callFirst && !!telHref;
+
   return (
     <div className="mt-3 flex gap-2">
       {waHref ? (
@@ -25,9 +30,14 @@ export default function RecallActions({
           rel="noopener noreferrer"
           aria-label="Send a recall message on WhatsApp"
           onClick={() => void recordPlanShare(patientId)}
-          className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-jade py-2.5 text-center text-[15px] font-semibold text-white active:opacity-80"
+          className={
+            callFirst
+              ? "flex items-center gap-1.5 rounded-xl bg-sunk px-3.5 py-2.5 t-body font-medium active:opacity-70"
+              : "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-jade py-2.5 text-center t-body font-semibold text-white active:opacity-80"
+          }
         >
-          <MessageCircle size={15} strokeWidth={2.2} /> WhatsApp
+          <MessageCircle size={15} strokeWidth={2.2} />
+          {!callFirst && "WhatsApp"}
         </a>
       ) : (
         !telHref && (
@@ -39,7 +49,11 @@ export default function RecallActions({
       {telHref && (
         <a
           href={telHref}
-          className="flex items-center gap-1.5 rounded-xl bg-sunk px-3.5 py-2.5 text-[15px] font-medium active:opacity-70"
+          className={
+            callFirst
+              ? "flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-jade py-2.5 t-body font-semibold text-white active:opacity-80"
+              : "flex items-center gap-1.5 rounded-xl bg-sunk px-3.5 py-2.5 t-body font-medium active:opacity-70"
+          }
         >
           <Phone size={15} /> Call
         </a>

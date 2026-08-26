@@ -49,22 +49,25 @@ export default function ReportForm({ patientId }: { patientId: string }) {
     !d.title.trim() && !d.summary.trim() && d.values.length === 0;
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(draftKey);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Draft;
-        if (!isEmpty(parsed)) {
-          setDraft({
-            ...{ title: "", reportDate: today, kind: "lab", summary: "", values: [] },
-            ...parsed,
-          });
-          setRestored(true);
+    const restore = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(draftKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Draft;
+          if (!isEmpty(parsed)) {
+            setDraft({
+              ...{ title: "", reportDate: today, kind: "lab", summary: "", values: [] },
+              ...parsed,
+            });
+            setRestored(true);
+          }
         }
+      } catch {
+        // corrupt draft — ignore
       }
-    } catch {
-      // corrupt draft — ignore
-    }
-    hydrated.current = true;
+      hydrated.current = true;
+    }, 0);
+    return () => window.clearTimeout(restore);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftKey]);
 
@@ -79,7 +82,6 @@ export default function ReportForm({ patientId }: { patientId: string }) {
       }
     }, 300);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, draftKey]);
 
   function addMetric(m: (typeof REPORT_METRICS)[number]) {

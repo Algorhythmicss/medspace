@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { FlaskConical, RefreshCw, UserX } from "lucide-react";
+import {
+  FlaskConical,
+  MessageCircle,
+  Phone,
+  RefreshCw,
+  UserX,
+} from "lucide-react";
 import { ArtSpot } from "@/components/Art";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
@@ -49,6 +55,34 @@ export default async function FollowUps() {
     byPatient.get(t.patientId)!.tasks.push(t);
   }
 
+  const overduePatients = [...byPatient.values()]
+    .map((group) => {
+      const reach = planReach(group.patient, now);
+      return {
+        ...group,
+        reach,
+        callFirst: reach.callFirst && Boolean(telLink(group.patient.phone)),
+      };
+    })
+    .sort((a, b) => {
+      if (a.callFirst !== b.callFirst) return a.callFirst ? -1 : 1;
+      return a.tasks[0].dueDate!.getTime() - b.tasks[0].dueDate!.getTime();
+    });
+  const driftersWithReach = drifters.map((patient) => {
+    const reach = planReach(patient, now);
+    return {
+      patient,
+      reach,
+      callFirst: reach.callFirst && Boolean(telLink(patient.phone)),
+    };
+  });
+  const callFirstCount =
+    overduePatients.filter((group) => group.callFirst).length +
+    driftersWithReach.filter((group) => group.callFirst).length;
+  const messageFirstCount =
+    overduePatients.filter((group) => !group.callFirst).length +
+    driftersWithReach.filter((group) => !group.callFirst).length;
+
   return (
     <div className="pt-4">
       <header className="mb-5">
@@ -57,6 +91,32 @@ export default async function FollowUps() {
           Follow-ups
         </h1>
       </header>
+
+      {(byPatient.size > 0 || drifters.length > 0) && (
+        <section className="card mb-6 grid grid-cols-3 overflow-hidden">
+          <div className="p-4">
+            <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-coralsoft text-coral">
+              <Phone size={15} strokeWidth={2.3} />
+            </span>
+            <p className="t-num t-title">{callFirstCount}</p>
+            <p className="t-cap text-ink3">Call first</p>
+          </div>
+          <div className="border-l border-hairline p-4">
+            <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-jadesoft text-jade">
+              <MessageCircle size={15} strokeWidth={2.3} />
+            </span>
+            <p className="t-num t-title">{messageFirstCount}</p>
+            <p className="t-cap text-ink3">Message / review</p>
+          </div>
+          <div className="border-l border-hairline p-4">
+            <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-buttersoft text-butter">
+              <UserX size={15} strokeWidth={2.3} />
+            </span>
+            <p className="t-num t-title">{drifters.length}</p>
+            <p className="t-cap text-ink3">Fell off the plan</p>
+          </div>
+        </section>
+      )}
 
       {byPatient.size === 0 && upcoming.length === 0 && drifters.length === 0 && (
         <div className="py-10 text-center">
@@ -75,7 +135,7 @@ export default async function FollowUps() {
             Overdue · {byPatient.size} patient{byPatient.size > 1 ? "s" : ""}
           </h2>
           <ul className="stagger space-y-3">
-            {[...byPatient.values()].map(({ patient, tasks: patientTasks }) => {
+            {overduePatients.map(({ patient, tasks: patientTasks, reach, callFirst }) => {
               const worst = patientTasks[0];
               const reminderText = [
                 `Namaste ${patient.name} ji, this is a reminder from ${clinic?.clinicName ?? "the clinic"} (${clinic?.doctorName ?? ""}).`,
@@ -88,8 +148,6 @@ export default async function FollowUps() {
                 `Please reply here or call to book a time. 🙏`,
               ].join("\n");
               const waHref = waLink(patient.phone, reminderText);
-              const reach = planReach(patient, now);
-
               return (
                 <li
                   key={patient.id}
@@ -118,17 +176,29 @@ export default async function FollowUps() {
                   </ul>
                   {/* Whether the channel works for this person, said once and
                       quietly — it decides whether to message or to phone. */}
-                  <p
-                    className={`t-micro mt-2 ${
-                      reach.tone === "ok"
-                        ? "text-jade"
-                        : reach.tone === "warn"
-                          ? "text-butter"
-                          : "text-ink3"
-                    }`}
-                  >
-                    {reach.label}
-                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span
+                      className={`t-micro inline-flex items-center gap-1 rounded-full px-2 py-1 font-semibold ${
+                        callFirst
+                          ? "bg-coralsoft text-coral"
+                          : "bg-jadesoft text-jade"
+                      }`}
+                    >
+                      {callFirst ? <Phone size={11} /> : <MessageCircle size={11} />}
+                      {callFirst ? "Call first" : "Message / review"}
+                    </span>
+                    <p
+                      className={`t-micro ${
+                        reach.tone === "ok"
+                          ? "text-jade"
+                          : reach.tone === "warn"
+                            ? "text-butter"
+                            : "text-ink3"
+                      }`}
+                    >
+                      {reach.label}
+                    </p>
+                  </div>
                   <TaskActions
                     waHref={waHref}
                     telHref={telLink(patient.phone)}
@@ -154,7 +224,7 @@ export default async function FollowUps() {
             </p>
           </div>
           <ul className="stagger space-y-3">
-            {drifters.map((d) => {
+            {driftersWithReach.map(({ patient: d, reach }) => {
               const recallText = [
                 `Namaste ${d.name} ji, this is ${clinic?.clinicName ?? "the clinic"}${clinic?.doctorName ? ` (${clinic.doctorName})` : ""}.`,
                 d.conditions.length > 0
@@ -182,7 +252,23 @@ export default async function FollowUps() {
                       {d.conditions.join(" · ")}
                     </p>
                   )}
-                  <RecallActions waHref={waHref} telHref={telLink(d.phone)} patientId={d.id} />
+                  <p
+                    className={`t-micro mt-2 ${
+                      reach.tone === "ok"
+                        ? "text-jade"
+                        : reach.tone === "warn"
+                          ? "text-butter"
+                          : "text-ink3"
+                    }`}
+                  >
+                    {reach.label}
+                  </p>
+                  <RecallActions
+                    waHref={waHref}
+                    telHref={telLink(d.phone)}
+                    patientId={d.id}
+                    reach={reach}
+                  />
                 </li>
               );
             })}

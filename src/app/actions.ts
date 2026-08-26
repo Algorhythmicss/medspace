@@ -14,7 +14,7 @@ import {
   clearStaffSession,
 } from "@/lib/session";
 import { supabaseForAuth } from "@/lib/supabase";
-import { bindIdentity, hasActiveAccess } from "@/lib/patientAccess";
+import { hasActiveAccess } from "@/lib/patientAccess";
 import { HOME_METRICS } from "@/lib/metrics";
 import { storablePhone, phoneQuery } from "@/lib/phone";
 import {
@@ -337,6 +337,8 @@ export async function recordPlanReply(kind: string, planToken?: string) {
       where: { id: patientId },
       data: { planReplyKind: kind, planReplyAt: new Date() },
     });
+    revalidatePath("/");
+    revalidatePath("/followups");
   } catch (err) {
     console.error("failed to record plan reply", err);
   }
@@ -551,6 +553,7 @@ export async function completeTask(taskId: string) {
   });
   revalidatePath("/followups");
   revalidatePath(`/patients/${task.patientId}`);
+  revalidatePath("/");
 }
 
 // Per-patient link revocation. Bumping linkVersion invalidates every plan token

@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   // /api/reports/<id>/file or any other local path.
   images: { localPatterns: [{ pathname: "/art/**" }] },
 
+  // Report photos/PDFs are capped at 4MB in application code. Next otherwise
+  // rejects Server Action bodies above 1MB before that validation can run.
+  experimental: { serverActions: { bodySizeLimit: "5mb" } },
+
   async headers() {
     const isProd = process.env.NODE_ENV === "production";
     // A real content-security backstop for an origin that serves patient-uploaded

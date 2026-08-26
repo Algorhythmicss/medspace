@@ -7,6 +7,9 @@ import {
   FileText,
   Paperclip,
   Plus,
+  FolderInput,
+  CheckCircle2,
+  Circle,
 } from "lucide-react";
 import { headers } from "next/headers";
 import SendPlanLink from "@/components/SendPlanLink";
@@ -19,6 +22,7 @@ import { db } from "@/lib/db";
 import { buildMemoryCard } from "@/lib/memory";
 import Briefing from "@/components/Briefing";
 import { relDay, shortDate } from "@/lib/format";
+import HistoryReview from "@/components/HistoryReview";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +38,12 @@ export default async function PatientChart({
   const { id } = await params;
   const { all } = await searchParams;
 
-  const [patient, card, clinic] = await Promise.all([
+  const [patient, card, clinic, pendingHistory] = await Promise.all([
     db.patient.findUnique({
       where: { id },
       include: {
+        conditions: { where: { status: "active" } },
+        allergies: true,
         visits: {
           orderBy: { visitDate: "desc" },
           include: {
@@ -48,14 +54,35 @@ export default async function PatientChart({
         tasks: { where: { status: "pending" }, orderBy: { dueDate: "asc" } },
         // never select fileData here — it would pull attachment bytes into the page
         reports: {
+          where: { reviewStatus: "verified" },
           orderBy: { reportDate: "desc" },
           take: 5,
-          select: { id: true, title: true, kind: true, reportDate: true, summary: true, fileName: true },
+          select: {
+            id: true,
+            title: true,
+            kind: true,
+            reportDate: true,
+            summary: true,
+            fileName: true,
+            source: true,
+          },
         },
       },
     }),
     buildMemoryCard(id),
     db.clinic.findUnique({ where: { id: "clinic" } }),
+    db.report.findMany({
+      where: { patientId: id, reviewStatus: "pending" },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        reportDate: true,
+        source: true,
+        summary: true,
+        fileName: true,
+      },
+    }),
   ]);
   if (!patient || !card) notFound();
 
@@ -79,6 +106,19 @@ export default async function PatientChart({
   const latestRx = patient.visits.find(
     (v) => v.prescription && v.prescription.items.length > 0
   );
+  const readiness = [
+    { label: "Patient reachable", done: Boolean(patient.phone) },
+    {
+      label: "Useful history added",
+      done:
+        patient.conditions.length > 0 ||
+        patient.allergies.length > 0 ||
+        Boolean(patient.reportedMedications) ||
+        patient.reports.length > 0,
+    },
+    { label: "First MedSpace visit", done: patient.visits.length > 0 },
+  ];
+  const readyCount = readiness.filter((item) => item.done).length;
 
   return (
     <div className="pt-3 lg:pt-6">
@@ -144,6 +184,35 @@ export default async function PatientChart({
         }))}
       />
 
+      {(patient.visits.length === 0 || readyCount < readiness.length) && (
+        <section className="card p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="t-head">First-visit readiness</p>
+              <p className="t-cap mt-0.5 text-ink3">Make the next consultation useful without migrating the whole file.</p>
+            </div>
+            <span className="t-num shrink-0 rounded-full bg-perisoft px-2.5 py-1 text-[13px] text-peri">{readyCount}/3</span>
+          </div>
+          <ul className="mt-3 space-y-1.5">
+            {readiness.map((item) => (
+              <li key={item.label} className={`t-cap flex items-center gap-2 ${item.done ? "text-jade" : "text-ink3"}`}>
+                {item.done ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+                {item.label}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href={`/patients/${patient.id}/history`}
+            className="t-cap mt-4 flex items-center justify-center gap-1.5 rounded-xl bg-perisoft px-3 py-2.5 font-semibold text-peri active:opacity-60"
+          >
+            <FolderInput size={14} /> Add previous history
+          </Link>
+          <p className="t-micro mt-2 text-center text-ink3">Or send the care link above—the patient can submit records from their phone.</p>
+        </section>
+      )}
+
+      <HistoryReview submissions={pendingHistory} />
+
       {/* ── open items: what is owed, in one place ───────────── */}
       {(patient.tasks.length > 0 || patient.reports.length > 0) && (
         <section className="pt-1">
@@ -192,6 +261,11 @@ export default async function PatientChart({
                     {r.summary && (
                       <span className="t-micro block truncate text-ink3">{r.summary}</span>
                     )}
+                    {r.source !== "clinic" && (
+                      <span className="t-micro block font-semibold text-jade">
+                        {r.source === "staff" ? "Front-desk supplied" : "Patient supplied"} · reviewed
+                      </span>
+                    )}
                   </span>
                   <span className="t-micro shrink-0 text-ink3">
                     {relDay(r.reportDate)}
@@ -230,6 +304,15 @@ export default async function PatientChart({
             </Link>
           </div>
         </section>
+      )}
+
+      {patient.visits.length > 0 && (
+        <Link
+          href={`/patients/${patient.id}/history`}
+          className="t-cap flex items-center justify-center gap-1.5 py-1 font-semibold text-peri active:opacity-60"
+        >
+          <FolderInput size={14} /> Add previous history
+        </Link>
       )}
 
       </div>

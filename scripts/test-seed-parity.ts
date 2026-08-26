@@ -134,7 +134,7 @@ function statements(sql: string): string[] {
 
 async function main() {
   console.log("loading scripts/seed-sql.ts output …");
-  const sql = execFileSync("npx", ["tsx", "scripts/seed-sql.ts"], {
+  const sql = execFileSync(process.execPath, ["--import", "tsx", "scripts/seed-sql.ts"], {
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
   });
@@ -143,7 +143,9 @@ async function main() {
   const globalsFromSql = await globals();
 
   console.log("running prisma/seed.ts …");
-  execFileSync("npx", ["tsx", "prisma/seed.ts"], { encoding: "utf8" });
+  execFileSync(process.execPath, ["--import", "tsx", "prisma/seed.ts"], {
+    encoding: "utf8",
+  });
   const fromTs = await snapshot();
   const globalsFromTs = await globals();
 

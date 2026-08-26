@@ -1,12 +1,8 @@
 // Behavior test for patient merging. Creates its own synthetic pair so it never
 // touches the demo panel; reseed afterwards anyway.
-import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
+import { db } from "../src/lib/db";
 import { mergePatients } from "../src/lib/merge";
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-const db = new PrismaClient({ adapter });
 
 function expect(cond: boolean, label: string) {
   if (!cond) {

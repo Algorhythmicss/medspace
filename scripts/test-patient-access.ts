@@ -20,12 +20,7 @@ import {
   accessForPatient,
 } from "../src/lib/patientAccess";
 import { mergePatients } from "../src/lib/merge";
-import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-
-const db = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
-});
+import { db } from "../src/lib/db";
 
 function expect(cond: boolean, label: string) {
   if (!cond) {

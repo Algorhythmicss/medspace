@@ -152,6 +152,12 @@ export default function Briefing({
               .join(" · ")}
           </p>
         )}
+        {card.activeMeds.length === 0 && card.reportedMeds && (
+          <p className="t-cap relative mt-4 border-t border-white/12 pt-3 text-periink2">
+            <span className="font-semibold text-periink">Reported before first visit</span>{" "}
+            <span className="line-clamp-2">{card.reportedMeds}</span>
+          </p>
+        )}
       </div>
 
       {/* durable human context, on cream so it reads as a margin note */}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Stethoscope, CalendarClock, UserRoundPlus, Lock } from "lucide-react";
+import { Stethoscope, CalendarClock, UserRoundPlus, Lock, Settings2 } from "lucide-react";
 import { signOut } from "@/app/actions";
 
 const nav = [
@@ -43,6 +43,11 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      <Link href="/setup" className="nav-item ring-focus mt-3">
+        <Settings2 size={17} strokeWidth={1.9} />
+        Clinic setup
+      </Link>
 
       <form action={signOut} className="mt-auto">
         <button type="submit" className="nav-item ring-focus w-full">

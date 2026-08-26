@@ -51,6 +51,7 @@ export type MemoryCard = {
   metrics: MemoryMetric[];
   homeReadings: HomeReading[];
   activeMeds: { drugName: string; frequency: string }[];
+  reportedMeds: string | null;
   checkin: Checkin | null;
 };
 
@@ -131,6 +132,7 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
         },
         // select explicitly: fileData holds attachment bytes and must not be loaded
         reports: {
+          where: { reviewStatus: "verified" },
           orderBy: { reportDate: "desc" },
           take: 1,
           select: { title: true, reportDate: true },
@@ -399,5 +401,9 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       (patient.visits.find((v) => (v.prescription?.items.length ?? 0) > 0)?.prescription?.items ?? []).map(
         (i) => ({ drugName: i.drugName, frequency: i.frequency })
       ),
+    // Pre-MedSpace medicines are explicitly labelled as reported and only
+    // shown when no native prescription exists. They reached this field after
+    // doctor review; they are context for the first consult, not an Rx.
+    reportedMeds: patient.reportedMedications,
   };
 }

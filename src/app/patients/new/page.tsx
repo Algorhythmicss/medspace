@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, FileSpreadsheet } from "lucide-react";
 import NewPatientForm from "@/components/NewPatientForm";
 import { ArtBand } from "@/components/Art";
 
@@ -22,6 +22,12 @@ export default function NewPatient() {
       <p className="mt-4 text-center text-[13px] text-ink2">
         Name alone is enough to start — details can come later.
       </p>
+      <Link
+        href="/patients/import"
+        className="t-cap mt-3 flex items-center justify-center gap-1.5 font-semibold text-peri active:opacity-60"
+      >
+        <FileSpreadsheet size={14} /> Import an existing patient list
+      </Link>
     </div>
   );
 }

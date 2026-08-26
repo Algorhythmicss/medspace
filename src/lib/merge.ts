@@ -92,6 +92,8 @@ export async function mergePatients(keeperId: string, duplicateId: string) {
         ageYears: keeper.ageYears ?? duplicate.ageYears,
         address: keeper.address ?? duplicate.address,
         abhaId: keeper.abhaId ?? duplicate.abhaId,
+        reportedMedications: keeper.reportedMedications ?? duplicate.reportedMedications,
+        historyUpdatedAt: latest(keeper.historyUpdatedAt, duplicate.historyUpdatedAt),
         stickyNote: notes.length > 0 ? [...new Set(notes)].join(" · ") : null,
         planFirstOpenedAt: earliest(keeper.planFirstOpenedAt, duplicate.planFirstOpenedAt),
         planLastOpenedAt: latest(keeper.planLastOpenedAt, duplicate.planLastOpenedAt),

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Activity, Clock3, Users } from "lucide-react";
+import { Activity, Clock3, FolderInput, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { relDay, patientAgeSex } from "@/lib/format";
 import { hasStaffSession } from "@/lib/session";
@@ -111,6 +111,12 @@ export default async function QueueScreen() {
                     tempF: e.tempF,
                   }}
                 />
+                <Link
+                  href={`/queue/intake/${e.patient.id}`}
+                  className="t-cap mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-perisoft px-3 py-2.5 font-semibold text-peri active:opacity-60"
+                >
+                  <FolderInput size={14} /> Add older records
+                </Link>
               </li>
             ))}
           </ul>

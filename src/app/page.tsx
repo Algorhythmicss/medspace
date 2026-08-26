@@ -3,6 +3,7 @@ import {
   Activity,
   ChevronRight,
   DoorOpen,
+  Settings2,
 } from "lucide-react";
 import { ArtBand } from "@/components/Art";
 import { db } from "@/lib/db";
@@ -15,6 +16,7 @@ import { planReach } from "@/lib/reach";
 import { findChronicDrifters } from "@/lib/recall";
 import { loadPracticePulse } from "@/lib/continuity";
 import PracticePulse from "@/components/PracticePulse";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +102,11 @@ export default async function Home() {
     findChronicDrifters(now),
     loadPracticePulse(now),
   ]);
+
+  // A prescription is not valid without the clinic/RMP identity. On a truly
+  // fresh database, make that first-run setup the product's front door rather
+  // than letting the doctor discover the missing identity at print time.
+  if (!clinic) redirect("/setup");
 
   const overduePatients = new Map<string, (typeof overdueTasks)[number]["patient"]>();
   for (const task of overdueTasks) overduePatients.set(task.patientId, task.patient);
@@ -286,6 +293,13 @@ export default async function Home() {
       </div>
 
       <PracticePulse pulse={pulse} />
+
+      <Link
+        href="/setup"
+        className="t-cap mt-5 flex items-center justify-center gap-1.5 font-semibold text-peri active:opacity-60 lg:hidden"
+      >
+        <Settings2 size={14} /> Clinic setup
+      </Link>
     </div>
   );
 }

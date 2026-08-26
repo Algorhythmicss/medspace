@@ -1,13 +1,9 @@
 // Behavior test for report saving + memory integration. Run against dev db;
 // reseed afterwards.
-import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
+import { db } from "../src/lib/db";
 import { saveReport } from "../src/lib/reports";
 import { buildMemoryCard } from "../src/lib/memory";
-
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-const db = new PrismaClient({ adapter });
 
 function expect(cond: boolean, label: string) {
   if (!cond) {

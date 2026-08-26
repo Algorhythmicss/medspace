@@ -17,6 +17,7 @@ import PatientSignOut from "@/components/PatientSignOut";
 import PlanReply from "@/components/PlanReply";
 import LogHomeReading from "@/components/LogHomeReading";
 import PlanLangToggle from "@/components/PlanLangToggle";
+import PatientHistorySubmission from "@/components/PatientHistorySubmission";
 
 // The patient's plan, rendered identically whether they arrived by tapping
 // their WhatsApp link (/p/<token>) or by signing in with Google (/plan). The
@@ -44,9 +45,13 @@ export async function loadPlanData(patientId: string) {
           },
         },
         reports: {
+          where: { reviewStatus: "verified" },
           orderBy: { reportDate: "desc" },
           take: 4,
           select: { id: true, title: true, reportDate: true, summary: true },
+        },
+        _count: {
+          select: { reports: { where: { reviewStatus: "pending" } } },
         },
       },
     }),
@@ -108,6 +113,34 @@ export default async function PlanView({
       </header>
 
       {signedIn && <PatientSignOut />}
+
+      <section className="mt-5">
+        {patient._count.reports > 0 && (
+          <p className="t-cap mb-2 rounded-xl bg-buttersoft px-3 py-2 text-butter">
+            {lang === "hi"
+              ? `${patient._count.reports} रिकॉर्ड डॉक्टर की जाँच का इंतज़ार कर ${patient._count.reports === 1 ? "रहा" : "रहे"} है।`
+              : `${patient._count.reports} record${patient._count.reports === 1 ? " is" : "s are"} waiting for the doctor to review.`}
+          </p>
+        )}
+        {patient.visits.length === 0 ? (
+          <PatientHistorySubmission planToken={planToken} lang={lang} />
+        ) : (
+          <details className="group">
+            <summary className="card pressable flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+              <FileText size={17} className="shrink-0 text-peri" />
+              <span className="t-body flex-1">
+                {lang === "hi" ? "पुरानी पर्ची या रिपोर्ट भेजें" : "Share an older prescription or report"}
+              </span>
+              <span className="t-cap font-semibold text-peri group-open:hidden">
+                {lang === "hi" ? "खोलें" : "Open"}
+              </span>
+            </summary>
+            <div className="mt-2">
+              <PatientHistorySubmission planToken={planToken} lang={lang} />
+            </div>
+          </details>
+        )}
+      </section>
 
       {/* ── the next appointment ─────────────────────────────── */}
       {followUp?.dueDate && (

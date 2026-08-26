@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { supersedeStaleLabTasks } from "@/lib/tasks";
 import { saveReport, MAX_FILE_BYTES, INLINE_SAFE_MIME } from "@/lib/reports";
@@ -17,6 +18,16 @@ import { supabaseForAuth } from "@/lib/supabase";
 import { hasActiveAccess } from "@/lib/patientAccess";
 import { HOME_METRICS } from "@/lib/metrics";
 import { storablePhone, phoneQuery } from "@/lib/phone";
+import {
+  parsePatientRoster,
+  prepareRosterImport,
+  rosterLookupKeys,
+} from "@/lib/rosterCsv";
+import {
+  historySubmissionSummary,
+  historyTerms,
+} from "@/lib/onboarding";
+import { reviewHistorySubmission } from "@/lib/historyReview";
 import {
   readPatientLink,
   createBindToken,
@@ -245,6 +256,288 @@ export async function createReport(formData: FormData) {
   redirect(`/patients/${patientId}`);
 }
 
+const HISTORY_KINDS = new Set(["outside_rx", "lab", "imaging", "other"]);
+const MAX_ROSTER_BYTES = 512 * 1024;
+const MAX_ROSTER_ROWS = 500;
+
+export type HistorySubmissionState = {
+  ok: boolean;
+  message: string;
+};
+
+export type RosterImportState = {
+  ok: boolean;
+  message: string;
+  added?: number;
+  skipped?: number;
+};
+
+const clipped = (value: FormDataEntryValue | null, max: number) =>
+  String(value ?? "").trim().slice(0, max);
+
+async function historyFile(formData: FormData) {
+  const entry = formData.get("file");
+  if (!(entry instanceof File) || entry.size === 0) return null;
+  if (entry.size > MAX_FILE_BYTES) throw new Error("file_too_large");
+  const declared = entry.type || "application/octet-stream";
+  return {
+    name: entry.name.slice(0, 180),
+    mime: INLINE_SAFE_MIME.has(declared) ? declared : "application/octet-stream",
+    bytes: new Uint8Array(await entry.arrayBuffer()),
+  };
+}
+
+async function saveHistorySubmission(
+  patientId: string,
+  source: "patient" | "staff",
+  formData: FormData
+): Promise<HistorySubmissionState> {
+  const conditions = clipped(formData.get("conditions"), 1500);
+  const allergies = clipped(formData.get("allergies"), 1000);
+  const medications = clipped(formData.get("medications"), 2500);
+  const note = clipped(formData.get("note"), 2500);
+  const kindInput = clipped(formData.get("kind"), 30);
+  const kind = HISTORY_KINDS.has(kindInput) ? kindInput : "outside_rx";
+  const title = clipped(formData.get("title"), 160) ||
+    (kind === "outside_rx" ? "Previous prescription" : "Previous medical record");
+
+  let file: Awaited<ReturnType<typeof historyFile>>;
+  try {
+    file = await historyFile(formData);
+  } catch (error) {
+    if ((error as Error).message === "file_too_large") {
+      return { ok: false, message: "That file is over 4MB. Please choose a smaller photo or PDF." };
+    }
+    return { ok: false, message: "The file could not be read. Please try another one." };
+  }
+  if (!conditions && !allergies && !medications && !note && !file) {
+    return { ok: false, message: "Add at least one detail or attach a record." };
+  }
+
+  // A leaked/forwarded link must not be usable as an unbounded database upload
+  // primitive. Eight unreviewed submissions is enough for a paper file and
+  // forces clinic review before more storage can be consumed.
+  const pending = await db.report.count({
+    where: { patientId, reviewStatus: "pending" },
+  });
+  if (pending >= 8) {
+    return { ok: false, message: "The clinic already has several records waiting for review." };
+  }
+
+  const dateRaw = clipped(formData.get("reportDate"), 20);
+  const parsedDate = dateRaw ? new Date(`${dateRaw}T12:00:00`) : new Date();
+  const reportDate =
+    Number.isFinite(parsedDate.getTime()) && parsedDate <= new Date() ? parsedDate : new Date();
+
+  try {
+    await saveReport({
+      patientId,
+      title,
+      kind,
+      reportDate,
+      summary: historySubmissionSummary({ conditions, allergies, medications, note }),
+      values: [],
+      file,
+      source,
+      reviewStatus: "pending",
+      reportedConditions: conditions,
+      reportedAllergies: allergies,
+      reportedMedications: medications,
+    });
+  } catch (error) {
+    console.error("failed to save history submission", error);
+    return { ok: false, message: "The record could not be saved. Please try again." };
+  }
+
+  revalidatePath(`/patients/${patientId}`);
+  revalidatePath("/plan");
+  return { ok: true, message: "Sent to the clinic for the doctor to review." };
+}
+
+// Patient-side: authenticated by the signed plan link or patient session. The
+// patient id is always derived server-side; a hidden input can never select a
+// different chart.
+export async function submitPatientHistory(
+  _previous: HistorySubmissionState,
+  formData: FormData
+): Promise<HistorySubmissionState> {
+  const planToken = clipped(formData.get("planToken"), 1600) || undefined;
+  const patientId = await authedPatientId(planToken);
+  if (!patientId) return { ok: false, message: "This link has expired. Ask the clinic for a new one." };
+  return saveHistorySubmission(patientId, "patient", formData);
+}
+
+// Front-desk-side: staff can stage records only for somebody currently in the
+// live queue. They never read the chart and their submission still needs doctor
+// review, preserving the queue-only role boundary.
+export async function submitStaffHistory(
+  _previous: HistorySubmissionState,
+  formData: FormData
+): Promise<HistorySubmissionState> {
+  await assertQueueAccess();
+  const patientId = clipped(formData.get("patientId"), 80);
+  if (!patientId) return { ok: false, message: "Patient not found." };
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const inQueue = await db.queueEntry.count({
+    where: { patientId, status: "waiting", arrivedAt: { gte: todayStart } },
+  });
+  if (!inQueue) return { ok: false, message: "This patient is no longer in today’s queue." };
+  return saveHistorySubmission(patientId, "staff", formData);
+}
+
+async function addMissingHistory(
+  client: Pick<Prisma.TransactionClient, "condition" | "allergy">,
+  patientId: string,
+  conditionsText: string | null,
+  allergiesText: string | null
+) {
+  const conditions = historyTerms(conditionsText);
+  const allergies = historyTerms(allergiesText);
+  for (const name of conditions) {
+    const exists = await client.condition.findFirst({
+      where: { patientId, name: { equals: name, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (!exists) await client.condition.create({ data: { patientId, name, status: "active" } });
+  }
+  for (const substance of allergies) {
+    const exists = await client.allergy.findFirst({
+      where: { patientId, substance: { equals: substance, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (!exists) await client.allergy.create({ data: { patientId, substance } });
+  }
+}
+
+export async function reviewPatientHistory(formData: FormData) {
+  await assertClinicSession();
+  const reportId = clipped(formData.get("reportId"), 80);
+  const decision = clipped(formData.get("decision"), 20);
+  if (!reportId || (decision !== "accept" && decision !== "dismiss")) return;
+
+  const result = await reviewHistorySubmission(
+    reportId,
+    decision === "accept" ? "accept" : "dismiss"
+  );
+  if (!result.patientId) return;
+  revalidatePath(`/patients/${result.patientId}`);
+  revalidatePath("/");
+  redirect(`/patients/${result.patientId}`);
+}
+
+export async function saveBaselineHistory(formData: FormData) {
+  await assertClinicSession();
+  const patientId = clipped(formData.get("patientId"), 80);
+  if (!patientId) return;
+  const conditions = clipped(formData.get("conditions"), 1500);
+  const allergies = clipped(formData.get("allergies"), 1000);
+  const medications = clipped(formData.get("medications"), 2500);
+  const note = clipped(formData.get("note"), 2500);
+  if (!conditions && !allergies && !medications && !note) redirect(`/patients/${patientId}`);
+
+  const patient = await db.patient.findUnique({ where: { id: patientId }, select: { id: true } });
+  if (!patient) return;
+  const now = new Date();
+  await db.$transaction(async (tx) => {
+    await addMissingHistory(tx, patientId, conditions, allergies);
+    await tx.patient.update({
+      where: { id: patientId },
+      data: {
+        ...(medications ? { reportedMedications: medications } : {}),
+        historyUpdatedAt: now,
+      },
+    });
+    if (note) {
+      await tx.report.create({
+        data: {
+          patientId,
+          title: "Previous treatment note",
+          kind: "other",
+          reportDate: now,
+          summary: note,
+          source: "clinic",
+          reviewStatus: "verified",
+          reviewedAt: now,
+        },
+      });
+    }
+  });
+  revalidatePath(`/patients/${patientId}`);
+  revalidatePath("/");
+  redirect(`/patients/${patientId}`);
+}
+
+export async function importPatientRoster(
+  _previous: RosterImportState,
+  formData: FormData
+): Promise<RosterImportState> {
+  await assertClinicSession();
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, message: "Choose a CSV file first." };
+  }
+  if (file.size > MAX_ROSTER_BYTES) {
+    return { ok: false, message: "Keep the CSV under 512KB." };
+  }
+
+  let parsed;
+  try {
+    parsed = parsePatientRoster(await file.text());
+  } catch (error) {
+    const message = (error as Error).message;
+    return {
+      ok: false,
+      message:
+        message === "missing_name_column"
+          ? "The CSV needs a Name column."
+          : "That CSV could not be read.",
+    };
+  }
+  if (parsed.rows.length === 0) return { ok: false, message: "No patient rows were found." };
+  if (parsed.rows.length > MAX_ROSTER_ROWS) {
+    return { ok: false, message: `Import up to ${MAX_ROSTER_ROWS} patients at a time.` };
+  }
+
+  const { phones, fileNumbers: preferredFiles } = rosterLookupKeys(parsed.rows);
+  const [existingPhones, conflictingFiles, maxFile] = await Promise.all([
+    phones.length
+      ? db.patient.findMany({ where: { phone: { in: phones } }, select: { phone: true } })
+      : Promise.resolve([]),
+    preferredFiles.length
+      ? db.patient.findMany({ where: { fileNumber: { in: preferredFiles } }, select: { fileNumber: true } })
+      : Promise.resolve([]),
+    db.patient.aggregate({ _max: { fileNumber: true } }),
+  ]);
+
+  const { data, skipped } = prepareRosterImport({
+    rows: parsed.rows,
+    existingPhones: existingPhones.map((patient) => patient.phone),
+    existingFileNumbers: conflictingFiles.map((patient) => patient.fileNumber),
+    maxFileNumber: maxFile._max.fileNumber,
+    initiallySkipped: parsed.skipped,
+  });
+
+  if (data.length === 0) {
+    return { ok: true, message: "No new patients were added; every row already matched a phone on file.", added: 0, skipped };
+  }
+  try {
+    await db.patient.createMany({ data });
+  } catch (error) {
+    console.error("failed to import patient roster", error);
+    return { ok: false, message: "The import collided with another update. Please try it once more." };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/patients/new");
+  return {
+    ok: true,
+    message: `${data.length} patient${data.length === 1 ? "" : "s"} added.`,
+    added: data.length,
+    skipped,
+  };
+}
+
 export async function updatePatient(formData: FormData) {
   await assertClinicSession();
   const patientId = String(formData.get("patientId") ?? "");
@@ -270,6 +563,33 @@ export async function updatePatient(formData: FormData) {
   revalidatePath(`/patients/${patientId}`);
   revalidatePath("/");
   redirect(`/patients/${patientId}`);
+}
+
+export async function updateClinicSettings(formData: FormData) {
+  await assertClinicSession();
+  const clinicName = clipped(formData.get("clinicName"), 160);
+  const doctorName = clipped(formData.get("doctorName"), 160);
+  const regNumber = clipped(formData.get("regNumber"), 120);
+  if (!clinicName || !doctorName || !regNumber) return;
+
+  const data = {
+    clinicName,
+    doctorName,
+    regNumber,
+    degrees: clipped(formData.get("degrees"), 160) || null,
+    phone: storablePhone(clipped(formData.get("phone"), 40)),
+    address: clipped(formData.get("address"), 500) || null,
+  };
+  await db.clinic.upsert({
+    where: { id: "clinic" },
+    create: { id: "clinic", ...data },
+    update: data,
+  });
+  const patientCount = await db.patient.count();
+  revalidatePath("/");
+  revalidatePath("/welcome");
+  revalidatePath("/plan");
+  redirect(patientCount === 0 ? "/patients/import" : "/");
 }
 
 export async function mergePatientRecords(formData: FormData) {

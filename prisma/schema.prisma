@@ -36,6 +36,13 @@ model Patient {
   stickyNote String? // durable context: caregiver, temperament, anything human
   language   String    @default("en") // preferred plan language: en | hi. Set once by the doctor, then the patient's plan opens in it every time.
 
+  // Medicines carried into MedSpace from paper/another clinic before the first
+  // native prescription exists. Patient/staff submissions only reach this
+  // field after doctor review; the UI keeps the "reported" label until a real
+  // MedSpace prescription replaces it as the active-medication source.
+  reportedMedications String?
+  historyUpdatedAt    DateTime?
+
   // Whether the patient has actually opened the plan link the doctor sent.
   // Engagement — not messaging — is the binding constraint in the field
   // (SPRINT India: 17% acknowledged receipt; 99DOTS: 33% ever used it), so a
@@ -174,6 +181,19 @@ model Report {
   reportDate DateTime @default(now())
   summary    String? // human/AI summary; source of memory-card lines later
 
+  // Provenance and review state make old-record onboarding safe. Clinic
+  // uploads are verified immediately; patient/staff submissions stay pending
+  // and do not enter the memory card or patient plan until a doctor accepts
+  // them. reported* fields are intentionally staging data, not trusted chart
+  // facts, until that review promotes them.
+  source              String    @default("clinic") // clinic | patient | staff
+  reviewStatus        String    @default("verified") // pending | verified | dismissed
+  reportedConditions  String?
+  reportedAllergies   String?
+  reportedMedications String?
+  reviewedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
   // Attachments live in the database, not on disk: serverless hosting has no
   // persistent filesystem, and this keeps files behind the same auth gate as
   // the rest of the record instead of on a public URL.
@@ -182,6 +202,7 @@ model Report {
   fileData Bytes?
 
   @@index([patientId, reportDate])
+  @@index([patientId, reviewStatus, createdAt])
 }
 
 // The executable half of continuity: what should happen between visits.

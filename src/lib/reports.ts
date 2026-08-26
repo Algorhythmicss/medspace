@@ -12,6 +12,11 @@ export type SaveReportInput = {
   summary?: string;
   values: ReportValueInput[];
   file?: { name: string; mime: string; bytes: Uint8Array<ArrayBuffer> } | null;
+  source?: "clinic" | "patient" | "staff";
+  reviewStatus?: "pending" | "verified" | "dismissed";
+  reportedConditions?: string;
+  reportedAllergies?: string;
+  reportedMedications?: string;
 };
 
 export const MAX_FILE_BYTES = 4 * 1024 * 1024;
@@ -41,6 +46,12 @@ export async function saveReport(input: SaveReportInput) {
       kind: input.kind,
       reportDate: input.reportDate,
       summary: input.summary || null,
+      source: input.source ?? "clinic",
+      reviewStatus: input.reviewStatus ?? "verified",
+      reportedConditions: input.reportedConditions || null,
+      reportedAllergies: input.reportedAllergies || null,
+      reportedMedications: input.reportedMedications || null,
+      reviewedAt: (input.reviewStatus ?? "verified") === "verified" ? new Date() : null,
       fileName: input.file?.name ?? null,
       fileMime: input.file?.mime ?? null,
       fileData: input.file?.bytes ?? null,
@@ -48,7 +59,10 @@ export async function saveReport(input: SaveReportInput) {
   });
 
   const known = new Map(REPORT_METRICS.map((m) => [m.type, m]));
-  const values = input.values.filter((v) => Number.isFinite(v.value));
+  // Only clinic-verified reports may create trend data or close a lab order.
+  // Patient/staff uploads are staging records until a doctor accepts them.
+  const verified = (input.reviewStatus ?? "verified") === "verified";
+  const values = verified ? input.values.filter((v) => Number.isFinite(v.value)) : [];
   if (values.length > 0) {
     await db.observation.createMany({
       data: values.map((v) => ({

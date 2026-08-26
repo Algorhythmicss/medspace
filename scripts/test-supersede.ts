@@ -1,13 +1,7 @@
 // Behavior test for lab-task supersedure, run against the dev db (reseed after).
-import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
+import { db } from "../src/lib/db";
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
-const db = new PrismaClient({ adapter });
-
-// duplicate of src/lib/tasks.ts logic via direct import is blocked by "@/" alias
-// in tsx; import through a relative path instead:
 import { supersedeStaleLabTasks } from "../src/lib/tasks";
 
 async function expect(cond: boolean, label: string) {

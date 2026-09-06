@@ -12,7 +12,7 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
-  const [patient, card, checkin] = await Promise.all([
+  const [patient, card, checkin, savedSets] = await Promise.all([
     db.patient.findUnique({
       where: { id },
       include: {
@@ -38,6 +38,10 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
       },
       orderBy: { arrivedAt: "desc" },
       select: { bpSys: true, bpDia: true, pulse: true, weight: true, tempF: true },
+    }),
+    db.prescriptionSet.findMany({
+      orderBy: { name: "asc" },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
     }),
   ]);
   if (!patient || !card) notFound();
@@ -83,7 +87,24 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
         />
       </div>
 
-      <VisitForm patientId={patient.id} lastRxItems={lastRxItems} checkinVitals={checkinVitals} />
+      <VisitForm
+        patientId={patient.id}
+        lastRxItems={lastRxItems}
+        checkinVitals={checkinVitals}
+        initialSavedSets={savedSets.map((set) => ({
+          id: set.id,
+          name: set.name,
+          advice: set.advice,
+          followUpInDays: set.followUpInDays,
+          labTasks: set.labTasks,
+          items: set.items.map((item) => ({
+            drugName: item.drugName,
+            frequency: item.frequency,
+            duration: item.duration ?? undefined,
+            instructions: item.instructions ?? undefined,
+          })),
+        }))}
+      />
     </div>
   );
 }

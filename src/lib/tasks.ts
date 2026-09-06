@@ -1,5 +1,8 @@
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { REPORT_METRICS } from "@/lib/metrics";
+
+type CarePlanTaskStore = Pick<Prisma.TransactionClient, "carePlanTask">;
 
 // Words too generic to indicate the same investigation on their own.
 const STOPWORDS = new Set(["test", "tests", "profile", "repeat", "with", "and", "before", "next", "visit", "review"]);
@@ -20,12 +23,13 @@ export function tokens(title: string): Set<string> {
 export async function supersedeStaleLabTasks(
   patientId: string,
   newLabTitles: string[],
-  currentVisitId: string
+  currentVisitId: string,
+  store: CarePlanTaskStore = db
 ): Promise<number> {
   if (newLabTitles.length === 0) return 0;
   const newTokens = newLabTitles.map(tokens);
 
-  const stale = await db.carePlanTask.findMany({
+  const stale = await store.carePlanTask.findMany({
     where: {
       patientId,
       status: "pending",
@@ -41,7 +45,7 @@ export async function supersedeStaleLabTasks(
   });
 
   if (toCancel.length > 0) {
-    await db.carePlanTask.updateMany({
+    await store.carePlanTask.updateMany({
       where: { id: { in: toCancel.map((t) => t.id) } },
       data: { status: "cancelled" },
     });

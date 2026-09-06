@@ -33,6 +33,10 @@ export async function mergePatients(keeperId: string, duplicateId: string) {
     await tx.observation.updateMany({ where: { patientId: duplicateId }, data: { patientId: keeperId } });
     await tx.report.updateMany({ where: { patientId: duplicateId }, data: { patientId: keeperId } });
     await tx.carePlanTask.updateMany({ where: { patientId: duplicateId }, data: { patientId: keeperId } });
+    await tx.medicalDocument.updateMany({
+      where: { patientId: duplicateId },
+      data: { patientId: keeperId },
+    });
 
     // problem list / allergies: move only what the keeper lacks, so the
     // merged chart doesn't list "Type 2 Diabetes" twice

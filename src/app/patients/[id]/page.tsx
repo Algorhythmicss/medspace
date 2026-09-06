@@ -10,6 +10,7 @@ import {
   FolderInput,
   CheckCircle2,
   Circle,
+  FilePlus2,
 } from "lucide-react";
 import { headers } from "next/headers";
 import SendPlanLink from "@/components/SendPlanLink";
@@ -52,6 +53,11 @@ export default async function PatientChart({
           },
         },
         tasks: { where: { status: "pending" }, orderBy: { dueDate: "asc" } },
+        documents: {
+          orderBy: { issuedAt: "desc" },
+          take: 5,
+          select: { id: true, title: true, kind: true, issuedAt: true },
+        },
         // never select fileData here — it would pull attachment bytes into the page
         reports: {
           where: { reviewStatus: "verified" },
@@ -165,6 +171,13 @@ export default async function PatientChart({
           <FileText size={17} strokeWidth={2.2} /> View &amp; print prescription
         </Link>
       )}
+
+      <Link
+        href={`/patients/${patient.id}/documents/new`}
+        className="pressable flex w-full items-center justify-center gap-2 rounded-2xl bg-surface py-3.5 text-[15.5px] font-semibold text-ink shadow-[var(--lift)]"
+      >
+        <FilePlus2 size={17} strokeWidth={2.2} /> Issue certificate or referral
+      </Link>
 
       <SendPlanLink
         waHref={waLink(patient.phone, planMessage)}
@@ -313,6 +326,33 @@ export default async function PatientChart({
         >
           <FolderInput size={14} /> Add previous history
         </Link>
+      )}
+
+      {patient.documents.length > 0 && (
+        <section className="pt-1">
+          <div className="mb-2 flex items-baseline justify-between px-1">
+            <h2 className="label">Issued documents</h2>
+            <Link
+              href={`/patients/${patient.id}/documents/new`}
+              className="t-cap inline-flex items-center gap-1 font-semibold text-peri active:opacity-60"
+            >
+              <Plus size={13} /> New
+            </Link>
+          </div>
+          <div className="card rows overflow-hidden">
+            {patient.documents.map((document) => (
+              <Link
+                key={document.id}
+                href={`/documents/${document.id}`}
+                className="pressable flex items-center gap-3 px-4 py-3"
+              >
+                <FileText size={15} className="shrink-0 text-ink3" />
+                <span className="t-body min-w-0 flex-1 truncate">{document.title}</span>
+                <span className="t-micro shrink-0 text-ink3">{shortDate(document.issuedAt)}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       </div>

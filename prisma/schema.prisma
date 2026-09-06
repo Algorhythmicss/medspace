@@ -83,6 +83,7 @@ model Patient {
   tasks        CarePlanTask[]
   access       PatientAccess[]
   queueEntries QueueEntry[]
+  documents    MedicalDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -128,6 +129,7 @@ model Visit {
   prescription Prescription?
   observations Observation[]
   tasks        CarePlanTask[]
+  documents    MedicalDocument[]
 
   createdAt DateTime @default(now())
 
@@ -153,6 +155,57 @@ model PrescriptionItem {
   frequency      String // "1-0-1" | "OD" | "BD" | "SOS"
   duration       String? // "30 days" | "5 days"
   instructions   String? // "after food"
+}
+
+// Doctor-owned reusable prescription building blocks. A set deliberately
+// carries only the repeatable parts of a visit — medicines, advice, tests and
+// follow-up timing — never a patient-specific complaint or diagnosis.
+model PrescriptionSet {
+  id             String                @id @default(cuid())
+  name           String
+  nameKey        String                @unique
+  advice         String?
+  followUpInDays Int?
+  labTasks       String[]              @default([])
+  items          PrescriptionSetItem[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model PrescriptionSetItem {
+  id                String          @id @default(cuid())
+  prescriptionSet   PrescriptionSet @relation(fields: [prescriptionSetId], references: [id], onDelete: Cascade)
+  prescriptionSetId String
+  sortOrder         Int             @default(0)
+  drugName          String
+  frequency         String
+  duration          String?
+  instructions      String?
+
+  @@index([prescriptionSetId, sortOrder])
+}
+
+// Formal documents requested during everyday OPD work. They are immutable
+// after issue: a correction is re-issued as a new document so the chart keeps
+// an honest audit trail. The optional visit anchors the wording to the consult
+// the doctor reviewed while issuing it.
+model MedicalDocument {
+  id         String    @id @default(cuid())
+  patient    Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId  String
+  visit      Visit?    @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  visitId    String?
+  kind       String // sick_leave | fitness | referral | other
+  title      String
+  body       String
+  recipient  String?
+  validFrom  DateTime?
+  validUntil DateTime?
+  issuedAt   DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  @@index([patientId, issuedAt])
+  @@index([visitId])
 }
 
 // Structured measurements — clinic vitals and lab values. Trend source.

@@ -16,6 +16,7 @@ import { planReach } from "@/lib/reach";
 import { findChronicDrifters } from "@/lib/recall";
 import { loadPracticePulse } from "@/lib/continuity";
 import PracticePulse from "@/components/PracticePulse";
+import { latestVisitPerPatient } from "@/lib/recentVisits";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -125,9 +126,10 @@ export default async function Home() {
     else expectedByPatient.set(task.patientId, { patient: task.patient, titles: [task.title] });
   }
 
-  const recentPatients = [...new Map(
-    recentVisits.map((visit) => [visit.patient.id, visit] as const)
-  ).values()].slice(0, 6);
+  // The query is newest-first. Map construction from every pair would replace
+  // a patient's first (newest) entry with their later (older) one while keeping
+  // the original insertion position, making "Recently seen" show a stale date.
+  const recentPatients = latestVisitPerPatient(recentVisits);
 
   // "Dr. A. K. Verma" → "Dr. Verma", which is how a person would greet him
   const shortName = clinic?.doctorName?.replace(/^(Dr\.?)\s+.*?\s*(\S+)$/, "$1 $2");

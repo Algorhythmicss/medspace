@@ -1,8 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { RotateCw, X, FlaskConical, AlertTriangle } from "lucide-react";
-import { createVisit, type RxItemInput } from "@/app/actions";
+import {
+  RotateCw,
+  X,
+  FlaskConical,
+  AlertTriangle,
+  BookmarkPlus,
+  Trash2,
+} from "lucide-react";
+import {
+  createVisit,
+  deletePrescriptionSet,
+  savePrescriptionSet,
+  type RxItemInput,
+} from "@/app/actions";
 
 const FREQ_CHIPS = ["1-0-1", "1-0-0", "0-0-1", "1-1-1", "0-1-0", "SOS"];
 const DUR_CHIPS = ["5 days", "15 days", "30 days", "45 days", "90 days"];
@@ -37,6 +49,15 @@ type Draft = {
   advice: string;
   followUpInDays: number | null;
   labTasks: string[];
+};
+
+export type SavedPrescriptionSet = {
+  id: string;
+  name: string;
+  advice: string | null;
+  followUpInDays: number | null;
+  labTasks: string[];
+  items: RxItemInput[];
 };
 
 const EMPTY: Draft = {
@@ -118,10 +139,12 @@ export default function VisitForm({
   patientId,
   lastRxItems,
   checkinVitals,
+  initialSavedSets,
 }: {
   patientId: string;
   lastRxItems: RxItemInput[];
   checkinVitals?: Vitals;
+  initialSavedSets: SavedPrescriptionSet[];
 }) {
   const draftKey = `medspace:visit-draft:${patientId}`;
 
@@ -130,11 +153,16 @@ export default function VisitForm({
   // no hydration mismatch, and no fighting the localStorage-restore effect.
   const [draft, setDraft] = useState<Draft>(() => ({ ...EMPTY, ...(checkinVitals ?? {}) }));
   const [restored, setRestored] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [drugQuery, setDrugQuery] = useState("");
   const [suggestions, setSuggestions] = useState<DrugSuggestion[]>([]);
   const [pending, startTransition] = useTransition();
+  const [setPending, startSetTransition] = useTransition();
+  const [savedSets, setSavedSets] = useState(initialSavedSets);
+  const [setName, setSetName] = useState("");
+  const [setNotice, setSetNotice] = useState<string | null>(null);
   const hydrated = useRef(false);
+  const savingVisit = useRef(false);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
@@ -168,6 +196,7 @@ export default function VisitForm({
   useEffect(() => {
     if (!hydrated.current) return;
     const t = setTimeout(() => {
+      if (savingVisit.current) return;
       try {
         if (isEmpty(draft)) localStorage.removeItem(draftKey);
         else localStorage.setItem(draftKey, JSON.stringify(draft));
@@ -217,10 +246,74 @@ export default function VisitForm({
     );
   }
 
-  function discardDraft() {
-    setDraft(EMPTY);
+  function applySavedSet(saved: SavedPrescriptionSet) {
+    const replacesWork =
+      draft.items.length > 0 ||
+      draft.advice.trim().length > 0 ||
+      draft.labTasks.length > 0 ||
+      draft.followUpInDays !== null;
+    if (
+      replacesWork &&
+      !window.confirm("Replace the current medicines, advice, tests and follow-up with this saved set?")
+    ) {
+      return;
+    }
+    setDraft((current) => ({
+      ...current,
+      items: saved.items.map((item) => ({ ...item })),
+      advice: saved.advice ?? "",
+      followUpInDays: saved.followUpInDays,
+      labTasks: [...saved.labTasks],
+    }));
     setRestored(false);
-    setSaveError(false);
+    setSetNotice(`Applied “${saved.name}”. Review it before saving the visit.`);
+  }
+
+  function saveCurrentSet() {
+    setSetNotice(null);
+    startSetTransition(async () => {
+      const result = await savePrescriptionSet({
+        name: setName,
+        items: draft.items,
+        advice: draft.advice,
+        followUpInDays: draft.followUpInDays ?? undefined,
+        labTasks: draft.labTasks,
+      });
+      if (!result.ok) {
+        setSetNotice(result.error);
+        return;
+      }
+      setSavedSets((current) =>
+        [...current.filter((item) => item.id !== result.set.id), result.set].sort((a, b) =>
+          a.name.localeCompare(b.name)
+        )
+      );
+      setSetName("");
+      setSetNotice(`Saved “${result.set.name}” for future visits.`);
+    });
+  }
+
+  function removeSavedSet(saved: SavedPrescriptionSet) {
+    if (!window.confirm(`Remove the saved set “${saved.name}”?`)) return;
+    setSetNotice(null);
+    startSetTransition(async () => {
+      const result = await deletePrescriptionSet(saved.id);
+      if (!result.ok) {
+        setSetNotice("The saved set could not be removed.");
+        return;
+      }
+      setSavedSets((current) => current.filter((item) => item.id !== saved.id));
+      setSetNotice(`Removed “${saved.name}”.`);
+    });
+  }
+
+  function discardDraft() {
+    // "Start fresh" means discard the doctor's interrupted work, not the
+    // front desk's current check-in. Preserve those measured vitals so the
+    // nurse-to-doctor handoff cannot be erased by recovery controls.
+    setDraft({ ...EMPTY, ...(checkinVitals ?? {}) });
+    setRestored(false);
+    setSaveError(null);
     try {
       localStorage.removeItem(draftKey);
     } catch {
@@ -229,7 +322,8 @@ export default function VisitForm({
   }
 
   function submit() {
-    setSaveError(false);
+    setSaveError(null);
+    savingVisit.current = true;
     startTransition(async () => {
       // Drop the local copy optimistically; a successful save redirects away
       // and the draft must not linger. Restored below if the save fails.
@@ -239,7 +333,7 @@ export default function VisitForm({
         /* ignore */
       }
       try {
-        await createVisit({
+        const result = await createVisit({
           patientId,
           complaint: draft.complaint.trim() || undefined,
           diagnosis: draft.diagnosis.trim() || undefined,
@@ -255,17 +349,27 @@ export default function VisitForm({
           followUpInDays: draft.followUpInDays ?? undefined,
           labTasks: draft.labTasks,
         });
+        if (result && !result.ok) {
+          savingVisit.current = false;
+          try {
+            localStorage.setItem(draftKey, JSON.stringify(draft));
+          } catch {
+            /* ignore */
+          }
+          setSaveError(result.error);
+        }
       } catch (err) {
         // A successful action redirects, which surfaces here as a control-flow
         // signal — not a failure. Anything else means the save didn't land.
         const digest = (err as { digest?: string })?.digest ?? "";
         if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) throw err;
+        savingVisit.current = false;
         try {
           localStorage.setItem(draftKey, JSON.stringify(draft));
         } catch {
           /* ignore */
         }
-        setSaveError(true);
+        setSaveError("The visit could not be saved. Check the connection and try again.");
       }
     });
   }
@@ -297,6 +401,42 @@ export default function VisitForm({
           <RotateCw size={18} strokeWidth={2.2} />
           Repeat last prescription ({lastRxItems.length} meds)
         </button>
+      )}
+
+      {savedSets.length > 0 && (
+        <section>
+          <div className="mb-2 px-1">
+            <h3 className="label">Saved prescriptions</h3>
+            <p className="t-micro mt-0.5 text-ink3">
+              One tap fills medicines, advice, tests and follow-up. You still review everything.
+            </p>
+          </div>
+          <div className="card rows overflow-hidden">
+            {savedSets.map((saved) => (
+              <div key={saved.id} className="flex min-h-12 items-center">
+                <button
+                  type="button"
+                  onClick={() => applySavedSet(saved)}
+                  className="pressable min-w-0 flex-1 px-4 py-3 text-left"
+                >
+                  <span className="t-body block truncate font-semibold">{saved.name}</span>
+                  <span className="t-micro text-ink3">
+                    {saved.items.length} medicine{saved.items.length === 1 ? "" : "s"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeSavedSet(saved)}
+                  disabled={setPending}
+                  aria-label={`Remove ${saved.name}`}
+                  className="pressable mr-2 rounded-full p-2 text-ink3 disabled:opacity-40"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="space-y-2.5">
@@ -473,6 +613,43 @@ export default function VisitForm({
         </div>
       </div>
 
+      {draft.items.length > 0 && (
+        <section className="card p-4">
+          <div className="flex items-start gap-3">
+            <BookmarkPlus size={18} className="mt-0.5 shrink-0 text-peri" />
+            <div className="min-w-0 flex-1">
+              <p className="t-head">Use this combination again</p>
+              <p className="t-cap mt-0.5 text-ink3">
+                Saves the medicines plus current advice, tests and follow-up — never this patient’s diagnosis.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <input
+              value={setName}
+              onChange={(event) => setSetName(event.target.value)}
+              maxLength={80}
+              placeholder="Set name, e.g. DM review"
+              aria-label="Saved prescription name"
+              className="field ring-focus min-w-0 flex-1"
+            />
+            <button
+              type="button"
+              onClick={saveCurrentSet}
+              disabled={setPending}
+              className="btn btn-primary shrink-0 px-4 disabled:opacity-50"
+            >
+              {setPending ? "Saving…" : "Save set"}
+            </button>
+          </div>
+          {setNotice && (
+            <p aria-live="polite" className="t-cap mt-2 text-ink3">
+              {setNotice}
+            </p>
+          )}
+        </section>
+      )}
+
       {saveError && (
         <div className="rounded-2xl bg-coralsoft p-4">
           <p className="flex items-center gap-2 text-[15px] font-semibold text-coral">
@@ -480,8 +657,7 @@ export default function VisitForm({
             Couldn’t save
           </p>
           <p className="mt-1 text-[13px] text-ink2">
-            Nothing is lost — everything above is kept on this device. Check the connection and try
-            again.
+            {saveError} Nothing is lost — everything above is kept on this device.
           </p>
         </div>
       )}

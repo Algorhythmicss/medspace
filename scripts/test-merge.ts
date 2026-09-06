@@ -57,12 +57,29 @@ async function main() {
   await db.carePlanTask.create({
     data: { patientId: dup.id, kind: "FOLLOW_UP", title: "Dup follow-up", status: "pending" },
   });
+  await db.medicalDocument.create({
+    data: {
+      patientId: dup.id,
+      visitId: dupVisit.id,
+      kind: "referral",
+      title: "Dup referral",
+      body: "Referral content that must survive a patient-record merge.",
+    },
+  });
 
   await mergePatients(keeper.id, dup.id);
 
   const merged = await db.patient.findUnique({
     where: { id: keeper.id },
-    include: { visits: true, observations: true, reports: true, tasks: true, conditions: true, allergies: true },
+    include: {
+      visits: true,
+      observations: true,
+      reports: true,
+      tasks: true,
+      documents: true,
+      conditions: true,
+      allergies: true,
+    },
   });
   const dupGone = await db.patient.findUnique({ where: { id: dup.id } });
 
@@ -75,6 +92,7 @@ async function main() {
   expect(merged?.observations.length === 1, "duplicate's observation moved");
   expect(merged?.reports.length === 1, "duplicate's report moved");
   expect(merged?.tasks.length === 1, "duplicate's pending task moved");
+  expect(merged?.documents.length === 1, "duplicate's issued document moved");
   expect(merged?.conditions.length === 2, "conditions deduped case-insensitively (DM once + HTN)");
   expect(
     Boolean(merged?.conditions.some((c) => c.name === "Hypertension")),
@@ -93,7 +111,8 @@ async function main() {
     (await db.visit.count({ where: { patientId: dup.id } })) +
     (await db.observation.count({ where: { patientId: dup.id } })) +
     (await db.report.count({ where: { patientId: dup.id } })) +
-    (await db.carePlanTask.count({ where: { patientId: dup.id } }));
+    (await db.carePlanTask.count({ where: { patientId: dup.id } })) +
+    (await db.medicalDocument.count({ where: { patientId: dup.id } }));
   expect(orphans === 0, "no rows still reference the deleted record");
 
   // self-merge must be refused

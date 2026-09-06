@@ -1,45 +1,67 @@
-// Behavior test for lab-task supersedure, run against the dev db (reseed after).
+// Behavior test for lab-task supersedure. Uses an isolated synthetic patient.
 import "dotenv/config";
 import { db } from "../src/lib/db";
-
 import { supersedeStaleLabTasks } from "../src/lib/tasks";
 
-async function expect(cond: boolean, label: string) {
+function expect(cond: boolean, label: string) {
   if (!cond) {
     console.error(`FAIL: ${label}`);
     process.exitCode = 1;
-  } else {
-    console.log(`ok: ${label}`);
-  }
+  } else console.log(`ok: ${label}`);
 }
 
 async function main() {
-  const ramesh = await db.patient.findUnique({ where: { fileNumber: 101 } });
-  if (!ramesh) throw new Error("seed patient missing — reseed first");
-
-  // fixture: one stale combined order, one unrelated pending lab
-  const stale = await db.carePlanTask.create({
-    data: { patientId: ramesh.id, kind: "LAB_TEST", title: "Lipid profile + KFT", status: "pending", dueDate: new Date(Date.now() - 20 * 86400000) },
-  });
-  const unrelated = await db.carePlanTask.create({
-    data: { patientId: ramesh.id, kind: "LAB_TEST", title: "TSH", status: "pending", dueDate: new Date(Date.now() - 10 * 86400000) },
+  const max = await db.patient.aggregate({ _max: { fileNumber: true } });
+  const patient = await db.patient.create({
+    data: {
+      fileNumber: (max._max.fileNumber ?? 100) + 1,
+      name: "Supersede Test Patient",
+    },
   });
 
-  const cancelled = await supersedeStaleLabTasks(ramesh.id, ["Lipid profile"], "fake-visit-id");
+  try {
+    const stale = await db.carePlanTask.create({
+      data: {
+        patientId: patient.id,
+        kind: "LAB_TEST",
+        title: "Lipid profile + KFT",
+        status: "pending",
+        dueDate: new Date(Date.now() - 20 * 86400000),
+      },
+    });
+    const unrelated = await db.carePlanTask.create({
+      data: {
+        patientId: patient.id,
+        kind: "LAB_TEST",
+        title: "TSH",
+        status: "pending",
+        dueDate: new Date(Date.now() - 10 * 86400000),
+      },
+    });
 
-  const staleAfter = await db.carePlanTask.findUnique({ where: { id: stale.id } });
-  const unrelatedAfter = await db.carePlanTask.findUnique({ where: { id: unrelated.id } });
+    const cancelled = await supersedeStaleLabTasks(
+      patient.id,
+      ["Lipid profile"],
+      "fake-visit-id"
+    );
+    const staleAfter = await db.carePlanTask.findUnique({ where: { id: stale.id } });
+    const unrelatedAfter = await db.carePlanTask.findUnique({ where: { id: unrelated.id } });
 
-  await expect(cancelled >= 1, "at least the stale combined order was superseded");
-  await expect(staleAfter?.status === "cancelled", "overlapping 'Lipid profile + KFT' → cancelled");
-  await expect(unrelatedAfter?.status === "pending", "unrelated 'TSH' stays pending");
+    expect(cancelled >= 1, "at least the stale combined order was superseded");
+    expect(staleAfter?.status === "cancelled", "overlapping combined order is cancelled");
+    expect(unrelatedAfter?.status === "pending", "unrelated TSH stays pending");
 
-  // generic-word guard: ordering "Repeat test" must not cancel anything by
-  // stopword overlap alone
-  const before = await db.carePlanTask.count({ where: { patientId: ramesh.id, status: "pending", kind: "LAB_TEST" } });
-  await supersedeStaleLabTasks(ramesh.id, ["Repeat test"], "fake-visit-id");
-  const after = await db.carePlanTask.count({ where: { patientId: ramesh.id, status: "pending", kind: "LAB_TEST" } });
-  await expect(before === after, "stopword-only order supersedes nothing");
+    const before = await db.carePlanTask.count({
+      where: { patientId: patient.id, status: "pending", kind: "LAB_TEST" },
+    });
+    await supersedeStaleLabTasks(patient.id, ["Repeat test"], "fake-visit-id");
+    const after = await db.carePlanTask.count({
+      where: { patientId: patient.id, status: "pending", kind: "LAB_TEST" },
+    });
+    expect(before === after, "stopword-only order supersedes nothing");
+  } finally {
+    await db.patient.delete({ where: { id: patient.id } }).catch(() => {});
+  }
 
   console.log(process.exitCode ? "TESTS FAILED" : "ALL PASS");
 }

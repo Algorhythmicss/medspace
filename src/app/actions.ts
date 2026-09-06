@@ -27,6 +27,12 @@ import {
   historySubmissionSummary,
   historyTerms,
 } from "@/lib/onboarding";
+import {
+  normalizePrescriptionSet,
+  type PrescriptionSetInput,
+} from "@/lib/prescriptionSets";
+import { normalizeMedicalDocument } from "@/lib/medicalDocuments";
+import { normalizeVisitInput, type VisitInput } from "@/lib/visitInput";
 import { reviewHistorySubmission } from "@/lib/historyReview";
 import {
   readPatientLink,
@@ -38,134 +44,217 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-export type RxItemInput = {
-  drugName: string;
-  frequency: string;
-  duration?: string;
-  instructions?: string;
-};
-
-export type NewVisitInput = {
-  patientId: string;
-  complaint?: string;
-  diagnosis?: string;
-  vitals?: { bpSys?: number; bpDia?: number; pulse?: number; weight?: number; tempF?: number };
-  items: RxItemInput[];
-  advice?: string;
-  followUpInDays?: number;
-  labTasks: string[]; // e.g. ["HbA1c", "Lipid profile"]
-};
+export type RxItemInput = VisitInput["items"][number];
+export type NewVisitInput = VisitInput;
 
 export async function createVisit(input: NewVisitInput) {
   await assertClinicSession();
+  const normalized = normalizeVisitInput(input);
+  if (!normalized.ok) return { ok: false as const, error: normalized.error };
+  const value = normalized.value;
   const now = new Date();
-  const followUpDate = input.followUpInDays
-    ? new Date(now.getTime() + input.followUpInDays * 86400000)
+  const followUpDate = value.followUpInDays
+    ? new Date(now.getTime() + value.followUpInDays * 86400000)
     : null;
 
-  const visit = await db.visit.create({
-    data: {
-      patientId: input.patientId,
-      visitDate: now,
-      complaint: input.complaint || null,
-      diagnosis: input.diagnosis || null,
-      followUpDate,
-      prescription:
-        input.items.length > 0 || input.advice
-          ? {
-              create: {
-                advice: input.advice || null,
-                items: {
-                  create: input.items.map((item, i) => ({
-                    sortOrder: i,
-                    drugName: item.drugName,
-                    frequency: item.frequency || "OD",
-                    duration: item.duration || null,
-                    instructions: item.instructions || null,
-                  })),
+  // A visit touches the chart, observations, care plan, queue and drug memory.
+  // Commit that entire story atomically so a mid-save database failure can
+  // never leave a prescription without its tasks or a half-cleared queue.
+  const visit = await db.$transaction(async (tx) => {
+    const patient = await tx.patient.findUnique({
+      where: { id: value.patientId },
+      select: { id: true },
+    });
+    if (!patient) throw new Error("Patient not found.");
+
+    const created = await tx.visit.create({
+      data: {
+        patientId: value.patientId,
+        visitDate: now,
+        complaint: value.complaint,
+        diagnosis: value.diagnosis,
+        followUpDate,
+        prescription:
+          value.items.length > 0 || value.advice
+            ? {
+                create: {
+                  advice: value.advice,
+                  items: {
+                    create: value.items.map((item, i) => ({
+                      sortOrder: i,
+                      drugName: item.drugName,
+                      frequency: item.frequency,
+                      duration: item.duration || null,
+                      instructions: item.instructions || null,
+                    })),
+                  },
                 },
-              },
-            }
-          : undefined,
-    },
-  });
-
-  const obs: Array<{ type: string; value: number; unit: string }> = [];
-  if (input.vitals?.bpSys) obs.push({ type: "BP_SYS", value: input.vitals.bpSys, unit: "mmHg" });
-  if (input.vitals?.bpDia) obs.push({ type: "BP_DIA", value: input.vitals.bpDia, unit: "mmHg" });
-  if (input.vitals?.pulse) obs.push({ type: "PULSE", value: input.vitals.pulse, unit: "bpm" });
-  if (input.vitals?.weight) obs.push({ type: "WEIGHT", value: input.vitals.weight, unit: "kg" });
-  if (input.vitals?.tempF) obs.push({ type: "TEMP", value: input.vitals.tempF, unit: "°F" });
-  if (obs.length > 0) {
-    await db.observation.createMany({
-      data: obs.map((o) => ({ ...o, patientId: input.patientId, visitId: visit.id, measuredAt: now })),
-    });
-  }
-
-  const tasks: Array<{ kind: string; title: string; dueDate: Date | null }> = [];
-  if (followUpDate) {
-    tasks.push({ kind: "FOLLOW_UP", title: input.diagnosis ? `Review: ${input.diagnosis}` : "Follow-up visit", dueDate: followUpDate });
-  }
-  for (const lab of input.labTasks) {
-    // labs should be back before the follow-up
-    const labDue = followUpDate
-      ? new Date(followUpDate.getTime() - 7 * 86400000)
-      : new Date(now.getTime() + 14 * 86400000);
-    tasks.push({ kind: "LAB_TEST", title: lab, dueDate: labDue < now ? followUpDate : labDue });
-  }
-  if (tasks.length > 0) {
-    await db.carePlanTask.createMany({
-      data: tasks.map((t) => ({ ...t, patientId: input.patientId, visitId: visit.id, status: "pending" })),
-    });
-  }
-
-  // a fresh lab order supersedes overlapping older pending ones
-  await supersedeStaleLabTasks(input.patientId, input.labTasks, visit.id);
-
-  // close out any previously pending follow-up tasks — the patient showed up
-  await db.carePlanTask.updateMany({
-    where: {
-      patientId: input.patientId,
-      status: "pending",
-      kind: "FOLLOW_UP",
-      visitId: { not: visit.id },
-    },
-    data: { status: "done", completedAt: now },
-  });
-
-  // the doctor is now seeing this patient — clear them off the front-desk queue
-  await db.queueEntry.updateMany({
-    where: { patientId: input.patientId, status: "waiting" },
-    data: { status: "seen", seenAt: now },
-  });
-
-  // touch patient so they surface in "recent"; bump drug usage for autosuggest learning
-  await db.patient.update({ where: { id: input.patientId }, data: { updatedAt: now } });
-  for (const item of input.items) {
-    // upsert, not updateMany: a free-typed drug matched no row, so the update hit
-    // nothing and nothing ever inserted it — the autosuggest could only ever
-    // re-rank the seeded formulary, never learn a drug this doctor actually uses.
-    // The frequency/duration/instructions they just typed become its defaults, so
-    // the second prescription of it fills itself in. A typo does get stored, but
-    // lands at useCount 1 and therefore sorts below everything real.
-    await db.drug.upsert({
-      where: { name: item.drugName },
-      create: {
-        name: item.drugName,
-        defaultFrequency: item.frequency || null,
-        defaultDuration: item.duration || null,
-        defaultInstructions: item.instructions || null,
-        useCount: 1,
+              }
+            : undefined,
       },
-      update: { useCount: { increment: 1 } },
     });
-  }
 
-  revalidatePath(`/patients/${input.patientId}`);
+    const obs: Array<{ type: string; value: number; unit: string }> = [];
+    if (value.vitals.bpSys) obs.push({ type: "BP_SYS", value: value.vitals.bpSys, unit: "mmHg" });
+    if (value.vitals.bpDia) obs.push({ type: "BP_DIA", value: value.vitals.bpDia, unit: "mmHg" });
+    if (value.vitals.pulse) obs.push({ type: "PULSE", value: value.vitals.pulse, unit: "bpm" });
+    if (value.vitals.weight) obs.push({ type: "WEIGHT", value: value.vitals.weight, unit: "kg" });
+    if (value.vitals.tempF) obs.push({ type: "TEMP", value: value.vitals.tempF, unit: "°F" });
+    if (obs.length > 0) {
+      await tx.observation.createMany({
+        data: obs.map((observation) => ({
+          ...observation,
+          patientId: value.patientId,
+          visitId: created.id,
+          measuredAt: now,
+        })),
+      });
+    }
+
+    const tasks: Array<{ kind: string; title: string; dueDate: Date | null }> = [];
+    if (followUpDate) {
+      tasks.push({
+        kind: "FOLLOW_UP",
+        title: value.diagnosis ? `Review: ${value.diagnosis}` : "Follow-up visit",
+        dueDate: followUpDate,
+      });
+    }
+    for (const lab of value.labTasks) {
+      const labDue = followUpDate
+        ? new Date(followUpDate.getTime() - 7 * 86400000)
+        : new Date(now.getTime() + 14 * 86400000);
+      tasks.push({ kind: "LAB_TEST", title: lab, dueDate: labDue < now ? followUpDate : labDue });
+    }
+    if (tasks.length > 0) {
+      await tx.carePlanTask.createMany({
+        data: tasks.map((task) => ({
+          ...task,
+          patientId: value.patientId,
+          visitId: created.id,
+          status: "pending",
+        })),
+      });
+    }
+
+    await supersedeStaleLabTasks(value.patientId, value.labTasks, created.id, tx);
+    await tx.carePlanTask.updateMany({
+      where: {
+        patientId: value.patientId,
+        status: "pending",
+        kind: "FOLLOW_UP",
+        visitId: { not: created.id },
+      },
+      data: { status: "done", completedAt: now },
+    });
+    await tx.queueEntry.updateMany({
+      where: { patientId: value.patientId, status: "waiting" },
+      data: { status: "seen", seenAt: now },
+    });
+    await tx.patient.update({ where: { id: value.patientId }, data: { updatedAt: now } });
+
+    for (const item of value.items) {
+      await tx.drug.upsert({
+        where: { name: item.drugName },
+        create: {
+          name: item.drugName,
+          defaultFrequency: item.frequency,
+          defaultDuration: item.duration || null,
+          defaultInstructions: item.instructions || null,
+          useCount: 1,
+        },
+        update: { useCount: { increment: 1 } },
+      });
+    }
+
+    return created;
+  });
+
+  revalidatePath(`/patients/${value.patientId}`);
   revalidatePath("/");
   revalidatePath("/followups");
   revalidatePath("/queue"); // the patient just came off the front-desk queue
   redirect(`/visits/${visit.id}/rx`);
+}
+
+export type PrescriptionSetState =
+  | {
+      ok: true;
+      set: {
+        id: string;
+        name: string;
+        advice: string | null;
+        followUpInDays: number | null;
+        labTasks: string[];
+        items: RxItemInput[];
+      };
+    }
+  | { ok: false; error: string };
+
+// Saved sets are clinic-owned accelerators, not treatment decisions. Applying
+// one only pre-fills the form; the doctor still sees and can change every field
+// before the visit is committed.
+export async function savePrescriptionSet(
+  input: PrescriptionSetInput
+): Promise<PrescriptionSetState> {
+  await assertClinicSession();
+  const normalized = normalizePrescriptionSet(input);
+  if (!normalized.ok) return normalized;
+  const value = normalized.value;
+
+  try {
+    const saved = await db.prescriptionSet.upsert({
+      where: { nameKey: value.nameKey },
+      create: {
+        name: value.name,
+        nameKey: value.nameKey,
+        advice: value.advice,
+        followUpInDays: value.followUpInDays,
+        labTasks: value.labTasks,
+        items: {
+          create: value.items.map((item, sortOrder) => ({ ...item, sortOrder })),
+        },
+      },
+      update: {
+        name: value.name,
+        advice: value.advice,
+        followUpInDays: value.followUpInDays,
+        labTasks: value.labTasks,
+        items: {
+          deleteMany: {},
+          create: value.items.map((item, sortOrder) => ({ ...item, sortOrder })),
+        },
+      },
+      include: { items: { orderBy: { sortOrder: "asc" } } },
+    });
+
+    return {
+      ok: true,
+      set: {
+        id: saved.id,
+        name: saved.name,
+        advice: saved.advice,
+        followUpInDays: saved.followUpInDays,
+        labTasks: saved.labTasks,
+        items: saved.items.map((item) => ({
+          drugName: item.drugName,
+          frequency: item.frequency,
+          duration: item.duration ?? undefined,
+          instructions: item.instructions ?? undefined,
+        })),
+      },
+    };
+  } catch (error) {
+    console.error("failed to save prescription set", error);
+    return { ok: false, error: "The set could not be saved. Please try again." };
+  }
+}
+
+export async function deletePrescriptionSet(id: string) {
+  await assertClinicSession();
+  const safeId = String(id ?? "").trim().slice(0, 80);
+  if (!safeId) return { ok: false as const };
+  await db.prescriptionSet.deleteMany({ where: { id: safeId } });
+  return { ok: true as const };
 }
 
 // File numbers are the clinic's human-facing id and must be unique. Allocating
@@ -272,6 +361,11 @@ export type RosterImportState = {
   skipped?: number;
 };
 
+export type MedicalDocumentState = {
+  ok: boolean;
+  message: string;
+};
+
 const clipped = (value: FormDataEntryValue | null, max: number) =>
   String(value ?? "").trim().slice(0, max);
 
@@ -361,10 +455,73 @@ export async function submitPatientHistory(
   _previous: HistorySubmissionState,
   formData: FormData
 ): Promise<HistorySubmissionState> {
+  if (clipped(formData.get("consent"), 10) !== "yes") {
+    const hindi = clipped(formData.get("language"), 10) === "hi";
+    return {
+      ok: false,
+      message: hindi
+        ? "पुष्टि करें कि यह रिकॉर्ड उसी व्यक्ति का है जिसकी देखभाल योजना खुली है।"
+        : "Confirm that this record belongs to the person whose care plan is open.",
+    };
+  }
   const planToken = clipped(formData.get("planToken"), 1600) || undefined;
   const patientId = await authedPatientId(planToken);
   if (!patientId) return { ok: false, message: "This link has expired. Ask the clinic for a new one." };
   return saveHistorySubmission(patientId, "patient", formData);
+}
+
+export async function createMedicalDocument(
+  _previous: MedicalDocumentState,
+  formData: FormData
+): Promise<MedicalDocumentState> {
+  await assertClinicSession();
+  if (clipped(formData.get("doctorConfirmed"), 10) !== "yes") {
+    return { ok: false, message: "Review and confirm the final wording before issue." };
+  }
+  const normalized = normalizeMedicalDocument({
+    patientId: clipped(formData.get("patientId"), 80),
+    visitId: clipped(formData.get("visitId"), 80) || undefined,
+    kind: clipped(formData.get("kind"), 40),
+    title: clipped(formData.get("title"), 160),
+    body: clipped(formData.get("body"), 5000),
+    recipient: clipped(formData.get("recipient"), 240) || undefined,
+    validFrom: clipped(formData.get("validFrom"), 20) || undefined,
+    validUntil: clipped(formData.get("validUntil"), 20) || undefined,
+  });
+  if (!normalized.ok) return { ok: false, message: normalized.error };
+  const value = normalized.value;
+
+  const [patient, linkedVisit] = await Promise.all([
+    db.patient.findUnique({ where: { id: value.patientId }, select: { id: true } }),
+    value.visitId
+      ? db.visit.findFirst({
+          where: { id: value.visitId, patientId: value.patientId },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  if (!patient) return { ok: false, message: "Patient not found." };
+  if (value.visitId && !linkedVisit) {
+    return { ok: false, message: "That visit does not belong to this patient." };
+  }
+
+  const atNoon = (date: string | null) =>
+    date ? new Date(`${date}T12:00:00+05:30`) : null;
+  const document = await db.medicalDocument.create({
+    data: {
+      patientId: value.patientId,
+      visitId: value.visitId,
+      kind: value.kind,
+      title: value.title,
+      body: value.body,
+      recipient: value.recipient,
+      validFrom: atNoon(value.validFrom),
+      validUntil: atNoon(value.validUntil),
+    },
+  });
+
+  revalidatePath(`/patients/${value.patientId}`);
+  redirect(`/documents/${document.id}`);
 }
 
 // Front-desk-side: staff can stage records only for somebody currently in the

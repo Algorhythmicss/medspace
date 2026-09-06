@@ -260,7 +260,7 @@ export default async function PlanView({
             <p className="t-head">{t.signInTitle}</p>
             <p className="t-body mt-1 text-ink2">{t.signInBody}</p>
             <div className="mt-4">
-              <ContinueWithGoogle planToken={planToken} />
+              <ContinueWithGoogle planToken={planToken} lang={lang} />
             </div>
           </div>
         </section>
@@ -298,9 +298,12 @@ export default async function PlanView({
         </div>
       </section>
 
-      {!signedIn && (
-        <p className="t-micro mt-6 px-2 text-center text-ink3">{t.privateNote}</p>
-      )}
+      <p className="t-micro mt-6 px-2 text-center text-ink3">
+        {!signedIn && `${t.privateNote} `}
+        {lang === "hi"
+          ? "जानकारी गलत हो या पहुँच बंद करवानी हो तो क्लिनिक से संपर्क करें।"
+          : "If anything is wrong or you want access revoked, contact the clinic."}
+      </p>
     </div>
   );
 }

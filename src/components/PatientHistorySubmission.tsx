@@ -35,6 +35,7 @@ const COPY = {
     submit: "Send for doctor review",
     pending: "Sending securely…",
     trust: "Nothing is added as verified history until the doctor accepts it.",
+    consent: "This record belongs to me or the person whose care plan is open, and I want this clinic to use it for care.",
     received: "Record received",
     receivedBody: "Sent to the clinic for the doctor to review.",
     another: "Send another record",
@@ -63,6 +64,7 @@ const COPY = {
     submit: "डॉक्टर की जाँच के लिए भेजें",
     pending: "सुरक्षित रूप से भेज रहे हैं…",
     trust: "डॉक्टर की स्वीकृति तक कोई जानकारी सत्यापित रिकॉर्ड नहीं बनेगी।",
+    consent: "यह रिकॉर्ड मेरा या उस व्यक्ति का है जिसकी देखभाल योजना खुली है, और मैं चाहता/चाहती हूँ कि क्लिनिक इसे इलाज के लिए उपयोग करे।",
     received: "रिकॉर्ड मिल गया",
     receivedBody: "डॉक्टर की जाँच के लिए क्लिनिक को भेज दिया गया है।",
     another: "एक और रिकॉर्ड भेजें",
@@ -110,6 +112,7 @@ export default function PatientHistorySubmission({
     <form action={formAction} className="card space-y-3 p-5">
       {planToken && <input type="hidden" name="planToken" value={planToken} />}
       {patientId && <input type="hidden" name="patientId" value={patientId} />}
+      <input type="hidden" name="language" value={lang} />
 
       {!embedded && (
         <div>
@@ -172,6 +175,19 @@ export default function PatientHistorySubmission({
         <p role="alert" className="t-cap rounded-xl bg-coralsoft px-3 py-2 text-coral">
           {state.message}
         </p>
+      )}
+
+      {audience === "patient" && (
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-2xl bg-sunk px-3.5 py-3">
+          <input
+            name="consent"
+            type="checkbox"
+            value="yes"
+            required
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--peri)]"
+          />
+          <span className="t-micro text-ink2">{t.consent}</span>
+        </label>
       )}
 
       <button type="submit" disabled={pending} className="btn btn-primary w-full py-3.5 disabled:opacity-60">

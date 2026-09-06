@@ -2,8 +2,9 @@
 
 A memory-first clinic OS for Indian private OPD. It enters a clinic as a *faster* way to run a consult than paper, and earns retention by accumulating a patient's memory across visits — then closes the follow-up loop by giving the patient their own live care plan.
 
-- **Doctor side** — instant patient lookup, a ≤5-line "memory card" that surfaces what changed since last time, and a repeat prescription in one tap.
-- **Patient side** — after each visit the doctor sends a private WhatsApp link; the patient taps it to see their medicines, tests and next visit. They can link Google once so they never need the link again.
+- **Doctor side** — instant patient lookup, a ≤5-line memory card, repeat Rx and reusable prescription sets, atomic consult saving, plus printable prescriptions/certificates/referrals on clinic letterhead.
+- **Staff side** — a deliberately narrow walk-in queue and nurse-vitals handoff, with no chart access.
+- **Patient side** — a private, clinic-branded WhatsApp care plan with medicines, tests, follow-up replies and home readings; Google can become the durable return identity after doctor confirmation.
 
 > Single-clinic by design. Strategy and field research: [`../research/virtual-observation-day.md`](../research/virtual-observation-day.md).
 

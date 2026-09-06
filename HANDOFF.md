@@ -59,12 +59,13 @@ Three surfaces on one Next.js 16 deployment. This is a *snapshot*; file-level de
 ### Doctor (passcode → `medspace_session`)
 - **Today** (`src/app/page.tsx`) — high search box (⌘K), **In clinic now** (mirror of the queue), **Waiting on you** (overdue count → follow-ups), **Expected today**, **Recently seen**.
 - **Patient chart** (`src/app/patients/[id]/page.tsx`) + the **memory card** (`Briefing.tsx`, `memory.ts`): headline, today's **check-in vitals** line (flagged if high/febrile), worst trends + sparklines, tagged **home-readings** strip, **plan-reply** line, active meds, editable sticky note.
-- **Visit + prescription** (`VisitForm.tsx`, `createVisit`): one-tap **repeat last Rx**, drug autosuggest (learns via `Drug.useCount`), frequency/duration/lab/follow-up chips, **vitals pre-filled from the front-desk check-in**, `localStorage` draft recovery. Saving auto-clears the patient off the queue and supersedes stale lab orders.
+- **Visit + prescription** (`VisitForm.tsx`, `createVisit`): one-tap **repeat last Rx** plus clinic-wide **saved prescription sets**, drug autosuggest (learns via `Drug.useCount`), frequency/duration/lab/follow-up chips, **vitals pre-filled from the front-desk check-in**, `localStorage` draft recovery. The entire save is atomic: chart, observations, prescription, tasks, queue and drug memory commit together.
 - **Printable/shareable Rx** (`src/app/visits/[id]/rx/page.tsx`) — paper-styled sheet with letterhead, reg. no., QR-to-chart, print + WhatsApp share. Reached from a prominent **"View & print prescription"** button on the chart and per-visit Rx chips.
+- **Medical documents** (`src/app/patients/[id]/documents/new`, `src/app/documents/[id]`) — doctor-reviewed sick-leave, fitness, referral and freeform medical letters, optionally anchored to a visit, issued immutably on clinic letterhead with print + WhatsApp share.
 - **Follow-ups + drifter recall** (`followups/page.tsx`, `reach.ts`, `recall.ts`), **search** (`api/search`), **new/edit/merge** with duplicate-phone detection and the plan-**language** selector.
 
 ### Patient (`/p/<token>` link, or `/plan` after Google sign-in)
-- **The plan** (`PlanView.tsx`): next visit, medicines, tests, reports, contact — rendered identically from either entry. Records real opens (`/p`), the pilot's core metric.
+- **The plan** (`PlanView.tsx`): next visit, medicines, tests, reports, contact — rendered identically from either entry. Records real opens (`/p`), the pilot's core metric. A patient can stage older history only after explicit ownership/care-use consent; nothing becomes clinical truth until doctor review.
 - **The link is a credential** (`patientLink.ts`): signed, 30-day, per-patient revocable via `linkVersion`; kind-discriminated so a cookie value can't be replayed as a URL.
 - **Google identity** (`patientAccess.ts`, `auth/callback`): binds a durable account (one account → many household patients), born `pending` until the doctor confirms.
 - **Follow-up reply** (coming/booked/not_coming) and **home readings** (BP/sugar/weight, kept off the clinical trend).
@@ -77,36 +78,37 @@ Three surfaces on one Next.js 16 deployment. This is a *snapshot*; file-level de
 
 ### Platform
 - Next.js 16 (App Router, Turbopack) · Tailwind v4 · Prisma 7 (pg adapter, client in `src/generated/prisma`) · Supabase (prod Postgres + Google IdP) · Vercel.
-- **14 tables**, deny-all RLS **and** revoked anon/authenticated grants (belt-and-suspenders; app reads via Prisma as owner). See `AGENTS.md` § Databases.
+- **17 tables**, deny-all RLS **and** revoked anon/authenticated grants (belt-and-suspenders; app reads via Prisma as owner). See `AGENTS.md` § Databases.
 - **Auth** (`auth.ts`): HMAC session with the **role baked into the signed payload** (a staff cookie can't satisfy a doctor check), **7-day** lifetime, fail-closed secret; login throttle keyed on the trusted platform IP.
 - **Security**: route-handler self-auth, CSP + HSTS + Referrer-Policy, patient-token-in-URL never leaked. A full adversarial audit was done (commit `9d405fe`); posture documented in `AGENTS.md`.
-- **9 test suites** (`scripts/test-*.ts`, plain `tsx`, no framework). `test-patient-link.ts` **must pass unmodified**. Reseed after the DB-touching ones. `test-seed-parity.ts` guards the two seed scripts against drifting apart — the failure that went unnoticed for a week.
+- **14 test suites** (`scripts/test-*.ts`, plain `tsx`, no framework), including Phase 1 validation/database invariants. `test-patient-link.ts` **must pass unmodified**. Run DB tests only on a disposable local database. `test-seed-parity.ts` guards the two seed scripts against drifting apart — the failure that went unnoticed for a week.
 
 ---
 
 ## 4. What's next — exactly
 
 ### Go-live blockers (before real patients)
-1. **Dedicated Google Cloud project + OAuth consent screen.** Prod currently borrows another product's ("Leetify") OAuth client — data-isolated, but the consent screen shows the wrong name. Create a medSpace project, set External user type, **publish to production** (Testing mode caps 100 users and expires consent in 7 days).
+1. **Verify the dedicated Google OAuth project for production.** The app now has its own Google Cloud OAuth project (user-confirmed 6 Sep 2026). Before real patients, confirm the consent screen shows MedSpace, the user type is External, publishing status is Production, and the Supabase callback URI is registered; the repository cannot prove console-side settings.
 2. **Clear the fictional data from prod** before real data lands. Verified on prod 9 Aug 2026 — it is more than the patient list:
    - **11 patients**, not 8: fileNumbers 101–109 (the seeded panel, incl. the drifter Geeta Rao) plus **110 and 111, both named "ayush"** — throwaway walk-ins left over from queue testing.
    - **The `Clinic` row is fictional** — "Shri Krishna Clinic" / "Dr. A. K. Verma" / regNumber **`MCI-45821`**. That reg number prints on every prescription and is legally mandatory, so this is arguably the most urgent item here, not the patients. Insert the real clinic row before anything prints an Rx.
    - **Patient 101 carries a live `PatientAccess` row** — a real Google account bound to a fictional patient during the 1 Aug auth bring-up. Remove it.
    - Use only the **DELETE half** of the block atop `scripts/seed-sql.ts`: that script emits wipe *and reseed*, so running it whole just replaces the demo panel with a fresh one — and its wipe includes `DELETE FROM "Clinic"`, which drops the letterhead too.
 3. Confirm all env vars are set in Vercel — including `MEDSPACE_STAFF_PASSCODE` (already set: the staff card shows in prod) and `MEDSPACE_SITE_URL` matching Supabase's redirect allow-list.
-4. **Prod schema is current** — all 10 local migrations have a prod counterpart and the RLS posture is clean (verified 9 Aug 2026). Nothing to do; re-verify with the Supabase MCP before each deploy rather than trusting this line.
 
-### Strong candidate features (offered to the user; not yet built)
-These came up in a capability discussion; the user chose vitals + Hindi first and these remain the best next bets (all reuse existing infra, none are bloat):
-- **Medical certificates / letters** — sick-leave / fitness / referral, generated from the chart on the clinic letterhead, print + WhatsApp share (reuses the Rx print/share). *The biggest genuine gap* — a daily OPD request that currently forces the doctor out of the app.
-- **Rx protocols / saved sets** — save a named med set ("Fever pack", "DM starter") and insert in one tap; speeds prescribing for *new* patients (repeat-Rx only helps returning ones). DocOn's proven time-saver. Extends the visit form, no new module.
+### Phase 1 additions completed (6 Sep 2026)
+- **Production schema is current through Phase 1.** `20260906120000_phase_one_documents_and_rx_sets` was applied and reconciled into `supabase_migrations.schema_migrations` on 6 Sep 2026. Its single stored statement is byte-identical to the 2,841-byte checked-in migration. All three tables exist with RLS enabled, zero policies, zero `anon`/`authenticated` grants, the expected indexes, and the expected three foreign keys.
+- **Medical certificates / letters** — sick-leave, fitness, referral and medical letters from the chart, with reviewed wording, optional visit linkage, clinic letterhead, print and WhatsApp share.
+- **Rx protocols / saved sets** — named medicine/advice/test/follow-up sets insert in one tap, remain fully editable, and deliberately exclude patient complaint/diagnosis.
+- **Interrupted-work recovery** — patient demographics and document drafts now recover alongside visit/report drafts; successful redirects cannot leave a stale draft, and discarding a visit draft preserves front-desk vitals.
+- **Visit integrity** — server-side bounds reject implausible vitals/untrusted oversized payloads and a transaction commits all visit side effects together.
 
 ### Known gaps / partial features (fix when relevant)
 - ~~Phone normalisation on write~~ — **fixed 11 Aug 2026.** Mobiles are stored canonical and queries are reduced the same way, so search and duplicate detection no longer miss formatted numbers; non-mobiles are still kept as typed.
 - ~~Free-typed drugs don't become future suggestions~~ — **fixed 11 Aug 2026.** `createVisit` upserts the drug, so the autosuggest learns what this doctor actually prescribes instead of only re-ranking the seed.
-- **Demographics edit form lacks draft recovery** (VisitForm/ReportForm have it).
+- ~~Demographics edit form lacks draft recovery~~ — **fixed 6 Sep 2026.** `PatientDetailsForm` restores/discards unsaved edits and clears the copy only after a successful redirect.
 - **Hindi**: free-text advice isn't machine-translated (deterministic path, no LLM). The i18n structure (`planText.ts` + `dosage.ts`) cleanly supports adding more languages if needed.
-- By-design quirks not to "fix": "Recently seen" is really recently-*modified*; "overdue" is counted two ways on Today vs `/followups`; the Prisma vs Supabase migration ledgers diverge intentionally.
+- By-design quirks not to "fix": "overdue" is counted two ways on Today vs `/followups`; the Prisma vs Supabase migration ledgers diverge intentionally. "Recently seen" now deliberately deduplicates newest-first visit rows and shows the latest visit, not the oldest duplicate in the query window.
 
 ### Deferred (single-clinic pilot doesn't need them yet)
 - **View Transitions API** for shared-element/cross-fade continuity between screens (deferred as experimental in Next 16; the motion layer is CSS-based and solid without it).

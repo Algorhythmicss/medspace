@@ -18,7 +18,13 @@ function GoogleMark({ className }: { className?: string }) {
   );
 }
 
-export default function ContinueWithGoogle({ planToken }: { planToken?: string }) {
+export default function ContinueWithGoogle({
+  planToken,
+  lang = "en",
+}: {
+  planToken?: string;
+  lang?: "en" | "hi";
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,8 +52,19 @@ export default function ContinueWithGoogle({ planToken }: { planToken?: string }
         className="btn inline-flex w-full items-center justify-center gap-2 bg-surface py-3 text-[15px] text-ink shadow-[var(--lift)] disabled:opacity-60"
       >
         <GoogleMark className="h-[18px] w-[18px] shrink-0" />
-        {busy ? "Opening Google…" : "Continue with Google"}
+        {busy
+          ? lang === "hi"
+            ? "Google खोल रहे हैं…"
+            : "Opening Google…"
+          : lang === "hi"
+            ? "Google से जारी रखें"
+            : "Continue with Google"}
       </button>
+      <p className="t-micro mt-2 px-1 text-ink3">
+        {lang === "hi"
+          ? "Google केवल अगली बार पहचान के लिए आपका अकाउंट और ईमेल बताता है। क्लिनिक इस जोड़ को मंज़ूर करता है; MedSpace आपका Drive या contacts नहीं पढ़ता।"
+          : "Google only confirms your account and email for future access. The clinic must approve the link; MedSpace does not read your Drive or contacts."}
+      </p>
       {error && <p className="t-cap mt-2 px-1 text-coral">{error}</p>}
     </div>
   );

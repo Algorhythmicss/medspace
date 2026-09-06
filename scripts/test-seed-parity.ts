@@ -44,6 +44,7 @@ async function snapshot(): Promise<Row[]> {
       tasks: true,
       reports: true,
       queueEntries: true,
+      documents: true,
       visits: { include: { prescription: { include: { items: true } } } },
     },
   });
@@ -92,12 +93,17 @@ async function snapshot(): Promise<Row[]> {
     tasks: p.tasks.map((t) => `${t.kind}:${t.title}:${t.status}`).sort().join("|"),
     reports: p.reports.map((r) => `${r.kind}:${r.title}`).sort().join("|"),
     queue: p.queueEntries.map((q) => `${q.status}:${q.note ?? ""}`).sort().join("|"),
+    documents: p.documents.map((d) => `${d.kind}:${d.title}`).sort().join("|"),
   }));
 }
 
 async function globals() {
   const clinic = await db.clinic.findFirst();
   const drugs = await db.drug.findMany({ orderBy: { name: "asc" } });
+  const prescriptionSets = await db.prescriptionSet.findMany({
+    orderBy: { name: "asc" },
+    include: { items: { orderBy: { sortOrder: "asc" } } },
+  });
   return {
     clinic: clinic
       ? [clinic.id, clinic.clinicName, clinic.doctorName, clinic.regNumber, clinic.degrees, clinic.phone, clinic.address].join("~")
@@ -105,6 +111,21 @@ async function globals() {
     drugCount: drugs.length,
     drugs: drugs
       .map((d) => `${d.name}/${d.defaultFrequency ?? ""}/${d.defaultDuration ?? ""}/${d.defaultInstructions ?? ""}/${d.useCount}`)
+      .join("|"),
+    prescriptionSets: prescriptionSets
+      .map((set) =>
+        [
+          set.name,
+          set.advice ?? "",
+          set.followUpInDays ?? "",
+          set.labTasks.join(","),
+          set.items
+            .map((item) =>
+              `${item.drugName}/${item.frequency}/${item.duration ?? ""}/${item.instructions ?? ""}`
+            )
+            .join(","),
+        ].join("~")
+      )
       .join("|"),
   };
 }
@@ -188,6 +209,10 @@ async function main() {
     `same formulary size (sql ${globalsFromSql.drugCount}, ts ${globalsFromTs.drugCount})`
   );
   expect(globalsFromSql.drugs === globalsFromTs.drugs, "identical formulary rows and useCounts");
+  expect(
+    globalsFromSql.prescriptionSets === globalsFromTs.prescriptionSets,
+    "identical saved prescription sets"
+  );
 
   // Guard the specific capabilities the drift silently removed last time, so a
   // future deletion fails loudly here even if both seeds are deleted in step.

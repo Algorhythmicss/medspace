@@ -54,12 +54,15 @@ const FORMULARY: Array<{
 
 async function main() {
   // idempotent re-seed
+  await db.medicalDocument.deleteMany();
   await db.queueEntry.deleteMany();
   await db.patientAccess.deleteMany();
   await db.carePlanTask.deleteMany();
   await db.observation.deleteMany();
   await db.prescriptionItem.deleteMany();
   await db.prescription.deleteMany();
+  await db.prescriptionSetItem.deleteMany();
+  await db.prescriptionSet.deleteMany();
   await db.report.deleteMany();
   await db.visit.deleteMany();
   await db.condition.deleteMany();
@@ -81,6 +84,32 @@ async function main() {
   });
 
   await db.drug.createMany({ data: FORMULARY });
+  await db.prescriptionSet.create({
+    data: {
+      name: "DM review",
+      nameKey: "dm review",
+      advice: "Diet control. 30 min walk daily. Avoid sweets.",
+      followUpInDays: 45,
+      labTasks: ["HbA1c", "Lipid profile", "KFT"],
+      items: {
+        create: [
+          {
+            sortOrder: 0,
+            drugName: "Tab Metformin 1000mg",
+            frequency: "1-0-1",
+            duration: "45 days",
+            instructions: "after food",
+          },
+          {
+            sortOrder: 1,
+            drugName: "Tab Telmisartan 40mg",
+            frequency: "1-0-0",
+            duration: "45 days",
+          },
+        ],
+      },
+    },
+  });
 
   // ---------- Patient 1: Ramesh Gupta — worsening T2DM, overdue follow-up ----------
   const ramesh = await db.patient.create({
@@ -598,6 +627,7 @@ async function main() {
     observations: await db.observation.count(),
     tasks: await db.carePlanTask.count(),
     drugs: await db.drug.count(),
+    prescriptionSets: await db.prescriptionSet.count(),
   };
   console.log("Seeded:", counts);
 }

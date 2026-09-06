@@ -11,7 +11,7 @@ const t = (d: Date | null | undefined) => (d == null ? "NULL" : `'${d.toISOStrin
 
 // wipe then rebuild
 out.push(
-  `DELETE FROM "QueueEntry"; DELETE FROM "PatientAccess"; DELETE FROM "CarePlanTask"; DELETE FROM "Observation"; DELETE FROM "PrescriptionItem"; DELETE FROM "Prescription"; DELETE FROM "Report"; DELETE FROM "Visit"; DELETE FROM "Condition"; DELETE FROM "Allergy"; DELETE FROM "Patient"; DELETE FROM "Drug"; DELETE FROM "Clinic";`
+  `DELETE FROM "MedicalDocument"; DELETE FROM "QueueEntry"; DELETE FROM "PatientAccess"; DELETE FROM "CarePlanTask"; DELETE FROM "Observation"; DELETE FROM "PrescriptionItem"; DELETE FROM "Prescription"; DELETE FROM "PrescriptionSetItem"; DELETE FROM "PrescriptionSet"; DELETE FROM "Report"; DELETE FROM "Visit"; DELETE FROM "Condition"; DELETE FROM "Allergy"; DELETE FROM "Patient"; DELETE FROM "Drug"; DELETE FROM "Clinic";`
 );
 
 out.push(
@@ -58,6 +58,18 @@ const FORMULARY: Array<[string, string | null, string | null, string | null, num
 FORMULARY.forEach(([name, f, d, i, u], idx) => {
   out.push(
     `INSERT INTO "Drug" ("id","name","defaultFrequency","defaultDuration","defaultInstructions","useCount") VALUES (${q(`drug${idx}`)},${q(name)},${q(f)},${q(d)},${q(i)},${u});`
+  );
+});
+
+out.push(
+  `INSERT INTO "PrescriptionSet" ("id","name","nameKey","advice","followUpInDays","labTasks","createdAt","updatedAt") VALUES ('set_dm_review',${q("DM review")},${q("dm review")},${q("Diet control. 30 min walk daily. Avoid sweets.")},45,ARRAY[${q("HbA1c")},${q("Lipid profile")},${q("KFT")}],${t(now)},${t(now)});`
+);
+[
+  ["Tab Metformin 1000mg", "1-0-1", "45 days", "after food"],
+  ["Tab Telmisartan 40mg", "1-0-0", "45 days", null],
+].forEach(([drugName, frequency, duration, instructions], sortOrder) => {
+  out.push(
+    `INSERT INTO "PrescriptionSetItem" ("id","prescriptionSetId","sortOrder","drugName","frequency","duration","instructions") VALUES (${q(`set_item_${sortOrder}`)},'set_dm_review',${sortOrder},${q(drugName)},${q(frequency)},${q(duration)},${q(instructions)});`
   );
 });
 

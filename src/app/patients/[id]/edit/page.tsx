@@ -3,12 +3,9 @@ import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { storablePhone } from "@/lib/phone";
-import { updatePatient } from "@/app/actions";
+import PatientDetailsForm from "@/components/PatientDetailsForm";
 
 export const dynamic = "force-dynamic";
-
-const fieldCls =
-  "w-full rounded-xl bg-sunk px-3.5 py-3 text-[17px] outline-none placeholder:text-ink2";
 
 export default async function EditPatient({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -65,67 +62,18 @@ export default async function EditPatient({ params }: { params: Promise<{ id: st
         </div>
       )}
 
-      <form action={updatePatient} className="space-y-2.5">
-        <input type="hidden" name="patientId" value={patient.id} />
-        <input name="name" required defaultValue={patient.name} placeholder="Full name" className={fieldCls} />
-        <input
-          name="phone"
-          defaultValue={patient.phone ?? ""}
-          placeholder="Phone (WhatsApp)"
-          inputMode="tel"
-          className={fieldCls}
-        />
-        <div className="grid grid-cols-2 gap-2.5">
-          <input
-            name="age"
-            defaultValue={patient.ageYears ?? ""}
-            placeholder="Age"
-            inputMode="numeric"
-            className={fieldCls}
-          />
-          <select
-            name="sex"
-            defaultValue={patient.sex ?? ""}
-            className="w-full appearance-none rounded-xl bg-sunk px-3.5 py-3 text-[17px] outline-none"
-          >
-            <option value="">Sex</option>
-            <option value="M">Male</option>
-            <option value="F">Female</option>
-            <option value="O">Other</option>
-          </select>
-        </div>
-        <input
-          name="address"
-          defaultValue={patient.address ?? ""}
-          placeholder="Address"
-          className={fieldCls}
-        />
-        <input
-          name="abhaId"
-          defaultValue={patient.abhaId ?? ""}
-          placeholder="ABHA number (optional)"
-          className={fieldCls}
-        />
-        <div>
-          <label className="mb-1 block px-1 text-[13px] font-medium text-ink3">
-            Plan language — the language their plan opens in
-          </label>
-          <select
-            name="language"
-            defaultValue={patient.language}
-            className="w-full appearance-none rounded-xl bg-sunk px-3.5 py-3 text-[17px] outline-none"
-          >
-            <option value="en">English</option>
-            <option value="hi">हिन्दी · Hindi</option>
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="mt-2 w-full rounded-2xl bg-peri py-3.5 text-[17px] font-semibold text-white active:opacity-80"
-        >
-          Save changes
-        </button>
-      </form>
+      <PatientDetailsForm
+        patientId={patient.id}
+        initial={{
+          name: patient.name,
+          phone: patient.phone ?? "",
+          age: patient.ageYears != null ? String(patient.ageYears) : "",
+          sex: patient.sex ?? "",
+          address: patient.address ?? "",
+          abhaId: patient.abhaId ?? "",
+          language: patient.language === "hi" ? "hi" : "en",
+        }}
+      />
     </div>
   );
 }

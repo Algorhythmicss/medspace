@@ -84,6 +84,8 @@ model Patient {
   access       PatientAccess[]
   queueEntries QueueEntry[]
   documents    MedicalDocument[]
+  initialAssessments InitialAssessment[]
+  assessmentUploadLimit AssessmentUploadLimit?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -93,6 +95,48 @@ model Patient {
 }
 
 // Problem list — the spine of the memory card.
+model InitialAssessment {
+  id               String @id @default(cuid())
+  patient          Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId        String
+  submissionKey    String
+  payloadHash      String
+  questionVersion  Int @default(1)
+  concern          String
+  duration         String
+  context          String
+  status           String @default("pending")
+  createdAt        DateTime @default(now())
+  reviewedAt       DateTime?
+  files            AssessmentFile[]
+
+  @@unique([patientId, submissionKey])
+  @@index([patientId, createdAt])
+}
+
+model AssessmentFile {
+  id           String @id @default(cuid())
+  assessment   InitialAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  assessmentId String
+  name         String
+  mime         String
+  size         Int
+  sha256       String
+  data         Bytes
+  scanStatus   String @default("quarantined")
+  scannedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([assessmentId])
+}
+
+model AssessmentUploadLimit {
+  patient         Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId       String @id
+  windowStartedAt DateTime @default(now())
+  attempts        Int @default(1)
+}
+
 model Condition {
   id        String    @id @default(cuid())
   patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)

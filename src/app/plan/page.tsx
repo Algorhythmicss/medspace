@@ -24,11 +24,11 @@ export default async function SignedInPlan({
   const session = await readPatientSession();
   if (!session) redirect("/welcome/patient");
 
-  const { patient, clinic } = await loadPlanData(session.p);
+  const { patient, clinic, assessments } = await loadPlanData(session.p);
   // A reset (bumped linkVersion) invalidates the session too — send them back
   // to sign in, which will only succeed if their binding is still active.
   if (!patient || session.v !== patient.linkVersion) redirect("/welcome/patient");
 
   const lang = toPlanLang(langParam ?? patient.language);
-  return <PlanView patient={patient} clinic={clinic} signedIn lang={lang} />;
+  return <PlanView patient={patient} clinic={clinic} assessments={assessments} signedIn lang={lang} />;
 }

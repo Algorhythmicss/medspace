@@ -24,6 +24,9 @@ import { buildMemoryCard } from "@/lib/memory";
 import Briefing from "@/components/Briefing";
 import { relDay, shortDate } from "@/lib/format";
 import HistoryReview from "@/components/HistoryReview";
+import AssessmentReview from "@/components/AssessmentReview";
+import { assessmentEnabled, assessmentSelection } from "@/lib/assessment-server";
+import { assertClinicSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -37,9 +40,10 @@ export default async function PatientChart({
   searchParams: Promise<{ all?: string }>;
 }) {
   const { id } = await params;
+  await assertClinicSession();
   const { all } = await searchParams;
 
-  const [patient, card, clinic, pendingHistory] = await Promise.all([
+  const [patient, card, clinic, pendingHistory, assessments] = await Promise.all([
     db.patient.findUnique({
       where: { id },
       include: {
@@ -89,6 +93,7 @@ export default async function PatientChart({
         fileName: true,
       },
     }),
+    assessmentEnabled() ? db.initialAssessment.findMany({ where: { patientId: id }, orderBy: { createdAt: "desc" }, take: 8, select: assessmentSelection }) : Promise.resolve([]),
   ]);
   if (!patient || !card) notFound();
 
@@ -225,6 +230,7 @@ export default async function PatientChart({
       )}
 
       <HistoryReview submissions={pendingHistory} />
+      <AssessmentReview assessments={assessments.map((assessment) => ({ ...assessment, createdAt: assessment.createdAt.toISOString() }))} />
 
       {/* ── open items: what is owed, in one place ───────────── */}
       {(patient.tasks.length > 0 || patient.reports.length > 0) && (

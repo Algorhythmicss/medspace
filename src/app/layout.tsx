@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import Shell from "@/components/Shell";
+import WebAnalytics from "@/components/WebAnalytics";
 import "./globals.css";
 
 // Display face only. Manrope is a semi-rounded geometric — warm enough for
@@ -23,7 +24,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#fff7ef",
+  themeColor: "#ffffff",
 };
 
 export default function RootLayout({
@@ -35,6 +36,7 @@ export default function RootLayout({
     <html lang="en" className={`${display.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
         <Shell>{children}</Shell>
+        <WebAnalytics />
       </body>
     </html>
   );

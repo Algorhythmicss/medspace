@@ -1,12 +1,10 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────
-   medSpace — Headspace-inspired clinical warmth
+   medSpace — white page ground with warm clinical illustrations
 
-   Headspace's actual language is not minimal-white: it is cream
-   grounds, big saturated filled cards, very large radii, friendly
-   geometric type and generous air. Colour does the emotional work;
-   white space does the calming.
+   The base background is white. Existing coloured cards, friendly
+   geometric type and clinical artwork retain their own palette.
 
    Applied to a clinic tool: the patient briefing becomes a filled
    navy "hero" object you look *at*, not a form section you read
@@ -21,8 +19,8 @@
      pasted onto an unrelated app.
      ──────────────────────────────────────────────────────────── */
 
-  /* ground: the warm cream light in the reception and huddle scenes */
-  --cream: #faf4ea;
+  /* White page ground; retain the token name for existing consumers. */
+  --cream: #ffffff;
   --surface: #ffffff;
   --sunk: #f2ebde;
 

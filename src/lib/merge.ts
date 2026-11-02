@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 
 // Merging two records for the same person. Everything clinical moves to the
@@ -28,6 +29,26 @@ export async function mergePatients(keeperId: string, duplicateId: string) {
   const duplicateAccess = await db.patientAccess.findMany({ where: { patientId: duplicateId } });
 
   await db.$transaction(async (tx) => {
+    const locked = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "Patient" WHERE "id" IN (${keeperId}, ${duplicateId}) ORDER BY "id" FOR UPDATE
+    `;
+    if (locked.length !== 2) throw new Error("both records must exist");
+    const keeperKeys = new Set((await tx.initialAssessment.findMany({ where: { patientId: keeperId }, select: { submissionKey: true } })).map((assessment) => assessment.submissionKey));
+    const incoming = await tx.initialAssessment.findMany({ where: { patientId: duplicateId }, select: { id: true, submissionKey: true } });
+    for (const assessment of incoming) {
+      if (keeperKeys.has(assessment.submissionKey)) {
+        await tx.initialAssessment.update({ where: { id: assessment.id }, data: { submissionKey: randomUUID() } });
+      }
+    }
+    await tx.initialAssessment.updateMany({ where: { patientId: duplicateId }, data: { patientId: keeperId } });
+    await tx.$executeRaw`
+      INSERT INTO "AssessmentUploadLimit" ("patientId", "windowStartedAt", "attempts")
+      SELECT ${keeperId}, MAX("windowStartedAt"), SUM("attempts")::INTEGER
+      FROM "AssessmentUploadLimit"
+      WHERE "patientId" IN (${keeperId}, ${duplicateId}) AND "windowStartedAt" > CURRENT_TIMESTAMP - INTERVAL '1 hour'
+      HAVING SUM("attempts") > 0
+      ON CONFLICT ("patientId") DO UPDATE SET "windowStartedAt" = EXCLUDED."windowStartedAt", "attempts" = EXCLUDED."attempts"
+    `;
     // clinical history: move wholesale
     await tx.visit.updateMany({ where: { patientId: duplicateId }, data: { patientId: keeperId } });
     await tx.observation.updateMany({ where: { patientId: duplicateId }, data: { patientId: keeperId } });

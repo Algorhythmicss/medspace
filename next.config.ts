@@ -4,6 +4,13 @@ const nextConfig: NextConfig = {
   // A stray package-lock.json in the parent dir makes Next guess the wrong
   // workspace root. Pin it to this app so the build is deterministic.
   turbopack: { root: __dirname },
+  outputFileTracingIncludes: {
+    "/api/patient/assessment": [
+      "./node_modules/file-type/**/*",
+      "./node_modules/sharp/**/*",
+      "./node_modules/.pnpm/{file-type@*,sharp@*,strtok3@*,token-types@*,uint8array-extras@*,@tokenizer+*,@borewit+*,ieee754@*,debug@4*,ms@2*,@img+*,detect-libc@*,semver@7*}/**/*",
+    ],
+  },
 
   // The image optimizer (/_next/image) is not behind the passcode gate and
   // fetches its source URL server-side without the caller's cookies. Pin it to
@@ -67,6 +74,15 @@ const nextConfig: NextConfig = {
         // Keep it out of shared/CDN caches and off the disk of a shared phone.
         source: "/p/:token*",
         headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
+      },
+      {
+        source: "/api/assessment-files/:id",
+        headers: [
+          { key: "Content-Security-Policy", value: "default-src 'none'; sandbox; frame-ancestors 'none'" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        ],
       },
       {
         // Same for the signed-in patient view.

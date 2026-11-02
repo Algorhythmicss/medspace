@@ -27,7 +27,7 @@ export default async function PatientView({
   const link = await readPatientLink(token);
   if (!link) notFound();
 
-  const { patient, clinic } = await loadPlanData(link.p);
+  const { patient, clinic, assessments } = await loadPlanData(link.p);
   // Reject a token minted before the doctor reset this patient's links, even
   // though its signature and expiry are still valid — this is the revocation.
   if (!patient || link.v !== patient.linkVersion) notFound();
@@ -64,6 +64,6 @@ export default async function PatientView({
   // the doctor set on the record.
   const lang = toPlanLang(langParam ?? patient.language);
   return (
-    <PlanView patient={patient} clinic={clinic} signedIn={false} planToken={token} lang={lang} />
+    <PlanView patient={patient} clinic={clinic} assessments={assessments} signedIn={false} planToken={token} lang={lang} />
   );
 }

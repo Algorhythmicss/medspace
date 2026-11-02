@@ -18,6 +18,8 @@ export async function proxy(req: NextRequest) {
     pathname.startsWith("/welcome") ||
     pathname.startsWith("/p/") ||
     pathname.startsWith("/auth/") ||
+    pathname === "/api/patient/assessment" ||
+    /^\/api\/assessment-files\/[a-z0-9]{20,32}$/.test(pathname) ||
     pathname === "/plan"
   ) {
     return NextResponse.next();
@@ -64,6 +66,6 @@ export const config = {
   // entirely — a bypass one careless route away from leaking data. Exclude by
   // prefix (what actually lives in public/) instead of by extension.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|art/|file\\.svg|globe\\.svg|next\\.svg|vercel\\.svg|window\\.svg).*)",
+    "/((?!_next/static|_next/image|_vercel/insights/|favicon.ico|art/|file\\.svg|globe\\.svg|next\\.svg|vercel\\.svg|window\\.svg).*)",
   ],
 };

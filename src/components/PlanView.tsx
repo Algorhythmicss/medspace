@@ -19,6 +19,8 @@ import PlanReply from "@/components/PlanReply";
 import LogHomeReading from "@/components/LogHomeReading";
 import PlanLangToggle from "@/components/PlanLangToggle";
 import PatientHistorySubmission from "@/components/PatientHistorySubmission";
+import InitialAssessment from "@/components/InitialAssessment";
+import { assessmentEnabled, assessmentSelection } from "@/lib/assessment-server";
 
 // The patient's plan, rendered identically whether they arrived by tapping
 // their WhatsApp link (/p/<token>) or by signing in with Google (/plan). The
@@ -29,7 +31,7 @@ import PatientHistorySubmission from "@/components/PatientHistorySubmission";
 // (timings, instructions, headings) switches.
 
 export async function loadPlanData(patientId: string) {
-  const [patient, clinic] = await Promise.all([
+  const [patient, clinic, assessments] = await Promise.all([
     db.patient.findUnique({
       where: { id: patientId },
       include: {
@@ -57,8 +59,9 @@ export async function loadPlanData(patientId: string) {
       },
     }),
     db.clinic.findUnique({ where: { id: "clinic" } }),
+    assessmentEnabled() ? db.initialAssessment.findMany({ where: { patientId }, orderBy: { createdAt: "desc" }, take: 5, select: assessmentSelection }) : Promise.resolve([]),
   ]);
-  return { patient, clinic };
+  return { patient, clinic, assessments };
 }
 
 type PlanData = Awaited<ReturnType<typeof loadPlanData>>;
@@ -69,12 +72,14 @@ export default async function PlanView({
   signedIn,
   planToken,
   lang = "en",
+  assessments = [],
 }: {
   patient: NonNullable<PlanData["patient"]>;
   clinic: PlanData["clinic"];
   signedIn: boolean;
   planToken?: string;
   lang?: PlanLang;
+  assessments?: PlanData["assessments"];
 }) {
   const t = PLAN_TEXT[lang];
   const firstName = patient.name.split(" ")[0];
@@ -114,6 +119,7 @@ export default async function PlanView({
       </header>
 
       {signedIn && <PatientSignOut />}
+      {assessmentEnabled() && <InitialAssessment assessments={assessments.map((assessment) => ({ ...assessment, createdAt: assessment.createdAt.toISOString() }))} planToken={planToken} lang={lang} />}
 
       <section className="mt-5">
         {patient._count.reports > 0 && (
@@ -124,7 +130,7 @@ export default async function PlanView({
               : `${patient._count.reports} record${patient._count.reports === 1 ? " is" : "s are"} waiting for the doctor to review.`}
           </p>
         )}
-        {patient.visits.length === 0 ? (
+        {patient.visits.length === 0 && !assessmentEnabled() ? (
           <PatientHistorySubmission planToken={planToken} lang={lang} />
         ) : (
           <details className="group/plan-history">

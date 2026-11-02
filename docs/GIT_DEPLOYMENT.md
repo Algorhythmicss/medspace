@@ -4,9 +4,9 @@
 
 The intended connection is the existing private `Algorhythmicss/medspace` repository, production branch `main`, to Vercel project `medspace` (`prj_Onb1lZq2ooHK61jUCs5Le4uqrPUL`) in `ayushhhudd-9998s-projects` (`team_S0YB8RxcpPfM0jAPH6l3McvY`). The public clinic entry is `medspace-nu.vercel.app`. Do not connect or deploy through the original dirty checkout's `medspace-demo` project link.
 
-The original application release checkpoint is commit `e0db7acb7aecc8320d703e9407aa6f8e9e371548`, deployment `dpl_4eHpoqJppX1Gfmh2RePqm7ZVtJTz`. The current follow-up refreshed the existing project's connection to the same GitHub repository, replacing its stale credential reference without changing that live deployment. An isolated protected project then fetched and built that exact Git source successfully, including schema/TypeScript/packaging gates. This establishes Git retrieval; the push-triggered production deployment is verified separately after publication.
+The original application release checkpoint was commit `e0db7acb7aecc8320d703e9407aa6f8e9e371548`, deployment `dpl_4eHpoqJppX1Gfmh2RePqm7ZVtJTz`. Shared authenticated follow-up receipts record reconnection to the same repository, then an actual Git-triggered production deployment for `33fdeb0c0dd85d1ef1a16f14e0f637bbb1a8dcf7`: `dpl_2AEY3XgxvCeo2htyZUo4xFZeyELE`, READY, with the primary alias matching. The isolated protected test app also fetched and built the earlier application source and passed 27 hosted checks. This is recorded evidence of working Git retrieval and push-triggered deployment, not a fresh live request from the currently restricted session. The later security hardening at `0416993` is still local and requires its own build, publication and deployment receipts.
 
-An earlier preparation session had local-only access and made no external changes. In the current session, approved terminal network access successfully verified the GitHub repository and original Vercel project. The repair required no broader repository grant, replacement clinical project, production database access or production deployment token. The separate synthetic test project uses fresh secrets and a different database; its temporary automation key was revoked after acceptance.
+An earlier preparation session had local-only access and made no external changes. A separately authenticated execution successfully verified the GitHub repository and original Vercel project and repaired the connection. The repair required no broader repository grant, replacement clinical project, production database access or production deployment token. The separate synthetic test project uses fresh secrets and a different database; its temporary automation key was revoked after acceptance. The current restricted execution cannot publish the later security changes.
 
 ## Versioned deployment checks
 
@@ -18,7 +18,7 @@ These rules control build scheduling, not security-sensitive permissions: source
 
 `scripts/test-deployment-config.ts` checks the exact local contract and rejects mutations removing default-deny scheduling, enabling preview branches, moving/omitting safety checks, bypassing failure with shell separators or embedding environment settings. These are local configuration checks, not proof that GitHub webhooks or automatic deployments work.
 
-## Finish and verify the connection
+## Publish and verify further changes
 
 1. Obtain approved access to the original Vercel team and GitHub account; verify project/repository IDs and current remote `main` before editing anything. Do not disconnect the existing project speculatively while access is unavailable.
 2. Inspect the existing Vercel GitHub App installation and project Git settings. Restore only the existing recipient's access to this repository; do not grant all repositories, create a replacement project or add a deployment token as a workaround.
@@ -28,7 +28,7 @@ These rules control build scheduling, not security-sensitive permissions: source
 
 ## What remains for assessment acceptance
 
-The later request to complete operational work, including Simulator testing, is tracked in `ASSESSMENT_OPERATIONS.md`. Its code changes are local preparation, not a claim that account reconnection, private hosting, backup restore or iOS testing is finished.
+The later request to complete operational work, including Simulator testing, is tracked in `ASSESSMENT_OPERATIONS.md`. Git repair and earlier isolated hosted acceptance have recorded completion; the subsequent code changes are local preparation, not a claim that private hosting, backup restore, iOS testing or the new hardening rollout is finished.
 
 - Private hosted malware scanning for document downloads, including approval of hosting, cost, data transfer and retention. Until then documents stay quarantined; no public scanning service is used.
 - Hosted assessment acceptance passed 27 HTTP/browser checks on an authorized isolated synthetic target, including submission, persistence, rewritten-photo download and doctor review. Its own fixture IDs were cleaned; no clinical records were used. See `VERIFICATION-ASSESSMENT-2026-11-02.md` for evidence. Clean document downloads still require the private scanner.

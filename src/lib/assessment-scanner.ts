@@ -1,5 +1,5 @@
-import { connect as connectTcp, type Socket } from "node:net";
-import { connect as connectTls } from "node:tls";
+import { connect as connectTcp, isIP, type Socket } from "node:net";
+import { connect as connectTls, createSecureContext } from "node:tls";
 
 export type ScanVerdict = "clean" | "infected" | "unavailable";
 
@@ -9,6 +9,20 @@ export async function scanAssessmentBytes(bytes: Uint8Array): Promise<ScanVerdic
   if (!host || !Number.isInteger(port) || port < 1 || port > 65535) return "unavailable";
   const local = ["localhost", "127.0.0.1", "::1"].includes(host);
   if (!local && process.env.MEDSPACE_CLAMAV_TLS !== "true") return "unavailable";
+  if (!bytes.length || bytes.length > 4 * 1024 * 1024) return "unavailable";
+  const cert = process.env.MEDSPACE_CLAMAV_CLIENT_CERT;
+  const key = process.env.MEDSPACE_CLAMAV_CLIENT_KEY;
+  const ca = process.env.MEDSPACE_CLAMAV_CA_CERT;
+  if (!local && (!cert || !key)) return "unavailable";
+  if (!!cert !== !!key || [cert, key, ca].some((value) => value && value.length > 65536)) return "unavailable";
+  let secureContext: ReturnType<typeof createSecureContext> | undefined;
+  if (process.env.MEDSPACE_CLAMAV_TLS === "true") {
+    try {
+      secureContext = createSecureContext({ cert, key, ca });
+    } catch {
+      return "unavailable";
+    }
+  }
 
   return new Promise((resolve) => {
     let socket: Socket;
@@ -35,7 +49,7 @@ export async function scanAssessmentBytes(bytes: Uint8Array): Promise<ScanVerdic
     };
     try {
       socket = process.env.MEDSPACE_CLAMAV_TLS === "true"
-        ? connectTls({ host, port, servername: host, rejectUnauthorized: true }, send)
+        ? connectTls({ host, port, servername: isIP(host) ? undefined : host, rejectUnauthorized: true, secureContext }, send)
         : connectTcp({ host, port }, send);
       socket.on("error", () => finish("unavailable"));
       socket.on("data", (chunk: Buffer) => {

@@ -1,0 +1,31 @@
+[Unit]
+Description=MedSpace private mutual-TLS INSTREAM gateway
+After=network.target clamav-daemon.service
+Requires=clamav-daemon.service
+
+[Service]
+Type=simple
+User=medspace-scanner
+Group=medspace-scanner
+WorkingDirectory=/opt/medspace-scanner
+EnvironmentFile=/etc/medspace-scanner/config
+ExecStart=/usr/bin/node /opt/medspace-scanner/server.mjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictAddressFamilies=AF_INET AF_INET6
+UMask=0077
+LimitNOFILE=128
+MemoryMax=256M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target

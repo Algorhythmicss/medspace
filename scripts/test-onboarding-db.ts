@@ -32,6 +32,7 @@ async function main() {
       summary: "staged",
       values: [{ type: "HBA1C", value: 8.2 }],
       source: "patient",
+      expectedLinkVersion: patient.linkVersion,
       reviewStatus: "pending",
       reportedConditions: "diabetes, Hypertension",
       reportedAllergies: "Sulfa",
@@ -78,6 +79,7 @@ async function main() {
     );
     expect(!secondDecision.changed, "a second decision cannot overwrite the first");
 
+    await db.queueEntry.create({ data: { patientId: patient.id } });
     const dismissedReport = await saveReport({
       patientId: patient.id,
       title: "Unreliable recollection",

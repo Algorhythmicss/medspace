@@ -3,7 +3,9 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { supersedeStaleLabTasks } from "@/lib/tasks";
-import { saveReport, MAX_FILE_BYTES, INLINE_SAFE_MIME } from "@/lib/reports";
+import { saveReport, MAX_FILE_BYTES } from "@/lib/reports";
+import { AssessmentError } from "@/lib/assessment";
+import { reserveAssessmentAttempt } from "@/lib/assessment-server";
 import { mergePatients } from "@/lib/merge";
 import { sessionCookieName } from "@/lib/auth";
 import {
@@ -302,7 +304,7 @@ export async function createReport(formData: FormData) {
   await assertClinicSession();
   const patientId = String(formData.get("patientId") ?? "");
   const title = String(formData.get("title") ?? "").trim();
-  if (!patientId || !title) return;
+  if (!patientId || !title) return { ok: false as const, message: "Add a patient and report title before saving." };
 
   const kind = String(formData.get("kind") ?? "lab");
   const dateRaw = String(formData.get("reportDate") ?? "");
@@ -319,26 +321,30 @@ export async function createReport(formData: FormData) {
   const fileEntry = formData.get("file");
   let file: { name: string; mime: string; bytes: Uint8Array<ArrayBuffer> } | null = null;
   if (fileEntry instanceof File && fileEntry.size > 0) {
-    if (fileEntry.size > MAX_FILE_BYTES) return;
-    // Store the real MIME only if we trust it; otherwise mark it opaque so the
-    // file route serves it as a download rather than executing it inline.
+    if (fileEntry.size > MAX_FILE_BYTES) return { ok: false as const, message: "That attachment is over 4 MB. Choose a smaller file." };
     const declared = fileEntry.type || "application/octet-stream";
     file = {
       name: fileEntry.name,
-      mime: INLINE_SAFE_MIME.has(declared) ? declared : "application/octet-stream",
+      mime: declared.toLowerCase(),
       bytes: new Uint8Array(await fileEntry.arrayBuffer()),
     };
   }
 
-  await saveReport({
-    patientId,
-    title,
-    kind,
-    reportDate: dateRaw ? new Date(dateRaw) : new Date(),
-    summary: summary || undefined,
-    values,
-    file,
-  });
+  try {
+    await saveReport({
+      patientId,
+      title,
+      kind,
+      reportDate: dateRaw ? new Date(dateRaw) : new Date(),
+      summary: summary || undefined,
+      values,
+      file,
+    });
+  } catch (error) {
+    if (error instanceof AssessmentError) return { ok: false as const, message: error.message };
+    console.error("report submission failed");
+    return { ok: false as const, message: "The report could not be saved. Your entries are kept on this device; please retry." };
+  }
 
   revalidatePath(`/patients/${patientId}`);
   revalidatePath("/");
@@ -375,8 +381,8 @@ async function historyFile(formData: FormData) {
   if (entry.size > MAX_FILE_BYTES) throw new Error("file_too_large");
   const declared = entry.type || "application/octet-stream";
   return {
-    name: entry.name.slice(0, 180),
-    mime: INLINE_SAFE_MIME.has(declared) ? declared : "application/octet-stream",
+    name: entry.name,
+    mime: declared.toLowerCase(),
     bytes: new Uint8Array(await entry.arrayBuffer()),
   };
 }
@@ -384,7 +390,8 @@ async function historyFile(formData: FormData) {
 async function saveHistorySubmission(
   patientId: string,
   source: "patient" | "staff",
-  formData: FormData
+  formData: FormData,
+  expectedLinkVersion: number
 ): Promise<HistorySubmissionState> {
   const conditions = clipped(formData.get("conditions"), 1500);
   const allergies = clipped(formData.get("allergies"), 1000);
@@ -437,9 +444,11 @@ async function saveHistorySubmission(
       reportedConditions: conditions,
       reportedAllergies: allergies,
       reportedMedications: medications,
+      expectedLinkVersion,
     });
   } catch (error) {
-    console.error("failed to save history submission", error);
+    if (error instanceof AssessmentError) return { ok: false, message: error.message };
+    console.error("failed to save history submission");
     return { ok: false, message: "The record could not be saved. Please try again." };
   }
 
@@ -465,9 +474,14 @@ export async function submitPatientHistory(
     };
   }
   const planToken = clipped(formData.get("planToken"), 1600) || undefined;
-  const patientId = await authedPatientId(planToken);
-  if (!patientId) return { ok: false, message: "This link has expired. Ask the clinic for a new one." };
-  return saveHistorySubmission(patientId, "patient", formData);
+  const reference = planToken ? await readPatientLink(planToken) : await readPatientSession();
+  if (!reference) return { ok: false, message: "This link has expired. Ask the clinic for a new one." };
+  try {
+    await reserveAssessmentAttempt(reference);
+  } catch (error) {
+    return { ok: false, message: error instanceof AssessmentError ? error.message : "The clinic could not receive this record. Please retry." };
+  }
+  return saveHistorySubmission(reference.p, "patient", formData, reference.v);
 }
 
 export async function createMedicalDocument(
@@ -540,7 +554,14 @@ export async function submitStaffHistory(
     where: { patientId, status: "waiting", arrivedAt: { gte: todayStart } },
   });
   if (!inQueue) return { ok: false, message: "This patient is no longer in today’s queue." };
-  return saveHistorySubmission(patientId, "staff", formData);
+  const patient = await db.patient.findUnique({ where: { id: patientId }, select: { linkVersion: true } });
+  if (!patient) return { ok: false, message: "Patient not found." };
+  try {
+    await reserveAssessmentAttempt({ p: patientId, v: patient.linkVersion });
+  } catch (error) {
+    return { ok: false, message: error instanceof AssessmentError ? error.message : "The clinic could not receive this record. Please retry." };
+  }
+  return saveHistorySubmission(patientId, "staff", formData, patient.linkVersion);
 }
 
 async function addMissingHistory(

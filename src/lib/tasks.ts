@@ -58,7 +58,8 @@ export async function supersedeStaleLabTasks(
 export async function completeMatchingLabTasks(
   patientId: string,
   metricTypes: string[],
-  completedAt: Date
+  completedAt: Date,
+  store: CarePlanTaskStore = db
 ): Promise<number> {
   if (metricTypes.length === 0) return 0;
   const aliasSet = new Set(
@@ -66,7 +67,7 @@ export async function completeMatchingLabTasks(
   );
   if (aliasSet.size === 0) return 0;
 
-  const pending = await db.carePlanTask.findMany({
+  const pending = await store.carePlanTask.findMany({
     where: { patientId, status: "pending", kind: "LAB_TEST" },
   });
   const toComplete = pending.filter((task) =>
@@ -74,7 +75,7 @@ export async function completeMatchingLabTasks(
   );
 
   if (toComplete.length > 0) {
-    await db.carePlanTask.updateMany({
+    await store.carePlanTask.updateMany({
       where: { id: { in: toComplete.map((t) => t.id) } },
       data: { status: "done", completedAt },
     });

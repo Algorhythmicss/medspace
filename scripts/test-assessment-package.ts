@@ -8,7 +8,16 @@ import sharp from "sharp";
 import { assessmentUploadWorker } from "../src/lib/assessment-upload-worker";
 
 const root = process.cwd();
-const manifestPath = resolve(".next/server/app/api/patient/assessment/route.js.nft.json");
+const traces: Record<string, string> = {
+  assessment: ".next/server/app/api/patient/assessment/route.js.nft.json",
+  report: ".next/server/app/api/reports/[id]/file/route.js.nft.json",
+  "patient-page": ".next/server/app/plan/page.js.nft.json",
+  "report-page": ".next/server/app/patients/[id]/report/new/page.js.nft.json",
+  "staff-page": ".next/server/app/queue/intake/[patientId]/page.js.nft.json",
+};
+const traceName = process.argv[2] || "assessment";
+assert(Object.hasOwn(traces, traceName), "Choose an explicitly supported upload trace");
+const manifestPath = resolve(traces[traceName]);
 
 async function inspect(bytes: Uint8Array, extension: string, packageRequire: ReturnType<typeof createRequire>) {
   return new Promise<{ kind: string; error?: boolean }>((accept, reject) => {
@@ -63,7 +72,7 @@ async function main() {
     for (const file of native) await rename(file, `${file}.removed`);
     await assert.rejects(() => inspect(photo, "png", packageRequire));
     console.log("PASS the packaging oracle detects an omitted native image decoder");
-    console.log("ALL PASS: 2 trace-only packaging checks");
+    console.log(`ALL PASS: 2 trace-only packaging checks for ${traceName}`);
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }

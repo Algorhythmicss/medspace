@@ -10,7 +10,7 @@ An earlier preparation session had local-only access and made no external change
 
 ## Versioned deployment checks
 
-`vercel.json` preserves the previously verified read-only database preflight and Linux worker packaging checks for future Git-triggered builds, rather than relying on a one-off CLI build override. The order is configuration contract check, read-only schema/access check, production build/TypeScript, then trace-only packaging tests. A failed stage stops the build; no migration or seed command runs automatically. Existing schema must be applied and verified separately before publishing dependent code.
+`vercel.json` preserves the previously verified read-only database preflight and worker packaging checks for future Git-triggered builds, rather than relying on a one-off CLI build override. The prepared pipeline adds offline scanner/legacy-file/transaction/monitor checks, then the read-only schema/access check, private scanner readiness controls when configured, production build/TypeScript and five route/page trace-only packaging checks. A failed stage stops the build; no migration or seed command runs automatically. Existing schema must be applied and verified separately before publishing dependent code. The expanded pipeline itself still needs a fresh production artifact build and hosted verification; passing the earlier release's two packaging checks does not validate these new routes.
 
 Automatic Git builds are configured for `main` only using the default-deny `**` pattern and exact `main` allow rule. The globstar also covers slash-separated feature branch names. Vercel deploys when any matching rule is true: [Git configuration](https://vercel.com/docs/project-configuration/git-configuration#git.deploymentenabled). File-based build commands are documented under [project configuration](https://vercel.com/docs/project-configuration/vercel-json#buildcommand).
 
@@ -27,6 +27,8 @@ These rules control build scheduling, not security-sensitive permissions: source
 5. Observe a deployment created by that Git push, not a direct CLI snapshot. Verify the actual pushed SHA, original project ID, build gates, READY state and primary alias. Run bounded public privacy/authorization/browser checks and deployment-scoped error-log checks again.
 
 ## What remains for assessment acceptance
+
+The later request to complete operational work, including Simulator testing, is tracked in `ASSESSMENT_OPERATIONS.md`. Its code changes are local preparation, not a claim that account reconnection, private hosting, backup restore or iOS testing is finished.
 
 - Private hosted malware scanning for document downloads, including approval of hosting, cost, data transfer and retention. Until then documents stay quarantined; no public scanning service is used.
 - Hosted assessment acceptance passed 27 HTTP/browser checks on an authorized isolated synthetic target, including submission, persistence, rewritten-photo download and doctor review. Its own fixture IDs were cleaned; no clinical records were used. See `VERIFICATION-ASSESSMENT-2026-11-02.md` for evidence. Clean document downloads still require the private scanner.

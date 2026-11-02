@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   // workspace root. Pin it to this app so the build is deterministic.
   turbopack: { root: __dirname },
   outputFileTracingIncludes: {
-    "/api/patient/assessment": [
+    "/*": [
       "./node_modules/file-type/**/*",
       "./node_modules/sharp/**/*",
       "./node_modules/.pnpm/{file-type@*,sharp@*,strtok3@*,token-types@*,uint8array-extras@*,@tokenizer+*,@borewit+*,ieee754@*,debug@4*,ms@2*,@img+*,detect-libc@*,semver@7*}/**/*",
@@ -77,6 +77,15 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/api/assessment-files/:id",
+        headers: [
+          { key: "Content-Security-Policy", value: "default-src 'none'; sandbox; frame-ancestors 'none'" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        ],
+      },
+      {
+        source: "/api/reports/:id/file",
         headers: [
           { key: "Content-Security-Policy", value: "default-src 'none'; sandbox; frame-ancestors 'none'" },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },

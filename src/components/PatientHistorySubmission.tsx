@@ -7,6 +7,7 @@ import {
   submitStaffHistory,
   type HistorySubmissionState,
 } from "@/app/actions";
+import { ASSESSMENT_FILE_ACCEPT } from "@/lib/assessment";
 
 const INITIAL: HistorySubmissionState = { ok: false, message: "" };
 
@@ -29,7 +30,8 @@ const COPY = {
     labReport: "Lab report",
     imaging: "Scan / imaging",
     other: "Other record",
-    choose: "Attach photo or PDF",
+    choose: "Attach photo or document",
+    fileSafety: "Up to 4 MB. Photos are rewritten without metadata. Documents stay locked until a private safety scan passes.",
     details: "Record details",
     optional: "Optional",
     submit: "Send for doctor review",
@@ -58,7 +60,8 @@ const COPY = {
     labReport: "लैब रिपोर्ट",
     imaging: "स्कैन / इमेजिंग",
     other: "अन्य रिकॉर्ड",
-    choose: "फोटो या PDF लगाएँ",
+    choose: "फोटो या दस्तावेज़ लगाएँ",
+    fileSafety: "अधिकतम 4 MB। फोटो से मेटाडेटा हटाया जाता है। निजी सुरक्षा जाँच पूरी होने तक दस्तावेज़ नहीं खोले जा सकते।",
     details: "रिकॉर्ड की जानकारी",
     optional: "वैकल्पिक",
     submit: "डॉक्टर की जाँच के लिए भेजें",
@@ -144,12 +147,13 @@ export default function PatientHistorySubmission({
           name="file"
           type="file"
           aria-label={t.choose}
-          accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+          accept={ASSESSMENT_FILE_ACCEPT}
           onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")}
           className="sr-only"
         />
       </label>
 
+      <p className="t-micro text-ink3">{t.fileSafety}</p>
       <details className="group/record-details rounded-2xl border border-hairline">
         <summary className="pressable flex min-h-12 cursor-pointer list-none items-center gap-2 px-4 py-3 [&::-webkit-details-marker]:hidden">
           <span className="t-cap flex-1 font-semibold text-ink2">{t.details}</span>

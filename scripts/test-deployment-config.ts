@@ -10,9 +10,19 @@ type DeploymentConfig = {
 
 const commands = [
   "node --import tsx scripts/test-deployment-config.ts",
+  "node --import tsx scripts/test-scanner-transport.ts",
+  "node --import tsx scripts/test-report-attachments.ts",
+  "node --import tsx scripts/test-report-save.ts",
+  "node scripts/test-scanner-gateway.mjs",
+  "node scripts/test-live-monitor.mjs",
   "pnpm exec tsx scripts/check-assessment-schema.ts",
+  "node --import tsx scripts/check-private-scanner.ts",
   "pnpm run build",
   "pnpm exec tsx scripts/test-assessment-package.ts",
+  "pnpm exec tsx scripts/test-assessment-package.ts report",
+  "pnpm exec tsx scripts/test-assessment-package.ts patient-page",
+  "pnpm exec tsx scripts/test-assessment-package.ts report-page",
+  "pnpm exec tsx scripts/test-assessment-package.ts staff-page",
 ];
 const configuration = JSON.parse(readFileSync("vercel.json", "utf8")) as DeploymentConfig;
 
@@ -23,7 +33,7 @@ function verifyConfiguration(candidate: DeploymentConfig) {
   assert.deepEqual(candidate.git, { deploymentEnabled: { "**": false, main: true } });
 }
 
-for (const path of ["scripts/test-deployment-config.ts", "scripts/check-assessment-schema.ts", "scripts/test-assessment-package.ts"]) {
+for (const path of ["scripts/test-deployment-config.ts", "scripts/check-assessment-schema.ts", "scripts/check-private-scanner.ts", "scripts/test-assessment-package.ts"]) {
   assert(existsSync(path), `Deployment check is missing: ${path}`);
 }
 verifyConfiguration(configuration);
@@ -33,8 +43,8 @@ const mutations: Array<{ name: string; alter: (candidate: DeploymentConfig) => v
   { name: "missing default-deny branch rule", alter: (candidate) => { delete candidate.git.deploymentEnabled["**"]; } },
   { name: "default-deny pattern missing slash-separated branches", alter: (candidate) => { delete candidate.git.deploymentEnabled["**"]; candidate.git.deploymentEnabled["*"] = false; } },
   { name: "unexpected preview deployment", alter: (candidate) => { candidate.git.deploymentEnabled["feature/**"] = true; } },
-  { name: "database check after the build", alter: (candidate) => { candidate.buildCommand = [commands[0], commands[2], commands[1], commands[3]].join(" && "); } },
-  { name: "missing native packaging check", alter: (candidate) => { candidate.buildCommand = commands.slice(0, 3).join(" && "); } },
+  { name: "reordered build safety gates", alter: (candidate) => { candidate.buildCommand = [...commands].reverse().join(" && "); } },
+  { name: "missing native packaging check", alter: (candidate) => { candidate.buildCommand = commands.filter((command) => !command.includes("test-assessment-package")).join(" && "); } },
   { name: "shell separator bypassing a failed check", alter: (candidate) => { candidate.buildCommand = commands.join("; "); } },
   { name: "embedded environment configuration", alter: (candidate) => { candidate.env = { DATABASE_URL: "synthetic-placeholder" }; } },
 ];

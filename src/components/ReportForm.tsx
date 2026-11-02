@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { X, Paperclip, AlertTriangle } from "lucide-react";
 import { createReport } from "@/app/actions";
 import { REPORT_METRICS } from "@/lib/metrics";
+import { ASSESSMENT_FILE_ACCEPT } from "@/lib/assessment";
 
 const KINDS = [
   { value: "lab", label: "Lab" },
@@ -36,7 +37,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
     values: [],
   });
   const [restored, setRestored] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -92,7 +93,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
   function discardDraft() {
     setDraft({ title: "", reportDate: today, kind: "lab", summary: "", values: [] });
     setRestored(false);
-    setSaveError(false);
+    setSaveError(null);
     try {
       localStorage.removeItem(draftKey);
     } catch {
@@ -101,7 +102,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
   }
 
   function submit(formData: FormData) {
-    setSaveError(false);
+    setSaveError(null);
     formData.set(
       "values",
       JSON.stringify(
@@ -118,7 +119,11 @@ export default function ReportForm({ patientId }: { patientId: string }) {
         /* ignore */
       }
       try {
-        await createReport(formData);
+        const result = await createReport(formData);
+        if (result && !result.ok) {
+          try { localStorage.setItem(draftKey, JSON.stringify(draft)); } catch {}
+          setSaveError(result.message);
+        }
       } catch (err) {
         const digest = (err as { digest?: string })?.digest ?? "";
         if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) throw err;
@@ -127,7 +132,7 @@ export default function ReportForm({ patientId }: { patientId: string }) {
         } catch {
           /* ignore */
         }
-        setSaveError(true);
+        setSaveError("Nothing is lost — the entries above are kept on this device. Check the connection and try again.");
       }
     });
   }
@@ -193,16 +198,17 @@ export default function ReportForm({ patientId }: { patientId: string }) {
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-sunk py-3 text-[15px] font-medium text-ink active:opacity-70"
         >
           <Paperclip size={16} />
-          {fileName ?? "Attach photo / PDF (optional)"}
+          {fileName ?? "Attach photo or document (optional)"}
         </button>
         <input
           ref={fileRef}
           type="file"
           name="file"
-          accept="image/*,.pdf"
+          accept={ASSESSMENT_FILE_ACCEPT}
           className="hidden"
           onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
         />
+        <p className="t-micro mt-1.5 text-ink3">Up to 4 MB. Photos are rewritten without metadata. Documents stay locked until a private safety scan passes.</p>
         {restored && (
           <p className="mt-1.5 px-1 text-[12px] text-ink2">
             Browsers can’t restore a chosen file — re-attach it if you had one.
@@ -282,9 +288,9 @@ export default function ReportForm({ patientId }: { patientId: string }) {
             Couldn’t save
           </p>
           <p className="mt-1 text-[13px] text-ink2">
-            Nothing is lost — the values above are kept on this device. Check the connection and try
-            again.
+            {saveError}
           </p>
+          <p className="mt-1 text-[13px] text-ink2">Your entries remain here. Please reattach any file before retrying.</p>
         </div>
       )}
 

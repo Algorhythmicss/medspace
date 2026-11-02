@@ -51,7 +51,10 @@ export async function assessmentRawFiles(form: FormData): Promise<AssessmentRawF
   return files;
 }
 
-async function inspectFile(file: AssessmentRawFile) {
+export async function inspectAssessmentFile(file: AssessmentRawFile, maximumBytes = ASSESSMENT_FILE_BYTES) {
+  if (!file.bytes.length || file.bytes.length > Math.min(maximumBytes, 4 * 1024 * 1024)) {
+    throw new AssessmentError(413, "file_size", "Choose a smaller, non-empty attachment.");
+  }
   const { name, extension } = safeAssessmentFilename(file.name);
   const result = await new Promise<InspectedFile>((resolve, reject) => {
     let completed = false;
@@ -96,7 +99,7 @@ export async function prepareAssessmentFiles(files: AssessmentRawFile[]): Promis
   const prepared: PreparedAssessmentFile[] = [];
   let total = 0;
   for (const file of files) {
-    const inspected = await inspectFile(file);
+    const inspected = await inspectAssessmentFile(file);
     const scan = inspected.kind === "image" ? null : await scanAssessmentBytes(inspected.bytes);
     if (scan === "infected") throw new AssessmentError(422, "malware", "A file failed its safety scan. Nothing was submitted. Remove it and try again.");
     total += inspected.bytes.length;

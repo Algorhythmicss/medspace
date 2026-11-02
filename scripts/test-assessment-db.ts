@@ -6,6 +6,7 @@ import { AssessmentError, ASSESSMENT_HOURLY_ATTEMPTS, ASSESSMENT_STORAGE_BYTES }
 import { saveInitialAssessment, reserveAssessmentAttempt, recordAssessmentScan } from "../src/lib/assessment-server";
 import type { PreparedAssessmentFile } from "../src/lib/assessment-uploads";
 import { mergePatients } from "../src/lib/merge";
+import { saveReport } from "../src/lib/reports";
 
 const target = new URL(process.env.DATABASE_URL || "http://missing.invalid");
 assert(["localhost", "127.0.0.1", "[::1]"].includes(target.hostname) && target.pathname === "/medspace_assessment_test", "Tests require the dedicated local medspace_assessment_test database");
@@ -31,6 +32,35 @@ async function check(label: string, test: () => Promise<unknown>) {
 
 async function main() {
   nextNumber = ((await db.patient.aggregate({ _max: { fileNumber: true } }))._max.fileNumber || 0) + 1;
+  await check("legacy concurrent patient history cannot exceed eight pending records", async () => {
+    const reference = await patient();
+    const writes = await Promise.allSettled(Array.from({ length: 9 }, (_, index) => saveReport({ patientId: reference.p, title: `SYNTHETIC history ${index}`, kind: "other", reportDate: new Date(), values: [], source: "patient", expectedLinkVersion: reference.v })));
+    assert.equal(writes.filter((result) => result.status === "fulfilled").length, 8);
+    assert.equal(await db.report.count({ where: { patientId: reference.p } }), 8);
+  });
+  await check("legacy history rejects a link revoked before commit", async () => {
+    const reference = await patient(); await db.patient.update({ where: { id: reference.p }, data: { linkVersion: { increment: 1 } } });
+    await assert.rejects(() => saveReport({ patientId: reference.p, title: "SYNTHETIC revoked history", kind: "other", reportDate: new Date(), values: [], source: "patient", expectedLinkVersion: reference.v }), (error: unknown) => error instanceof AssessmentError && error.status === 401);
+    assert.equal(await db.report.count({ where: { patientId: reference.p } }), 0);
+  });
+  await check("legacy staff history requires a currently waiting queue entry", async () => {
+    const reference = await patient();
+    const input = { patientId: reference.p, title: "SYNTHETIC staff history", kind: "other", reportDate: new Date(), values: [], source: "staff" as const };
+    await assert.rejects(() => saveReport(input), (error: unknown) => error instanceof AssessmentError && error.status === 403);
+    await db.queueEntry.create({ data: { patientId: reference.p } });
+    assert.equal((await saveReport({ ...input, reviewStatus: "verified" })).reviewStatus, "pending");
+  });
+  await check("legacy observation failure rolls back the report and all clinical writes", async () => {
+    const reference = await patient();
+    await db.$executeRaw`ALTER TABLE "Observation" ADD CONSTRAINT "assessment_report_rollback_fixture" CHECK ("value" <> 987654321) NOT VALID`;
+    try {
+      await assert.rejects(() => saveReport({ patientId: reference.p, title: "SYNTHETIC rollback report", kind: "lab", reportDate: new Date(), values: [{ type: "TSH", value: 987654321 }] }));
+      assert.equal(await db.report.count({ where: { patientId: reference.p } }), 0);
+      assert.equal(await db.observation.count({ where: { patientId: reference.p } }), 0);
+    } finally {
+      await db.$executeRaw`ALTER TABLE "Observation" DROP CONSTRAINT "assessment_report_rollback_fixture"`;
+    }
+  });
   await check("all new tables have deny-all RLS and no public grants", async () => {
     const tables = await db.$queryRaw<Array<{ relname: string; relrowsecurity: boolean; policies: bigint }>>`
       SELECT c.relname, c.relrowsecurity, (SELECT COUNT(*) FROM pg_policy p WHERE p.polrelid = c.oid) AS policies

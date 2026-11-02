@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hasClinicSession } from "@/lib/session";
-import { INLINE_SAFE_MIME } from "@/lib/reports";
+import { AssessmentError } from "@/lib/assessment";
+import { prepareReportDownload } from "@/lib/report-attachments";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const privateHeaders = {
+  "Cache-Control": "private, no-store, max-age=0",
+  "X-Content-Type-Options": "nosniff",
+  "Content-Security-Policy": "default-src 'none'; sandbox; frame-ancestors 'none'",
+  "Cross-Origin-Resource-Policy": "same-origin",
+  "X-Frame-Options": "DENY",
+};
 
 // Attachments are served through the app so they stay behind the passcode gate
 // instead of sitting on a public URL. The proxy/middleware gate covers this
@@ -12,30 +24,26 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
 
   if (!(await hasClinicSession())) {
-    return new NextResponse("Not found", { status: 404 });
+    return new NextResponse("Not found", { status: 404, headers: privateHeaders });
   }
 
-  const report = await db.report.findUnique({
-    where: { id },
-    select: { fileName: true, fileMime: true, fileData: true },
-  });
-
-  if (!report?.fileData) {
-    return new NextResponse("Not found", { status: 404 });
+  try {
+    const report = await db.report.findUnique({
+      where: { id },
+      select: { fileName: true, fileMime: true, fileData: true },
+    });
+    if (!report?.fileData || !report.fileName) return new NextResponse("Not found", { status: 404, headers: privateHeaders });
+    const file = await prepareReportDownload({ name: report.fileName, mime: report.fileMime || "application/octet-stream", bytes: new Uint8Array(report.fileData) });
+    const encoded = encodeURIComponent(file.name).replace(/['()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+    const extension = file.name.split(".").pop() || "bin";
+    return new NextResponse(file.bytes, { headers: {
+      ...privateHeaders,
+      "Content-Type": "application/octet-stream",
+      "Content-Disposition": `attachment; filename="medical-record.${extension}"; filename*=UTF-8''${encoded}`,
+    } });
+  } catch (error) {
+    if (error instanceof AssessmentError) return NextResponse.json({ message: "This stored attachment has not passed the required safety checks and cannot be downloaded yet." }, { status: 423, headers: privateHeaders });
+    console.error("report attachment request failed");
+    return NextResponse.json({ message: "The attachment is temporarily unavailable. Please retry or contact the clinic." }, { status: 503, headers: privateHeaders });
   }
-
-  const mime = report.fileMime || "application/octet-stream";
-  // Only render in the browser if the type is one we trust; everything else is
-  // forced to download so an uploaded SVG/HTML can't execute on this origin.
-  const disposition = INLINE_SAFE_MIME.has(mime) ? "inline" : "attachment";
-  const body = new Uint8Array(report.fileData);
-
-  return new NextResponse(body, {
-    headers: {
-      "Content-Type": mime,
-      "Content-Disposition": `${disposition}; filename="${(report.fileName || "report").replace(/"/g, "")}"`,
-      "X-Content-Type-Options": "nosniff",
-      "Cache-Control": "private, no-store",
-    },
-  });
 }

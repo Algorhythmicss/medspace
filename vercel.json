@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node --import tsx scripts/test-deployment-config.ts && pnpm exec tsx scripts/check-assessment-schema.ts && pnpm run build && pnpm exec tsx scripts/test-assessment-package.ts",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true
+    }
+  }
+}

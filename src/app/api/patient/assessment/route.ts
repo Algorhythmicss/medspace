@@ -28,6 +28,7 @@ export async function POST(request: Request) {
     if (existing) return NextResponse.json({ ok: true, id: existing.id, files: existing.files }, { headers: privateHeaders });
     const files = await prepareAssessmentFiles(rawFiles);
     const result = await saveInitialAssessment(patient, key, hash, answers, files);
+    revalidatePath("/");
     revalidatePath(`/patients/${patient.p}`);
     revalidatePath("/plan");
     return NextResponse.json({ ok: true, id: result.assessment.id, files: result.assessment.files }, {

@@ -1,5 +1,7 @@
 # Assessment operational readiness
 
+**Scope update, 3 November 2026:** the founder has deferred hosted private scanning due to budget. See [future work](FUTURE_WORK.md). Preserve quarantine and existing safeguards; scanner provisioning/activation and related new costs are outside the current build until explicitly revisited. Historical preparation and outstanding scanner checks below remain reference material.
+
 ## Status and authorization
 
 The user requested completion of the remaining Git, scanning, hosted acceptance, iPhone, recovery and legacy-upload work on 2 November 2026, and specifically allowed iOS Simulator testing. This does not supply a spending cap, an approved new clinical-data recipient or a clinician endorsement. This restricted execution created no paid host, branch, cloud credential, production restore, retention purge or clinical fixture. Separately authenticated work in the shared checkout provisioned an isolated synthetic test target and revoked its temporary automation key; that recorded work is reconciled below rather than attributed to this restricted run.

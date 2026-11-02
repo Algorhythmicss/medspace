@@ -6,7 +6,7 @@ import AssessmentScanControl from "@/components/AssessmentScanControl";
 export default function AssessmentReview({ assessments }: { assessments: AssessmentSummary[] }) {
   if (!assessments.length) return null;
   return (
-    <section className="pt-1" aria-labelledby="assessment-review-heading">
+    <section id="assessment-review" className="scroll-mt-20 pt-1" aria-labelledby="assessment-review-heading">
       <h2 id="assessment-review-heading" className="label mb-2 px-1">Patient assessments</h2>
       <div className="space-y-2.5">{assessments.map((assessment) => (
         <details key={assessment.id} className="card overflow-hidden" open={assessment.status === "pending"}>

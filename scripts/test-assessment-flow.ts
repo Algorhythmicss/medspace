@@ -32,6 +32,8 @@ async function main() {
   }
   const first = await patient(1); const second = await patient(2); const quota = await patient(3);
   const token = await createPatientToken(first.id); const secondToken = await createPatientToken(second.id);
+  await db.queueEntry.createMany({ data: [first, second, quota].map((patient) => ({ patientId: patient.id, status: "waiting" })) });
+  await db.initialAssessment.createMany({ data: (["reviewed", "dismissed"] as const).map((status) => ({ patientId: quota.id, submissionKey: randomUUID(), payloadHash: "a".repeat(64), concern: "SYNTHETIC completed assessment", duration: "Not applicable", context: "Not clinical information", status, createdAt: new Date(Date.now() - 2 * 86400000), reviewedAt: new Date() })) });
   const doctorCookie = `medspace_session=${await createSessionValue("doctor")}`;
   const staffValue = await createSessionValue("staff");
   async function post(body: FormData, credential = token, extra: Record<string, string> = {}, key = randomUUID()) {
@@ -98,6 +100,23 @@ async function main() {
   const signedInPage = await cookiePatientContext.newPage(); await signedInPage.goto(new URL("/plan", base).href, { waitUntil: "networkidle" }); await signedInPage.getByText("Three questions before your visit", { exact: true }).waitFor(); record("returning patient sessions expose the same assessment without a token URL");
   const doctorContext = await realBrowser.newContext({ viewport: { width: 1440, height: 1000 } }); await doctorContext.addCookies([{ name: "medspace_session", value: doctorCookie.split("=")[1], url: base.origin }]);
   const doctorPage = await doctorContext.newPage(); doctorPage.on("pageerror", (error: Error) => pageErrors.push(error.message));
+  await doctorPage.goto(base.href, { waitUntil: "networkidle" });
+  const firstReviewLink = doctorPage.getByRole("link", { name: `Review 1 assessment for ${first.name}`, exact: true });
+  const secondReviewLink = doctorPage.getByRole("link", { name: `Review 1 assessment for ${second.name}`, exact: true });
+  await firstReviewLink.waitFor(); await secondReviewLink.waitFor();
+  assert.equal(await doctorPage.locator(`a[href="/patients/${quota.id}#assessment-review"]`).count(), 0);
+  assert.equal(await doctorPage.getByText("SYNTHETIC mobile browser concern <script>window.assessmentInjected=true</script>", { exact: true }).count(), 0);
+  record("the doctor waiting list shows pending counts without assessment answers or reviewed/dismissed badges");
+  await doctorPage.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await doctorPage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
+  await doctorPage.screenshot({ path: resolve(output, "doctor-queue-mobile.png"), fullPage: true });
+  await secondReviewLink.click();
+  await doctorPage.getByRole("heading", { name: "Patient assessments", exact: true }).waitFor();
+  assert.equal(new URL(doctorPage.url()).hash, "#assessment-review");
+  const sectionTop = await doctorPage.locator("#assessment-review").evaluate((element: Element) => element.getBoundingClientRect().top);
+  assert(sectionTop >= 0 && sectionTop < 844, "The queue shortcut must bring the review section into the phone viewport");
+  record("the phone waiting-list shortcut opens the correct patient's visible assessment review section");
+  await doctorPage.setViewportSize({ width: 1440, height: 1000 });
   await doctorPage.goto(new URL(`/patients/${second.id}`, base).href, { waitUntil: "networkidle" }); await doctorPage.getByRole("heading", { name: "Patient assessments", exact: true }).waitFor(); await doctorPage.getByText("SYNTHETIC mobile browser concern <script>window.assessmentInjected=true</script>", { exact: true }).waitFor();
   await doctorPage.screenshot({ path: resolve(output, "doctor-desktop.png"), fullPage: true });
   const reviewTarget = await db.initialAssessment.findFirstOrThrow({ where: { patientId: second.id }, select: { id: true } });
@@ -109,6 +128,10 @@ async function main() {
   await doctorPage.getByText(/Patient-reported ·.*· Reviewed/).waitFor();
   const reviewed = await db.initialAssessment.findFirst({ where: { patientId: second.id }, select: { status: true } }); assert.equal(reviewed?.status, "reviewed");
   assert.equal(await db.condition.count({ where: { patientId: second.id } }), 0); assert.equal(await db.allergy.count({ where: { patientId: second.id } }), 0); record("doctor review works without promoting patient text to verified chart facts");
+  await doctorPage.goto(base.href, { waitUntil: "networkidle" });
+  assert.equal(await doctorPage.locator(`a[href="/patients/${second.id}#assessment-review"]`).count(), 0);
+  await doctorPage.getByRole("link", { name: `Review 1 assessment for ${first.name}`, exact: true }).waitFor();
+  record("reviewing an assessment removes only that patient's pending shortcut from the waiting list");
   const reviewBody = reviewRequest.postDataBuffer(); assert(reviewBody && reviewBody.toString().includes(reviewTarget.id));
   const forgedBody = reviewBody.toString().replaceAll(reviewTarget.id, receipt.id);
   const actionHeaders = reviewRequest.headers();

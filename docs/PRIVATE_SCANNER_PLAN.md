@@ -1,4 +1,6 @@
-# Private assessment scanner: decision needed
+# Private assessment scanner: deferred
+
+**Founder decision, 3 November 2026:** hold hosted scanning because there is no budget for additional hosting. This is [future work](FUTURE_WORK.md), not a blocker for the next core product build. Keep document quarantine in place. Do not purchase, provision or activate scanner hosting until the founder explicitly revisits the decision. The dated options and preparation below are retained for that future review.
 
 Prepared 2 November 2026. No hosted scanner has been provisioned or paid for. Answers and rewritten photos work; supported documents remain private and cannot be downloaded until a private scan passes. The isolated hosted suite verified this quarantine behavior, including an unavailable scanner retry.
 

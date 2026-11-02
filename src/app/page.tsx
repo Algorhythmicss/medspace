@@ -3,6 +3,7 @@ import {
   Activity,
   ChevronRight,
   DoorOpen,
+  ClipboardList,
   Settings2,
 } from "lucide-react";
 import { ArtBand } from "@/components/Art";
@@ -17,6 +18,7 @@ import { findChronicDrifters } from "@/lib/recall";
 import { loadPracticePulse } from "@/lib/continuity";
 import PracticePulse from "@/components/PracticePulse";
 import { latestVisitPerPatient } from "@/lib/recentVisits";
+import { assessmentEnabled } from "@/lib/assessment-server";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +30,7 @@ function greeting(hour: number): string {
 }
 
 export default async function Home() {
+  const assessmentsVisible = assessmentEnabled();
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 86400000);
@@ -97,7 +100,15 @@ export default async function Home() {
         pulse: true,
         weight: true,
         tempF: true,
-        patient: { select: { id: true, name: true } },
+        patient: {
+          select: {
+            id: true,
+            name: true,
+            ...(assessmentsVisible ? {
+              _count: { select: { initialAssessments: { where: { status: "pending" } } } },
+            } : {}),
+          },
+        },
       },
     }),
     findChronicDrifters(now),
@@ -170,6 +181,7 @@ export default async function Home() {
           </div>
           <div className="card rows overflow-hidden">
             {inClinic.map((e, i) => {
+              const pendingAssessments = e.patient._count?.initialAssessments ?? 0;
               const vitalsReady =
                 e.bpSys != null ||
                 e.bpDia != null ||
@@ -181,7 +193,8 @@ export default async function Home() {
                   <span className="t-num flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-perisoft text-[14px] text-peri">
                     {i + 1}
                   </span>
-                  <Link href={`/patients/${e.patient.id}`} className="min-w-0 flex-1 active:opacity-60">
+                  <div className="min-w-0 flex-1">
+                  <Link href={`/patients/${e.patient.id}`} className="block active:opacity-60">
                     <span className="t-bodyL block truncate">{e.patient.name}</span>
                     <span className="t-micro flex flex-wrap items-center gap-x-2 gap-y-0.5 text-ink3">
                       <span>
@@ -198,6 +211,19 @@ export default async function Home() {
                       </span>
                     </span>
                   </Link>
+                  {pendingAssessments > 0 ? (
+                    <Link
+                      href={`/patients/${e.patient.id}#assessment-review`}
+                      prefetch={false}
+                      aria-label={`Review ${pendingAssessments} ${pendingAssessments === 1 ? "assessment" : "assessments"} for ${e.patient.name}`}
+                      className="t-micro inline-flex min-h-11 items-center gap-1.5 font-semibold text-peri hover:underline focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-offset-2"
+                    >
+                      <ClipboardList size={12} aria-hidden="true" />
+                      {pendingAssessments} {pendingAssessments === 1 ? "assessment" : "assessments"} to review
+                      <ChevronRight size={12} aria-hidden="true" />
+                    </Link>
+                  ) : null}
+                  </div>
                   <MarkSeen entryId={e.id} />
                 </div>
               );

@@ -15,6 +15,7 @@ export async function reviewInitialAssessment(form: FormData): Promise<void> {
   const assessment = await db.initialAssessment.findUnique({ where: { id }, select: { patientId: true } });
   if (!assessment) return;
   await db.initialAssessment.updateMany({ where: { id, status: "pending" }, data: { status: decision, reviewedAt: new Date() } });
+  revalidatePath("/");
   revalidatePath(`/patients/${assessment.patientId}`);
   revalidatePath("/plan");
 }

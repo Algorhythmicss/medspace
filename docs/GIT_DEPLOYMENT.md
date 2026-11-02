@@ -4,9 +4,9 @@
 
 The intended connection is the existing private `Algorhythmicss/medspace` repository, production branch `main`, to Vercel project `medspace` (`prj_Onb1lZq2ooHK61jUCs5Le4uqrPUL`) in `ayushhhudd-9998s-projects` (`team_S0YB8RxcpPfM0jAPH6l3McvY`). The public clinic entry is `medspace-nu.vercel.app`. Do not connect or deploy through the original dirty checkout's `medspace-demo` project link.
 
-The last recorded live release is commit `e0db7acb7aecc8320d703e9407aa6f8e9e371548`, deployment `dpl_4eHpoqJppX1Gfmh2RePqm7ZVtJTz`. This is a previous verified checkpoint, not a fresh live observation in the restricted session. The Git integration is not yet repaired. The earlier Vercel repository retrieval returned `incorrect_git_source_info`; that does not by itself prove which account authorization or GitHub App permission needs repair.
+The original application release checkpoint is commit `e0db7acb7aecc8320d703e9407aa6f8e9e371548`, deployment `dpl_4eHpoqJppX1Gfmh2RePqm7ZVtJTz`. The current follow-up refreshed the existing project's connection to the same GitHub repository, replacing its stale credential reference without changing that live deployment. An isolated protected project then fetched and built that exact Git source successfully, including schema/TypeScript/packaging gates. This establishes Git retrieval; the push-triggered production deployment is verified separately after publication.
 
-On 2 November 2026 the follow-up session could read local files but terminal requests to Vercel/GitHub failed, Safari control was unavailable, and the connected GitHub app required reauthentication. The Vercel app was offered as an approved account-access route, but its connection was not confirmed. No Git link, permission, secret, database record, production alias or live deployment was changed during this preparation.
+An earlier preparation session had local-only access and made no external changes. In the current session, approved terminal network access successfully verified the GitHub repository and original Vercel project. The repair required no broader repository grant, replacement clinical project, production database access or production deployment token. The separate synthetic test project uses fresh secrets and a different database; its temporary automation key was revoked after acceptance.
 
 ## Versioned deployment checks
 
@@ -29,6 +29,6 @@ These rules control build scheduling, not security-sensitive permissions: source
 ## What remains for assessment acceptance
 
 - Private hosted malware scanning for document downloads, including approval of hosting, cost, data transfer and retention. Until then documents stay quarantined; no public scanning service is used.
-- Positive hosted patient submission, persistence, authorized photo/file download and doctor review against an approved isolated synthetic target, without clinical fixtures.
+- Hosted assessment acceptance passed 27 HTTP/browser checks on an authorized isolated synthetic target, including submission, persistence, rewritten-photo download and doctor review. Its own fixture IDs were cleaned; no clinical records were used. See `VERIFICATION-ASSESSMENT-2026-11-02.md` for evidence. Clean document downloads still require the private scanner.
 - Physical iOS upload checks and patient/clinician review of the three questions and error/recovery states.
 - Production retention, backup/restore, monitoring and broader legacy-upload review. The new assessment checks do not certify every upload path or clinical effectiveness.

@@ -112,9 +112,11 @@ async function main() {
   const reviewBody = reviewRequest.postDataBuffer(); assert(reviewBody && reviewBody.toString().includes(reviewTarget.id));
   const forgedBody = reviewBody.toString().replaceAll(reviewTarget.id, receipt.id);
   const actionHeaders = reviewRequest.headers();
-  const replayHeaders = Object.fromEntries(Object.entries(actionHeaders).filter(([name]) => !["host", "cookie", "content-length", "connection", "accept-encoding"].includes(name)));
+  // Browser headers use lowercase names. Remove the captured origin before
+  // supplying our explicit Origin, or Fetch combines both into an invalid URL.
+  const replayHeaders = Object.fromEntries(Object.entries(actionHeaders).filter(([name]) => !["host", "cookie", "origin", "content-length", "connection", "accept-encoding"].includes(name.toLowerCase())));
   const control = await fetch(new URL("/welcome", base), { method: "POST", redirect: "manual", body: forgedBody, headers: { ...replayHeaders, Origin: base.origin, Cookie: doctorCookie } });
-  await control.body?.cancel();
+  await control.text();
   assert.equal((await db.initialAssessment.findUniqueOrThrow({ where: { id: receipt.id }, select: { status: true } })).status, "reviewed", "The captured action replay must work for an authorized doctor before trusting denial checks");
   await db.initialAssessment.update({ where: { id: receipt.id }, data: { status: "pending", reviewedAt: null } });
   for (const cookie of ["", `medspace_staff=${staffValue}`, `medspace_session=${staffValue}`]) {

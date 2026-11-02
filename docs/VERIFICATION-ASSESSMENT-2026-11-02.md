@@ -2,7 +2,7 @@
 
 ## Status and scope
 
-**Locally implemented and verified; production migration confirmation pending.** No feature commit, GitHub push, original-app deployment or production feature enablement has occurred. The code belongs to the original patient care plan (`/p/<token>` and `/plan`) and doctor chart, not the synthetic `/demo` application.
+**Released and enabled on the original clinic app.** The 68 local assessment checks and 20 public HTTP/browser checks passed at the original release checkpoint. The production migration was applied and verified, and the release was committed, pushed and deployed through `e0db7ac`. A later isolated hosted run passed 27 authenticated HTTP/browser checks on that exact Git source; details follow below. The feature belongs to the patient care plan (`/p/<token>` and `/plan`) and doctor chart, not the synthetic `/demo` application. Documents remain quarantined because a hosted private scanner is not configured.
 
 The original checkout contains unrelated, pre-existing dirty demo/documentation work. A detached release worktree was assembled at `/Users/mac/Medspace/tmp/patient-assessment-release-20261102` from `46f75892a769ca8024e757cebe055365c4c5b77f`, preserving the already deployed white background and privacy-filtered analytics. No demo routes/libraries or demo project settings are included in that release candidate. No new Git branch was created. The original `.vercel/project.json` remains linked to the separate demo project and must not be used for a real-app deployment.
 
@@ -60,11 +60,29 @@ Fifteen public HTTP checks and five bounded browser checks passed on that artifa
 
 Deployment-scoped runtime error/fatal and HTTP 5xx queries returned zero records from 13:10:00 to 13:13:58 UTC on 2 November 2026, with no excluded intervals or additional pages. Raw runtime messages and request paths were not retained. This bounded window does not establish long-term uptime.
 
-An authenticated hosted patient submission, clean-image download and doctor review were not exercised against clinical production. They still need an explicitly authorized isolated synthetic target; never seed/reset a clinical database or treat real records as synthetic fixtures. The metadata gate proves build-environment credential/schema access, not authenticated runtime acceptance. Physical iOS, finalized clinical wording and clinician acceptance remain unverified.
+Authenticated submission, rewritten-image download and doctor review have now been exercised against the separately authorized isolated synthetic deployment described below. Clinical production was not used as a fixture source. The metadata gate alone still proves only build-environment credential/schema access. Physical iOS, finalized clinical wording and clinician acceptance remain unverified.
 
 No hosted private ClamAV endpoint is configured. Answers and rewritten photos work without it; supported documents remain stored in inaccessible quarantine until a private scan passes. Provisioning a scanner or sending patient data to a new provider needs a separate explicit infrastructure/privacy decision. No public scanning service, paid scanner or provider migration was introduced.
 
 ## Operational incident and cleanup
+
+### Follow-up: Git repair and isolated hosted acceptance
+
+On 2 November 2026, GitHub main was confirmed at `e0db7acb7aecc8320d703e9407aa6f8e9e371548`. Reconnecting the existing original project to the same `Algorhythmicss/medspace` repository replaced its stale Git credential reference. The original deployment `dpl_4eHpoqJppX1Gfmh2RePqm7ZVtJTz` remained unchanged during that repair. Source-controlled `vercel.json` and the original project's build setting now preserve the bounded read-only schema gate and Linux trace-only worker checks for Git builds as well as direct deployments. No migration runs automatically during a build.
+
+A separate protected Vercel project, `medspace-assessment-test` (`prj_9jNeCYwKJQMkcX9NeJ5NVs4rhGdx`), built that exact commit directly from GitHub as `dpl_9EFxRyeUJQE9LR1m12qhm3SZJNBu`. It passed the hosted schema, production build/TypeScript and both worker packaging checks. This confirms Git retrieval after the reconnect; push-triggered deployment receipts are a separate checkpoint.
+
+The test project uses a newly created, initially empty database, `medspace_assessment_hosted_test`, in the existing synthetic-only Neon target, with a separate restricted owner and fresh app secrets. All 13 source migrations were applied only there. All 20 tables have RLS enabled and PUBLIC privileges revoked. No clinical production credential, patient record, fixture, seed or reset was used.
+
+**27 hosted HTTP/browser checks passed**, covering anonymous/wrong-role/expired/forged credentials; consent, CSRF and cross-patient ownership; real multipart submission with image rewriting and quarantined documents; idempotency and conflicting retry denial; patient and doctor attachment reads; mobile form submission, reload persistence, literal rendering of script-like text, Hindi and returning-patient sessions; doctor review without promoting patient text into verified chart facts; a valid public-route action-replay positive control followed by role denials; scanner-unavailable retry; pending quotas; and care-link revocation. Screenshots of the 390px patient receipt and desktop doctor review were inspected. The bounded browser run reported zero page errors and zero external requests.
+
+The first two replay-control attempts failed because the test copied lowercase `origin` and added uppercase `Origin`; Fetch combined them into a comma-separated invalid URL, confirmed by the synthetic deployment's runtime logs. The corrected test removes the captured Origin case-insensitively before setting one explicit value, and consumes the complete streamed positive-control response before asserting persistence. All dependent access-denial checks then passed. These earlier test-generated runtime errors are not presented as a zero-error run. The original local-only suite's target restrictions remain unchanged.
+
+The suite removed only its own synthetic fixture IDs. Follow-up counts were zero patients, assessments, files and clinic rows. The temporary automation bypass was revoked and verified absent; Vercel deployment authentication remains enabled. Evidence is `/Users/mac/Medspace/tmp/assessment-followup-20261102`, including `hosted-browser/results.json`, screenshots, build logs, Git reconnect receipts and cleanup receipts. Private test credentials and the revoked automation key are excluded from Git.
+
+Scanner hosting remains an explicit outstanding infrastructure decision. See `PRIVATE_SCANNER_PLAN.md`; it is a proposal, not provisioned infrastructure or approval to purchase it.
+
+### Earlier CLI helper incident
 
 Vercel CLI `65.9.0` unexpectedly dispatched an attempted `env run ... node` metadata probe into its single-file deploy flow, creating a helper project `check-assessment-backend` and deployment `dpl_9u2LmZVpr8pX7xcLqeLMri3cchSP`. This was disclosed immediately; the exact unintended helper was removed through the Vercel API and the original production deployment/demo link were verified unchanged. The probe contained no embedded production secrets or clinical records and did not read/write a clinical database. Do not repeat that `env run` command. Cleanup receipts are retained; no claim is made about provider-internal retention or billing.
 
@@ -72,4 +90,4 @@ Vercel CLI `65.9.0` unexpectedly dispatched an attempted `env run ... node` meta
 
 Prefer disabling the feature flag while retaining the schema, uploaded records and merge-aware application code. Do not blindly restore older merge code after assessments exist; it could cascade-delete these new child records during a merge. Retain the preservation fix or block merging in any rollback artifact. No destructive down migration or record reset is authorized.
 
-These checks establish bounded local implementation behavior only. Signatures, image decoders and malware scanners are imperfect; a clean document is still untrusted active content. Worker threads are not OS sandboxes. The singleton clinic is not a multi-clinic tenant design. Existing legacy report/history upload paths are not certified by this suite. Retention/backups, production scanner operation, finalized question wording, hosted integration and real clinician/patient acceptance remain open.
+These checks establish bounded local and isolated synthetic hosted behavior. Signatures, image decoders and malware scanners are imperfect; a clean document is still untrusted active content. Worker threads are not OS sandboxes. The singleton clinic is not a multi-clinic tenant design. Existing legacy report/history upload paths are not certified by this suite. Retention/backups, production scanner operation, finalized question wording and real clinician/patient acceptance remain open.

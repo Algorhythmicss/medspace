@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import Shell from "@/components/Shell";
 import "./globals.css";
 
@@ -35,6 +36,7 @@ export default function RootLayout({
     <html lang="en" className={`${display.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
         <Shell>{children}</Shell>
+        <Analytics />
       </body>
     </html>
   );

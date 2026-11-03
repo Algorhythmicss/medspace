@@ -40,15 +40,18 @@ function webmDuration(bytes){
   }
   walk(0,bytes.length,0);if(!blocks||!Number.isFinite(maximum)||maximum<=0||maximum>120500)throw Error('duration');return maximum;
 }
+let stage="sniff";
 async function run(){
   const bytes=new Uint8Array(workerData.bytes);
   const {fileTypeFromBuffer}=await import(pathToFileURL(workerData.fileTypeModule).href);
   const type=await fileTypeFromBuffer(bytes);
   if(!type||!['webm','m4a','mp4','ogg','opus'].includes(type.ext))throw Error('format');
+  stage="metadata";
   const {parseBuffer}=await import(pathToFileURL(workerData.metadataModule).href);
   const metadata=await parseBuffer(bytes,{mimeType:type.mime,size:bytes.length},{duration:true,skipCovers:true,includeChapters:false});
   const format=metadata.format,tracks=format.trackInfo||[];
   if(tracks.some(track=>track.type===1)||!/opus|aac|vorbis/i.test(format.codec||'')||!format.sampleRate||format.sampleRate>192000||!format.numberOfChannels||format.numberOfChannels>2)throw Error('audio');
+  stage="duration";
   const supplied=Number(workerData.durationMs);
   const parsed=type.ext==='webm'?webmDuration(bytes):Number(format.duration)*1000;
   if(!Number.isFinite(supplied)||supplied<200||supplied>120000)throw Error('duration');
@@ -56,5 +59,9 @@ async function run(){
   const mime=['webm'].includes(type.ext)?'audio/webm':['ogg','opus'].includes(type.ext)?'audio/ogg':'audio/mp4';
   parentPort.postMessage({mime,durationMs:Math.min(120000,Math.round(Number.isFinite(parsed)?parsed:supplied)),extension:mime==='audio/webm'?'webm':mime==='audio/ogg'?'ogg':'m4a'});
 }
-run().catch(()=>parentPort.postMessage({error:true}));
+run().catch(error=>{
+  const allowed=['format','audio','duration','ebml','integer','nesting','elements','length','audio track','scale','packet','progress','unknown length'];
+  const code=/^(?:ERR_[A-Z_]+|MODULE_NOT_FOUND)$/.test(error?.code||'')?error.code:error?.name==='ReferenceError'?'reference_error':allowed.includes(error?.message)?error.message:'invalid_media';
+  parentPort.postMessage({error:true,stage,code});
+});
 `;

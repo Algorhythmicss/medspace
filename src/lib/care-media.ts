@@ -141,35 +141,62 @@ export async function doctorAudio(file: File, durationMs: number) {
       "Keep the message under 2 MB and two minutes.",
     );
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const info = await new Promise<{
-    mime: string;
-    durationMs: number;
-    extension: string;
-  }>((resolve, reject) => {
+  type AudioInfo = { mime: string; durationMs: number; extension: string };
+  type AudioFailure = { error: true; stage: string; code: string };
+  const info = await new Promise<AudioInfo>((resolve, reject) => {
     let finished = false,
-      worker: Worker | undefined;
-    const finish = (value?: {
-      mime: string;
-      durationMs: number;
-      extension: string;
-      error?: boolean;
-    }) => {
+      worker: Worker | undefined,
+      stage = "sniffer_resolution";
+    const finish = (value: AudioInfo | AudioFailure) => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
       void worker?.terminate();
-      if (!value || value.error)
+      if ("error" in value) {
+        const unavailable = [
+          "ERR_MODULE_NOT_FOUND",
+          "MODULE_NOT_FOUND",
+          "reference_error",
+          "worker_error",
+          "worker_timeout",
+          "worker_exit",
+        ].includes(value.code);
+        if (process.env.MEDSPACE_LIVE_AUDIO_DIAGNOSTICS === "true")
+          console.error("care_audio_check", {
+            stage: value.stage,
+            code: value.code,
+          });
         reject(
           new ClinicError(
-            415,
-            "audio_format",
-            "The recording could not be checked. Record a short new message using this page.",
+            unavailable ? 503 : 415,
+            unavailable ? "audio_unavailable" : "audio_format",
+            unavailable
+              ? "Recording checks are temporarily unavailable. Keep this recording and retry."
+              : "The recording could not be checked. Record a short new message using this page.",
           ),
         );
-      else resolve(value);
+      } else resolve(value);
     };
-    const timer = setTimeout(() => finish(), 5000);
+    const failure = (error: unknown): AudioFailure => ({
+      error: true,
+      stage,
+      code:
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        /^(?:ERR_[A-Z_]+|MODULE_NOT_FOUND)$/.test(String(error.code))
+          ? String(error.code)
+          : "worker_error",
+    });
+    const timer = setTimeout(
+      () => finish({ error: true, stage: "worker", code: "worker_timeout" }),
+      5000,
+    );
     try {
+      const fileTypeModule = packageRequire.resolve("file-type");
+      stage = "metadata_resolution";
+      const metadataModule = packageRequire.resolve("music-metadata");
+      stage = "worker";
       worker = new Worker(careAudioWorker, {
         eval: true,
         resourceLimits: {
@@ -177,18 +204,15 @@ export async function doctorAudio(file: File, durationMs: number) {
           maxYoungGenerationSizeMb: 16,
           stackSizeMb: 4,
         },
-        workerData: {
-          bytes,
-          durationMs,
-          fileTypeModule: packageRequire.resolve("file-type"),
-          metadataModule: packageRequire.resolve("music-metadata"),
-        },
+        workerData: { bytes, durationMs, fileTypeModule, metadataModule },
       });
       worker.once("message", (value) => finish(value));
-      worker.once("error", () => finish());
-      worker.once("exit", () => finish());
-    } catch {
-      finish();
+      worker.once("error", (error) => finish(failure(error)));
+      worker.once("exit", () =>
+        finish({ error: true, stage, code: "worker_exit" }),
+      );
+    } catch (error) {
+      finish(failure(error));
     }
   });
   const suppliedMime = file.type.split(";")[0].trim().toLowerCase();

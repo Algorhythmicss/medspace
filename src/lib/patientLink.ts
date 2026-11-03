@@ -164,8 +164,8 @@ export async function readQueueToken(
     value?.k !== "queue" ||
     typeof value.p !== "string" ||
     typeof value.q !== "string" ||
-    !/^[a-z0-9]{20,32}$/.test(value.p) ||
-    !/^[a-z0-9]{20,32}$/.test(value.q) ||
+    !/^[A-Za-z0-9_-]{1,80}$/.test(value.p) ||
+    !/^[A-Za-z0-9_-]{1,80}$/.test(value.q) ||
     !Number.isSafeInteger(value.v) ||
     Number(value.v) < 1
   )

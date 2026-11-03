@@ -579,11 +579,15 @@ export async function queueMutation(
     if (!ACTIVE_QUEUE.includes(entry.status as (typeof ACTIVE_QUEUE)[number]))
       throw new ClinicError(409, "finished", "That arrival has already ended.");
     if (kind === "cancel") {
-      if (actor.kind === "staff" && entry.status !== "waiting")
+      if (
+        actor.kind === "staff" &&
+        (entry.status !== "waiting" ||
+          (entry.dayKey !== clinicDay() && entry.arrivedAt < clinicDayStart()))
+      )
         throw new ClinicError(
           403,
           "role",
-          "Ask the doctor to end a called or active consultation.",
+          "Reception can remove only today’s waiting arrivals. Ask the doctor to end another arrival.",
         );
       await tx.queueEntry.update({
         where: { id: entry.id },

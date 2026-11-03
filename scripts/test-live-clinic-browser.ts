@@ -83,6 +83,7 @@ async function main() {
       .fileNumber || 0;
   const first = await db.patient.create({
     data: {
+      id: "synthetic-live-a",
       name: "SYNTHETIC live first",
       fileNumber: maximum + 1,
       ageYears: 30,
@@ -324,6 +325,15 @@ async function main() {
   await patientPage.goto(new URL(`/p/${token}`, base).href);
   pass(
     "reception shares a private QR/ticket that opens the live queue and cannot become a clinical care-plan credential",
+  );
+  assert.equal((await api(`/api/live/patient/${first.id}`, "")).status, 404);
+  assert.equal(
+    (await api(`/api/live/patient/${first.id}`, staffCookie)).status,
+    404,
+  );
+  assert.equal((await api(`/api/live/patient/${first.id}`)).status, 200);
+  pass(
+    "legacy short patient IDs work without broadening doctor-care access to reception or anonymous callers",
   );
   await staffPage
     .getByLabel("Find by name, phone or file number")

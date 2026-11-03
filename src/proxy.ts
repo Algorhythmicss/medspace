@@ -22,9 +22,10 @@ export async function proxy(req: NextRequest) {
     pathname === "/api/patient/assessment" ||
     pathname === "/api/live" ||
     pathname === "/api/live/ticket" ||
-    /^\/api\/live\/(?:media|photos|audio|patient)(?:\/[a-z0-9]{20,32})?$/.test(
-      pathname,
-    ) ||
+    pathname === "/api/live/photos" ||
+    pathname === "/api/live/audio" ||
+    /^\/api\/live\/media\/[a-z0-9]{20,32}$/.test(pathname) ||
+    /^\/api\/live\/patient\/[A-Za-z0-9_-]{1,80}$/.test(pathname) ||
     /^\/api\/assessment-files\/[a-z0-9]{20,32}$/.test(pathname) ||
     pathname === "/plan"
   ) {

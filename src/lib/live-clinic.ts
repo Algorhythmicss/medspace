@@ -187,8 +187,9 @@ export function commandId(value: unknown): string {
     throw new ClinicError(400, "command_id", "Reload this page and try again.");
   return value.toLowerCase();
 }
+// Existing SQL imports use short IDs; shape validation is not authorization.
 export function recordId(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-z0-9]{20,32}$/.test(value))
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]{1,80}$/.test(value))
     throw new ClinicError(400, "record_id", "That record could not be found.");
   return value;
 }

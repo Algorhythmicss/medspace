@@ -30,9 +30,14 @@ import {
   queueMutation,
 } from "../src/lib/live-clinic-server";
 const url = new URL(process.env.DATABASE_URL || "http://missing.invalid");
-assert.equal(url.hostname, "127.0.0.1");
-assert.equal(url.port, "5434");
-assert.equal(url.pathname, "/medspace_live_clinic_test");
+if (process.env.MEDSPACE_LIVE_HOSTED_TEST === "true") {
+  assert(url.hostname.endsWith(".neon.tech"));
+  assert.equal(url.pathname, "/medspace_assessment_hosted_test");
+} else {
+  assert.equal(url.hostname, "127.0.0.1");
+  assert.equal(url.port, "5434");
+  assert.equal(url.pathname, "/medspace_live_clinic_test");
+}
 const ids: string[] = [];
 let checks = 0;
 function pass(label: string) {
@@ -151,6 +156,7 @@ async function main() {
   for (let index = 0; index < 4; index++) {
     const patient = await db.patient.create({
       data: {
+        ...(index === 0 ? { id: "synthetic-core-p0" } : {}),
         name: `SYNTHETIC live core ${index}`,
         fileNumber: maximum + index + 1,
       },
@@ -377,8 +383,21 @@ async function main() {
       dayKey: clinicDay(yesterday),
       arrivedAt: yesterday,
       queuedAt: yesterday,
-      status: "called",
+      status: "waiting",
     },
+  });
+  await assert.rejects(
+    () =>
+      command(staff, "cancel", {
+        entryId: midnight.id,
+        revision: midnight.revision,
+      }),
+    (error: unknown) => error instanceof ClinicError && error.status === 403,
+  );
+  pass("reception cannot rewrite a previous clinic day's waiting arrival");
+  await db.queueEntry.update({
+    where: { id: midnight.id },
+    data: { status: "called" },
   });
   await command(doctor, "start", {
     entryId: midnight.id,
@@ -407,6 +426,7 @@ async function main() {
   );
   const legacy = await db.queueEntry.create({
     data: {
+      id: "synthetic-q",
       patientId: ids[3],
       status: "waiting",
       arrivedAt: new Date(Date.now() - 60000),
@@ -440,6 +460,12 @@ async function main() {
   });
   assert(adopted.number);
   assert.equal(adopted.dayKey, clinicDay());
+  const oldTicket = await createQueueToken(ids[3], legacy.id, 1);
+  assert(await readQueueToken(oldTicket));
+  assert.equal(
+    (await queueTicketSnapshot(oldTicket)).patientQueue?.entry?.id,
+    legacy.id,
+  );
   pass(
     "today's legacy waiting arrival stays visible and receives its number without a second arrival",
   );
@@ -491,6 +517,7 @@ async function main() {
     data: {
       patientId: ids[3],
       kind: "FOLLOW_UP",
+      id: "synthetic-task",
       title: "SYNTHETIC merge follow-up",
     },
   });

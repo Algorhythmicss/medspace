@@ -137,12 +137,16 @@ async function main() {
         new Promise<{ mime: string; error?: boolean }>((accept, reject) => {
           const worker = new Worker(careAudioWorker, {
             eval: true,
+            execArgv: ["--no-experimental-require-module"],
             resourceLimits: { maxOldGenerationSizeMb: 64, stackSizeMb: 4 },
             workerData: {
               bytes: fixture,
               durationMs: 1200,
               fileTypeModule: packageRequire.resolve("file-type"),
-              metadataModule: packageRequire.resolve("music-metadata"),
+              metadataModule: join(
+                temporary,
+                "node_modules/music-metadata/lib/index.js",
+              ),
             },
           });
           const timer = setTimeout(() => {
@@ -167,7 +171,7 @@ async function main() {
       console.log(
         "PASS trace-only audio artifact parses a real synthetic browser recording",
       );
-      const entry = packageRequire.resolve("music-metadata");
+      const entry = join(temporary, "node_modules/music-metadata/lib/index.js");
       await rename(entry, entry + ".removed");
       await assert.rejects(inspectAudio);
       console.log(

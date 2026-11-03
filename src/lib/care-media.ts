@@ -154,6 +154,7 @@ export async function doctorAudio(file: File, durationMs: number) {
       void worker?.terminate();
       if ("error" in value) {
         const unavailable = [
+          "ERR_PACKAGE_PATH_NOT_EXPORTED",
           "ERR_MODULE_NOT_FOUND",
           "MODULE_NOT_FOUND",
           "reference_error",
@@ -195,7 +196,12 @@ export async function doctorAudio(file: File, durationMs: number) {
     try {
       const fileTypeModule = packageRequire.resolve("file-type");
       stage = "metadata_resolution";
-      const metadataModule = packageRequire.resolve("music-metadata");
+      // Resolve the pinned import entry directly; require-only runtimes cannot
+      // select the package’s module-sync export condition.
+      const metadataModule = join(
+        process.cwd(),
+        "node_modules/music-metadata/lib/index.js",
+      );
       stage = "worker";
       worker = new Worker(careAudioWorker, {
         eval: true,

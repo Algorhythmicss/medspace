@@ -52,3 +52,10 @@ See `docs/LIVE_CLINIC.md`. Implement original clinic app, not a replacement demo
 - Next: commit/push the feature branch, deploy the protected existing synthetic project, run the same 26-check journey there, revoke the bypass, then migrate/enable/publish original project and verify final Git/deployment/alias/logs.
 
 - Hosted creation caught Vercel API’s 256-character project Build Command limit. Replaced the long shell chain with `node scripts/build-release.mjs`; the ordered manifest is verified, including failure short-circuiting and omitted/reordered gates. The complete runner passed locally. No hosted bypass was created during that first rejected attempt.
+
+## Hosted audio boundary
+
+- Hosted `99d1d75` passed all Linux build/package gates and the first queue/vitals role checks, but audio HTTP rejected the valid fixture before ownership checking. Production was not changed.
+- A bounded diagnostic on the protected synthetic project identified `metadata_resolution / ERR_PACKAGE_PATH_NOT_EXPORTED`. `music-metadata` exposes an import-only entry; the function resolver cannot use its module-sync condition. A local Node process with `--no-experimental-require-module` reproduced it.
+- Resolve the pinned import entry directly, keep the parser in its bounded worker, and add `scripts/test-audio-runtime.ts` plus the constrained worker package check to the release gates. The constrained runtime now accepts the real browser fixture and rejects spoofed media. Only fixed stage/code enums can be logged; no media bytes, metadata text or filenames are logged. The diagnostic environment flag is test-project-only and must be removed after acceptance.
+- Temporary bypasses from failed candidates were revoked before creating the next candidate. Final hosted acceptance, production migration/publication and bounded logs remain to be completed.

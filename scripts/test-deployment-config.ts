@@ -14,6 +14,7 @@ const commands = [
   "node --import tsx scripts/test-scanner-transport.ts",
   "node --import tsx scripts/test-report-attachments.ts",
   "node --import tsx scripts/test-report-save.ts",
+  "node --import tsx scripts/test-audio-runtime.ts",
   "node scripts/test-scanner-gateway.mjs",
   "node scripts/test-live-monitor.mjs",
   "pnpm exec tsx scripts/check-assessment-schema.ts",

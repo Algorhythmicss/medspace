@@ -47,6 +47,8 @@ See `docs/LIVE_CLINIC.md`. Implement original clinic app, not a replacement demo
 
 ## Local acceptance complete
 
-- Final source build passes Turbopack/TypeScript. Live core: 28 checks; three-role production-browser journey: 26 checks with zero page errors; existing regressions 212 pure + 72 DB + 17 assessment DB + 29 legacy browser; seed parity 15; package traces 14 controls. See the dated verification document.
+- Final source build passes Turbopack/TypeScript. Live core: 28 checks; three-role production-browser journey: 26 checks with zero page errors; existing regressions 213 pure + 72 DB + 17 assessment DB + 29 legacy browser; seed parity 15; package traces 14 controls. See the dated verification document.
 - Vercel CLI refreshed its expiring token via `whoami`; original-project readback works. Staff login and all required production environment keys are present (values were not fetched). Original live deployment is still `dpl_2AEY3XgxvCeo2htyZUo4xFZeyELE` at `33fdeb0`, unchanged so far.
 - Next: commit/push the feature branch, deploy the protected existing synthetic project, run the same 26-check journey there, revoke the bypass, then migrate/enable/publish original project and verify final Git/deployment/alias/logs.
+
+- Hosted creation caught Vercel API’s 256-character project Build Command limit. Replaced the long shell chain with `node scripts/build-release.mjs`; the ordered manifest is verified, including failure short-circuiting and omitted/reordered gates. The complete runner passed locally. No hosted bypass was created during that first rejected attempt.

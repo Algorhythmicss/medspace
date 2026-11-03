@@ -1,3 +1,4 @@
+import { releaseCommands, runReleaseBuild } from "./build-release.mjs";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 
@@ -37,7 +38,8 @@ function verifyConfiguration(candidate: DeploymentConfig) {
     ["$schema", "buildCommand", "git"].sort(),
   );
   assert.equal(candidate.$schema, "https://openapi.vercel.sh/vercel.json");
-  assert.equal(candidate.buildCommand, commands.join(" && "));
+  assert.equal(candidate.buildCommand, "node scripts/build-release.mjs");
+  assert(candidate.buildCommand.length <= 256);
   assert.deepEqual(candidate.git, {
     deploymentEnabled: { "**": false, main: true },
   });
@@ -52,6 +54,46 @@ for (const path of [
 ]) {
   assert(existsSync(path), `Deployment check is missing: ${path}`);
 }
+function verifyGateOrder(gates: string[][]) {
+  assert.deepEqual(
+    gates.map((command) => command.join(" ")),
+    commands,
+  );
+}
+verifyGateOrder(releaseCommands);
+const invoked: string[] = [];
+assert.equal(
+  runReleaseBuild((command: string, args: string[]) => {
+    invoked.push([command, ...args].join(" "));
+    return { status: 0 };
+  }),
+  0,
+);
+assert.deepEqual(invoked, commands);
+let attempts = 0;
+assert.equal(
+  runReleaseBuild(() => ({ status: ++attempts === 3 ? 7 : 0 })),
+  7,
+);
+assert.equal(attempts, 3);
+assert.throws(() => verifyGateOrder([...releaseCommands].reverse()));
+assert.throws(() =>
+  verifyGateOrder(
+    releaseCommands.filter(
+      (command) => !command.join(" ").includes("check-live-clinic-schema"),
+    ),
+  ),
+);
+assert.throws(() =>
+  verifyGateOrder(
+    releaseCommands.filter(
+      (command) => !command.join(" ").includes("test-assessment-package"),
+    ),
+  ),
+);
+console.log(
+  "PASS the release runner executes every ordered gate, stops at failure and detects omitted/reordered schema/package checks",
+);
 verifyConfiguration(configuration);
 console.log(
   "PASS versioned main-only deployment configuration preserves the ordered build gates",
@@ -114,5 +156,5 @@ for (const mutation of mutations) {
   console.log(`PASS configuration oracle rejects ${mutation.name}`);
 }
 console.log(
-  `ALL PASS: ${mutations.length + 1} deployment configuration checks`,
+  `ALL PASS: ${mutations.length + 2} deployment configuration checks`,
 );

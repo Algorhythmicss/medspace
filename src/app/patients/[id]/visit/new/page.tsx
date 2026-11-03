@@ -1,3 +1,4 @@
+import { clinicDayStart } from "@/lib/live-clinic";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
@@ -5,13 +6,18 @@ import { db } from "@/lib/db";
 import { buildMemoryCard } from "@/lib/memory";
 import Briefing from "@/components/Briefing";
 import VisitForm from "@/components/VisitForm";
+import DoctorRecorder from "@/components/live/DoctorRecorder";
+import { liveClinicEnabled } from "@/lib/live-clinic-server";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewVisit({ params }: { params: Promise<{ id: string }> }) {
+export default async function NewVisit({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = clinicDayStart();
   const [patient, card, checkin, savedSets] = await Promise.all([
     db.patient.findUnique({
       where: { id },
@@ -19,7 +25,11 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
         visits: {
           orderBy: { visitDate: "desc" },
           take: 1,
-          include: { prescription: { include: { items: { orderBy: { sortOrder: "asc" } } } } },
+          include: {
+            prescription: {
+              include: { items: { orderBy: { sortOrder: "asc" } } },
+            },
+          },
         },
       },
     }),
@@ -37,7 +47,13 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
         ],
       },
       orderBy: { arrivedAt: "desc" },
-      select: { bpSys: true, bpDia: true, pulse: true, weight: true, tempF: true },
+      select: {
+        bpSys: true,
+        bpDia: true,
+        pulse: true,
+        weight: true,
+        tempF: true,
+      },
     }),
     db.prescriptionSet.findMany({
       orderBy: { name: "asc" },
@@ -87,8 +103,18 @@ export default async function NewVisit({ params }: { params: Promise<{ id: strin
         />
       </div>
 
+      {liveClinicEnabled() ? (
+        <div className="mb-5">
+          <DoctorRecorder
+            key={patient.id}
+            patientId={patient.id}
+            patientName={patient.name}
+          />
+        </div>
+      ) : null}
       <VisitForm
         patientId={patient.id}
+        liveClinic={liveClinicEnabled()}
         lastRxItems={lastRxItems}
         checkinVitals={checkinVitals}
         initialSavedSets={savedSets.map((set) => ({

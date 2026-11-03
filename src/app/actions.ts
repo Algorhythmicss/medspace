@@ -25,10 +25,7 @@ import {
   prepareRosterImport,
   rosterLookupKeys,
 } from "@/lib/rosterCsv";
-import {
-  historySubmissionSummary,
-  historyTerms,
-} from "@/lib/onboarding";
+import { historySubmissionSummary, historyTerms } from "@/lib/onboarding";
 import {
   normalizePrescriptionSet,
   type PrescriptionSetInput,
@@ -42,6 +39,14 @@ import {
   readChooserToken,
 } from "@/lib/patientLink";
 import { siteUrl } from "@/lib/siteUrl";
+import {
+  clinicCommand,
+  liveClinicEnabled,
+  lockClinic,
+  touchClinic,
+  finishQueueVisit,
+} from "@/lib/live-clinic-server";
+import { clinicDay, clinicDayStart, ClinicError } from "@/lib/live-clinic";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -54,6 +59,12 @@ export async function createVisit(input: NewVisitInput) {
   const normalized = normalizeVisitInput(input);
   if (!normalized.ok) return { ok: false as const, error: normalized.error };
   const value = normalized.value;
+  if (liveClinicEnabled() && !value.commandId)
+    return {
+      ok: false as const,
+      error:
+        "Refresh the visit form before saving so this visit can be retried safely.",
+    };
   const now = new Date();
   const followUpDate = value.followUpInDays
     ? new Date(now.getTime() + value.followUpInDays * 86400000)
@@ -62,7 +73,21 @@ export async function createVisit(input: NewVisitInput) {
   // A visit touches the chart, observations, care plan, queue and drug memory.
   // Commit that entire story atomically so a mid-save database failure can
   // never leave a prescription without its tasks or a half-cleared queue.
-  const visit = await db.$transaction(async (tx) => {
+  if (
+    liveClinicEnabled() &&
+    !value.complaint &&
+    !value.diagnosis &&
+    !value.advice &&
+    !value.items.length &&
+    !followUpDate
+  )
+    return {
+      ok: false as const,
+      error:
+        "Add the consultation notes, instructions or follow-up before completing this visit.",
+    };
+  const saveVisit = async (tx: Prisma.TransactionClient) => {
+    if (liveClinicEnabled()) await lockClinic(tx);
     const patient = await tx.patient.findUnique({
       where: { id: value.patientId },
       select: { id: true },
@@ -97,11 +122,16 @@ export async function createVisit(input: NewVisitInput) {
     });
 
     const obs: Array<{ type: string; value: number; unit: string }> = [];
-    if (value.vitals.bpSys) obs.push({ type: "BP_SYS", value: value.vitals.bpSys, unit: "mmHg" });
-    if (value.vitals.bpDia) obs.push({ type: "BP_DIA", value: value.vitals.bpDia, unit: "mmHg" });
-    if (value.vitals.pulse) obs.push({ type: "PULSE", value: value.vitals.pulse, unit: "bpm" });
-    if (value.vitals.weight) obs.push({ type: "WEIGHT", value: value.vitals.weight, unit: "kg" });
-    if (value.vitals.tempF) obs.push({ type: "TEMP", value: value.vitals.tempF, unit: "°F" });
+    if (value.vitals.bpSys)
+      obs.push({ type: "BP_SYS", value: value.vitals.bpSys, unit: "mmHg" });
+    if (value.vitals.bpDia)
+      obs.push({ type: "BP_DIA", value: value.vitals.bpDia, unit: "mmHg" });
+    if (value.vitals.pulse)
+      obs.push({ type: "PULSE", value: value.vitals.pulse, unit: "bpm" });
+    if (value.vitals.weight)
+      obs.push({ type: "WEIGHT", value: value.vitals.weight, unit: "kg" });
+    if (value.vitals.tempF)
+      obs.push({ type: "TEMP", value: value.vitals.tempF, unit: "°F" });
     if (obs.length > 0) {
       await tx.observation.createMany({
         data: obs.map((observation) => ({
@@ -113,11 +143,14 @@ export async function createVisit(input: NewVisitInput) {
       });
     }
 
-    const tasks: Array<{ kind: string; title: string; dueDate: Date | null }> = [];
+    const tasks: Array<{ kind: string; title: string; dueDate: Date | null }> =
+      [];
     if (followUpDate) {
       tasks.push({
         kind: "FOLLOW_UP",
-        title: value.diagnosis ? `Review: ${value.diagnosis}` : "Follow-up visit",
+        title: value.diagnosis
+          ? `Review: ${value.diagnosis}`
+          : "Follow-up visit",
         dueDate: followUpDate,
       });
     }
@@ -125,7 +158,11 @@ export async function createVisit(input: NewVisitInput) {
       const labDue = followUpDate
         ? new Date(followUpDate.getTime() - 7 * 86400000)
         : new Date(now.getTime() + 14 * 86400000);
-      tasks.push({ kind: "LAB_TEST", title: lab, dueDate: labDue < now ? followUpDate : labDue });
+      tasks.push({
+        kind: "LAB_TEST",
+        title: lab,
+        dueDate: labDue < now ? followUpDate : labDue,
+      });
     }
     if (tasks.length > 0) {
       await tx.carePlanTask.createMany({
@@ -137,22 +174,55 @@ export async function createVisit(input: NewVisitInput) {
         })),
       });
     }
+    if (liveClinicEnabled() && value.photoInstructions) {
+      const followup = await tx.carePlanTask.findFirst({
+        where: {
+          visitId: created.id,
+          kind: "FOLLOW_UP",
+          patientId: value.patientId,
+        },
+        select: { id: true },
+      });
+      if (!followup)
+        throw new ClinicError(
+          400,
+          "followup",
+          "A follow-up is required for progress photos.",
+        );
+      await tx.progressPhotoRequest.create({
+        data: {
+          patientId: value.patientId,
+          taskId: followup.id,
+          instructions: value.photoInstructions,
+        },
+      });
+    }
 
-    await supersedeStaleLabTasks(value.patientId, value.labTasks, created.id, tx);
+    await supersedeStaleLabTasks(
+      value.patientId,
+      value.labTasks,
+      created.id,
+      tx,
+    );
     await tx.carePlanTask.updateMany({
       where: {
         patientId: value.patientId,
         status: "pending",
         kind: "FOLLOW_UP",
-        visitId: { not: created.id },
+        OR: [{ visitId: null }, { visitId: { not: created.id } }],
       },
       data: { status: "done", completedAt: now },
     });
-    await tx.queueEntry.updateMany({
-      where: { patientId: value.patientId, status: "waiting" },
-      data: { status: "seen", seenAt: now },
+    if (liveClinicEnabled()) await finishQueueVisit(tx, value.patientId);
+    else
+      await tx.queueEntry.updateMany({
+        where: { patientId: value.patientId, status: "waiting" },
+        data: { status: "seen", seenAt: now },
+      });
+    await tx.patient.update({
+      where: { id: value.patientId },
+      data: { updatedAt: now },
     });
-    await tx.patient.update({ where: { id: value.patientId }, data: { updatedAt: now } });
 
     for (const item of value.items) {
       await tx.drug.upsert({
@@ -168,8 +238,29 @@ export async function createVisit(input: NewVisitInput) {
       });
     }
 
-    return created;
-  });
+    return { id: created.id };
+  };
+  let visit: { id: string };
+  try {
+    visit =
+      liveClinicEnabled() && value.commandId
+        ? await clinicCommand(
+            { kind: "doctor" },
+            value.commandId,
+            "finish_visit",
+            value,
+            saveVisit,
+          )
+        : await db.$transaction(async (tx) => {
+            const result = await saveVisit(tx);
+            if (liveClinicEnabled()) await touchClinic(tx);
+            return result;
+          });
+  } catch (error) {
+    if (error instanceof ClinicError)
+      return { ok: false as const, error: error.message };
+    throw error;
+  }
 
   revalidatePath(`/patients/${value.patientId}`);
   revalidatePath("/");
@@ -196,7 +287,7 @@ export type PrescriptionSetState =
 // one only pre-fills the form; the doctor still sees and can change every field
 // before the visit is committed.
 export async function savePrescriptionSet(
-  input: PrescriptionSetInput
+  input: PrescriptionSetInput,
 ): Promise<PrescriptionSetState> {
   await assertClinicSession();
   const normalized = normalizePrescriptionSet(input);
@@ -213,7 +304,10 @@ export async function savePrescriptionSet(
         followUpInDays: value.followUpInDays,
         labTasks: value.labTasks,
         items: {
-          create: value.items.map((item, sortOrder) => ({ ...item, sortOrder })),
+          create: value.items.map((item, sortOrder) => ({
+            ...item,
+            sortOrder,
+          })),
         },
       },
       update: {
@@ -223,7 +317,10 @@ export async function savePrescriptionSet(
         labTasks: value.labTasks,
         items: {
           deleteMany: {},
-          create: value.items.map((item, sortOrder) => ({ ...item, sortOrder })),
+          create: value.items.map((item, sortOrder) => ({
+            ...item,
+            sortOrder,
+          })),
         },
       },
       include: { items: { orderBy: { sortOrder: "asc" } } },
@@ -247,13 +344,18 @@ export async function savePrescriptionSet(
     };
   } catch (error) {
     console.error("failed to save prescription set", error);
-    return { ok: false, error: "The set could not be saved. Please try again." };
+    return {
+      ok: false,
+      error: "The set could not be saved. Please try again.",
+    };
   }
 }
 
 export async function deletePrescriptionSet(id: string) {
   await assertClinicSession();
-  const safeId = String(id ?? "").trim().slice(0, 80);
+  const safeId = String(id ?? "")
+    .trim()
+    .slice(0, 80);
   if (!safeId) return { ok: false as const };
   await db.prescriptionSet.deleteMany({ where: { id: safeId } });
   return { ok: true as const };
@@ -264,8 +366,16 @@ export async function deletePrescriptionSet(id: string) {
 // so retry a few times on the unique-collision before giving up — cheap, and it
 // keeps a simultaneous walk-in registration from throwing in the staff's face.
 async function createPatientWithFileNumber(
-  data: Omit<Parameters<typeof db.patient.create>[0]["data"], "fileNumber">
+  data: Omit<Parameters<typeof db.patient.create>[0]["data"], "fileNumber">,
 ) {
+  if (liveClinicEnabled())
+    return db.$transaction(async (tx) => {
+      await lockClinic(tx);
+      const maximum =
+        (await tx.patient.aggregate({ _max: { fileNumber: true } }))._max
+          .fileNumber ?? 100;
+      return tx.patient.create({ data: { ...data, fileNumber: maximum + 1 } });
+    });
   for (let attempt = 0; ; attempt++) {
     const maxFile = await db.patient.aggregate({ _max: { fileNumber: true } });
     try {
@@ -304,7 +414,11 @@ export async function createReport(formData: FormData) {
   await assertClinicSession();
   const patientId = String(formData.get("patientId") ?? "");
   const title = String(formData.get("title") ?? "").trim();
-  if (!patientId || !title) return { ok: false as const, message: "Add a patient and report title before saving." };
+  if (!patientId || !title)
+    return {
+      ok: false as const,
+      message: "Add a patient and report title before saving.",
+    };
 
   const kind = String(formData.get("kind") ?? "lab");
   const dateRaw = String(formData.get("reportDate") ?? "");
@@ -319,9 +433,17 @@ export async function createReport(formData: FormData) {
   }
 
   const fileEntry = formData.get("file");
-  let file: { name: string; mime: string; bytes: Uint8Array<ArrayBuffer> } | null = null;
+  let file: {
+    name: string;
+    mime: string;
+    bytes: Uint8Array<ArrayBuffer>;
+  } | null = null;
   if (fileEntry instanceof File && fileEntry.size > 0) {
-    if (fileEntry.size > MAX_FILE_BYTES) return { ok: false as const, message: "That attachment is over 4 MB. Choose a smaller file." };
+    if (fileEntry.size > MAX_FILE_BYTES)
+      return {
+        ok: false as const,
+        message: "That attachment is over 4 MB. Choose a smaller file.",
+      };
     const declared = fileEntry.type || "application/octet-stream";
     file = {
       name: fileEntry.name,
@@ -341,9 +463,14 @@ export async function createReport(formData: FormData) {
       file,
     });
   } catch (error) {
-    if (error instanceof AssessmentError) return { ok: false as const, message: error.message };
+    if (error instanceof AssessmentError)
+      return { ok: false as const, message: error.message };
     console.error("report submission failed");
-    return { ok: false as const, message: "The report could not be saved. Your entries are kept on this device; please retry." };
+    return {
+      ok: false as const,
+      message:
+        "The report could not be saved. Your entries are kept on this device; please retry.",
+    };
   }
 
   revalidatePath(`/patients/${patientId}`);
@@ -373,7 +500,9 @@ export type MedicalDocumentState = {
 };
 
 const clipped = (value: FormDataEntryValue | null, max: number) =>
-  String(value ?? "").trim().slice(0, max);
+  String(value ?? "")
+    .trim()
+    .slice(0, max);
 
 async function historyFile(formData: FormData) {
   const entry = formData.get("file");
@@ -391,7 +520,7 @@ async function saveHistorySubmission(
   patientId: string,
   source: "patient" | "staff",
   formData: FormData,
-  expectedLinkVersion: number
+  expectedLinkVersion: number,
 ): Promise<HistorySubmissionState> {
   const conditions = clipped(formData.get("conditions"), 1500);
   const allergies = clipped(formData.get("allergies"), 1000);
@@ -399,20 +528,32 @@ async function saveHistorySubmission(
   const note = clipped(formData.get("note"), 2500);
   const kindInput = clipped(formData.get("kind"), 30);
   const kind = HISTORY_KINDS.has(kindInput) ? kindInput : "outside_rx";
-  const title = clipped(formData.get("title"), 160) ||
-    (kind === "outside_rx" ? "Previous prescription" : "Previous medical record");
+  const title =
+    clipped(formData.get("title"), 160) ||
+    (kind === "outside_rx"
+      ? "Previous prescription"
+      : "Previous medical record");
 
   let file: Awaited<ReturnType<typeof historyFile>>;
   try {
     file = await historyFile(formData);
   } catch (error) {
     if ((error as Error).message === "file_too_large") {
-      return { ok: false, message: "That file is over 4MB. Please choose a smaller photo or PDF." };
+      return {
+        ok: false,
+        message: "That file is over 4MB. Please choose a smaller photo or PDF.",
+      };
     }
-    return { ok: false, message: "The file could not be read. Please try another one." };
+    return {
+      ok: false,
+      message: "The file could not be read. Please try another one.",
+    };
   }
   if (!conditions && !allergies && !medications && !note && !file) {
-    return { ok: false, message: "Add at least one detail or attach a record." };
+    return {
+      ok: false,
+      message: "Add at least one detail or attach a record.",
+    };
   }
 
   // A leaked/forwarded link must not be usable as an unbounded database upload
@@ -422,13 +563,18 @@ async function saveHistorySubmission(
     where: { patientId, reviewStatus: "pending" },
   });
   if (pending >= 8) {
-    return { ok: false, message: "The clinic already has several records waiting for review." };
+    return {
+      ok: false,
+      message: "The clinic already has several records waiting for review.",
+    };
   }
 
   const dateRaw = clipped(formData.get("reportDate"), 20);
   const parsedDate = dateRaw ? new Date(`${dateRaw}T12:00:00`) : new Date();
   const reportDate =
-    Number.isFinite(parsedDate.getTime()) && parsedDate <= new Date() ? parsedDate : new Date();
+    Number.isFinite(parsedDate.getTime()) && parsedDate <= new Date()
+      ? parsedDate
+      : new Date();
 
   try {
     await saveReport({
@@ -436,7 +582,12 @@ async function saveHistorySubmission(
       title,
       kind,
       reportDate,
-      summary: historySubmissionSummary({ conditions, allergies, medications, note }),
+      summary: historySubmissionSummary({
+        conditions,
+        allergies,
+        medications,
+        note,
+      }),
       values: [],
       file,
       source,
@@ -447,9 +598,13 @@ async function saveHistorySubmission(
       expectedLinkVersion,
     });
   } catch (error) {
-    if (error instanceof AssessmentError) return { ok: false, message: error.message };
+    if (error instanceof AssessmentError)
+      return { ok: false, message: error.message };
     console.error("failed to save history submission");
-    return { ok: false, message: "The record could not be saved. Please try again." };
+    return {
+      ok: false,
+      message: "The record could not be saved. Please try again.",
+    };
   }
 
   revalidatePath(`/patients/${patientId}`);
@@ -462,7 +617,7 @@ async function saveHistorySubmission(
 // different chart.
 export async function submitPatientHistory(
   _previous: HistorySubmissionState,
-  formData: FormData
+  formData: FormData,
 ): Promise<HistorySubmissionState> {
   if (clipped(formData.get("consent"), 10) !== "yes") {
     const hindi = clipped(formData.get("language"), 10) === "hi";
@@ -474,23 +629,38 @@ export async function submitPatientHistory(
     };
   }
   const planToken = clipped(formData.get("planToken"), 1600) || undefined;
-  const reference = planToken ? await readPatientLink(planToken) : await readPatientSession();
-  if (!reference) return { ok: false, message: "This link has expired. Ask the clinic for a new one." };
+  const reference = planToken
+    ? await readPatientLink(planToken)
+    : await readPatientSession();
+  if (!reference)
+    return {
+      ok: false,
+      message: "This link has expired. Ask the clinic for a new one.",
+    };
   try {
     await reserveAssessmentAttempt(reference);
   } catch (error) {
-    return { ok: false, message: error instanceof AssessmentError ? error.message : "The clinic could not receive this record. Please retry." };
+    return {
+      ok: false,
+      message:
+        error instanceof AssessmentError
+          ? error.message
+          : "The clinic could not receive this record. Please retry.",
+    };
   }
   return saveHistorySubmission(reference.p, "patient", formData, reference.v);
 }
 
 export async function createMedicalDocument(
   _previous: MedicalDocumentState,
-  formData: FormData
+  formData: FormData,
 ): Promise<MedicalDocumentState> {
   await assertClinicSession();
   if (clipped(formData.get("doctorConfirmed"), 10) !== "yes") {
-    return { ok: false, message: "Review and confirm the final wording before issue." };
+    return {
+      ok: false,
+      message: "Review and confirm the final wording before issue.",
+    };
   }
   const normalized = normalizeMedicalDocument({
     patientId: clipped(formData.get("patientId"), 80),
@@ -506,7 +676,10 @@ export async function createMedicalDocument(
   const value = normalized.value;
 
   const [patient, linkedVisit] = await Promise.all([
-    db.patient.findUnique({ where: { id: value.patientId }, select: { id: true } }),
+    db.patient.findUnique({
+      where: { id: value.patientId },
+      select: { id: true },
+    }),
     value.visitId
       ? db.visit.findFirst({
           where: { id: value.visitId, patientId: value.patientId },
@@ -516,7 +689,10 @@ export async function createMedicalDocument(
   ]);
   if (!patient) return { ok: false, message: "Patient not found." };
   if (value.visitId && !linkedVisit) {
-    return { ok: false, message: "That visit does not belong to this patient." };
+    return {
+      ok: false,
+      message: "That visit does not belong to this patient.",
+    };
   }
 
   const atNoon = (date: string | null) =>
@@ -543,32 +719,49 @@ export async function createMedicalDocument(
 // review, preserving the queue-only role boundary.
 export async function submitStaffHistory(
   _previous: HistorySubmissionState,
-  formData: FormData
+  formData: FormData,
 ): Promise<HistorySubmissionState> {
   await assertQueueAccess();
   const patientId = clipped(formData.get("patientId"), 80);
   if (!patientId) return { ok: false, message: "Patient not found." };
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = clinicDayStart();
   const inQueue = await db.queueEntry.count({
     where: { patientId, status: "waiting", arrivedAt: { gte: todayStart } },
   });
-  if (!inQueue) return { ok: false, message: "This patient is no longer in today’s queue." };
-  const patient = await db.patient.findUnique({ where: { id: patientId }, select: { linkVersion: true } });
+  if (!inQueue)
+    return {
+      ok: false,
+      message: "This patient is no longer in today’s queue.",
+    };
+  const patient = await db.patient.findUnique({
+    where: { id: patientId },
+    select: { linkVersion: true },
+  });
   if (!patient) return { ok: false, message: "Patient not found." };
   try {
     await reserveAssessmentAttempt({ p: patientId, v: patient.linkVersion });
   } catch (error) {
-    return { ok: false, message: error instanceof AssessmentError ? error.message : "The clinic could not receive this record. Please retry." };
+    return {
+      ok: false,
+      message:
+        error instanceof AssessmentError
+          ? error.message
+          : "The clinic could not receive this record. Please retry.",
+    };
   }
-  return saveHistorySubmission(patientId, "staff", formData, patient.linkVersion);
+  return saveHistorySubmission(
+    patientId,
+    "staff",
+    formData,
+    patient.linkVersion,
+  );
 }
 
 async function addMissingHistory(
   client: Pick<Prisma.TransactionClient, "condition" | "allergy">,
   patientId: string,
   conditionsText: string | null,
-  allergiesText: string | null
+  allergiesText: string | null,
 ) {
   const conditions = historyTerms(conditionsText);
   const allergies = historyTerms(allergiesText);
@@ -577,14 +770,21 @@ async function addMissingHistory(
       where: { patientId, name: { equals: name, mode: "insensitive" } },
       select: { id: true },
     });
-    if (!exists) await client.condition.create({ data: { patientId, name, status: "active" } });
+    if (!exists)
+      await client.condition.create({
+        data: { patientId, name, status: "active" },
+      });
   }
   for (const substance of allergies) {
     const exists = await client.allergy.findFirst({
-      where: { patientId, substance: { equals: substance, mode: "insensitive" } },
+      where: {
+        patientId,
+        substance: { equals: substance, mode: "insensitive" },
+      },
       select: { id: true },
     });
-    if (!exists) await client.allergy.create({ data: { patientId, substance } });
+    if (!exists)
+      await client.allergy.create({ data: { patientId, substance } });
   }
 }
 
@@ -596,7 +796,7 @@ export async function reviewPatientHistory(formData: FormData) {
 
   const result = await reviewHistorySubmission(
     reportId,
-    decision === "accept" ? "accept" : "dismiss"
+    decision === "accept" ? "accept" : "dismiss",
   );
   if (!result.patientId) return;
   revalidatePath(`/patients/${result.patientId}`);
@@ -612,9 +812,13 @@ export async function saveBaselineHistory(formData: FormData) {
   const allergies = clipped(formData.get("allergies"), 1000);
   const medications = clipped(formData.get("medications"), 2500);
   const note = clipped(formData.get("note"), 2500);
-  if (!conditions && !allergies && !medications && !note) redirect(`/patients/${patientId}`);
+  if (!conditions && !allergies && !medications && !note)
+    redirect(`/patients/${patientId}`);
 
-  const patient = await db.patient.findUnique({ where: { id: patientId }, select: { id: true } });
+  const patient = await db.patient.findUnique({
+    where: { id: patientId },
+    select: { id: true },
+  });
   if (!patient) return;
   const now = new Date();
   await db.$transaction(async (tx) => {
@@ -648,7 +852,7 @@ export async function saveBaselineHistory(formData: FormData) {
 
 export async function importPatientRoster(
   _previous: RosterImportState,
-  formData: FormData
+  formData: FormData,
 ): Promise<RosterImportState> {
   await assertClinicSession();
   const file = formData.get("file");
@@ -672,18 +876,28 @@ export async function importPatientRoster(
           : "That CSV could not be read.",
     };
   }
-  if (parsed.rows.length === 0) return { ok: false, message: "No patient rows were found." };
+  if (parsed.rows.length === 0)
+    return { ok: false, message: "No patient rows were found." };
   if (parsed.rows.length > MAX_ROSTER_ROWS) {
-    return { ok: false, message: `Import up to ${MAX_ROSTER_ROWS} patients at a time.` };
+    return {
+      ok: false,
+      message: `Import up to ${MAX_ROSTER_ROWS} patients at a time.`,
+    };
   }
 
   const { phones, fileNumbers: preferredFiles } = rosterLookupKeys(parsed.rows);
   const [existingPhones, conflictingFiles, maxFile] = await Promise.all([
     phones.length
-      ? db.patient.findMany({ where: { phone: { in: phones } }, select: { phone: true } })
+      ? db.patient.findMany({
+          where: { phone: { in: phones } },
+          select: { phone: true },
+        })
       : Promise.resolve([]),
     preferredFiles.length
-      ? db.patient.findMany({ where: { fileNumber: { in: preferredFiles } }, select: { fileNumber: true } })
+      ? db.patient.findMany({
+          where: { fileNumber: { in: preferredFiles } },
+          select: { fileNumber: true },
+        })
       : Promise.resolve([]),
     db.patient.aggregate({ _max: { fileNumber: true } }),
   ]);
@@ -697,13 +911,23 @@ export async function importPatientRoster(
   });
 
   if (data.length === 0) {
-    return { ok: true, message: "No new patients were added; every row already matched a phone on file.", added: 0, skipped };
+    return {
+      ok: true,
+      message:
+        "No new patients were added; every row already matched a phone on file.",
+      added: 0,
+      skipped,
+    };
   }
   try {
     await db.patient.createMany({ data });
   } catch (error) {
     console.error("failed to import patient roster", error);
-    return { ok: false, message: "The import collided with another update. Please try it once more." };
+    return {
+      ok: false,
+      message:
+        "The import collided with another update. Please try it once more.",
+    };
   }
 
   revalidatePath("/");
@@ -848,7 +1072,9 @@ export async function recordPlanReply(kind: string, planToken?: string) {
 // session only — never the clinic passcode, so one patient can't answer for
 // another. Returns the patient id only when the version still matches.
 async function authedPatientId(planToken?: string): Promise<string | null> {
-  const ref = planToken ? await readPatientLink(planToken) : await readPatientSession();
+  const ref = planToken
+    ? await readPatientLink(planToken)
+    : await readPatientSession();
   if (!ref) return null;
   const patient = await db.patient.findUnique({
     where: { id: ref.p },
@@ -865,7 +1091,7 @@ async function authedPatientId(planToken?: string): Promise<string | null> {
 export async function recordHomeReading(
   key: string,
   values: Record<string, number>,
-  planToken?: string
+  planToken?: string,
 ): Promise<{ ok: true } | { error: string }> {
   const metric = HOME_METRICS.find((m) => m.key === key);
   if (!metric) return { error: "bad_metric" };
@@ -873,9 +1099,16 @@ export async function recordHomeReading(
   const patientId = await authedPatientId(planToken);
   if (!patientId) return { error: "expired" };
 
-  const rows = metric.fields.map((f) => ({ type: f.type, value: Number(values[f.type]) }));
+  const rows = metric.fields.map((f) => ({
+    type: f.type,
+    value: Number(values[f.type]),
+  }));
   // every field required (both BP numbers), sane range, no garbage
-  if (rows.some((r) => !Number.isFinite(r.value) || r.value <= 0 || r.value > 1000)) {
+  if (
+    rows.some(
+      (r) => !Number.isFinite(r.value) || r.value <= 0 || r.value > 1000,
+    )
+  ) {
     return { error: "invalid" };
   }
 
@@ -922,8 +1155,18 @@ function saneVitals(v: CheckinVitals | undefined) {
   };
 }
 
-export async function addToQueue(patientId: string, note?: string, vitals?: CheckinVitals) {
+export async function addToQueue(
+  patientId: string,
+  note?: string,
+  vitals?: CheckinVitals,
+) {
   await assertQueueAccess();
+  if (liveClinicEnabled())
+    throw new ClinicError(
+      409,
+      "refresh",
+      "Refresh the front desk to use live check-in.",
+    );
   if (!patientId) return;
   // Don't double-queue someone already waiting TODAY. Scoping to today matters:
   // yesterday's "seen"-that-never-happened or a stale waiting row must not block
@@ -944,7 +1187,9 @@ export async function addToQueue(patientId: string, note?: string, vitals?: Chec
       await db.queueEntry.update({ where: { id: existing.id }, data: patch });
     }
   } else {
-    await db.queueEntry.create({ data: { patientId, note: note?.trim() || null, ...v } });
+    await db.queueEntry.create({
+      data: { patientId, note: note?.trim() || null, ...v },
+    });
   }
   revalidatePath("/queue");
   revalidatePath("/");
@@ -952,6 +1197,12 @@ export async function addToQueue(patientId: string, note?: string, vitals?: Chec
 
 export async function staffRegisterAndQueue(formData: FormData) {
   await assertQueueAccess();
+  if (liveClinicEnabled())
+    throw new ClinicError(
+      409,
+      "refresh",
+      "Refresh the front desk to use live check-in.",
+    );
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
   const phone = storablePhone(String(formData.get("phone") ?? ""));
@@ -978,9 +1229,60 @@ export async function staffRegisterAndQueue(formData: FormData) {
 // them while the patient waits for the doctor. They land on the doctor's chart
 // (the "checked in" line) and pre-fill the visit form. Replaces the whole set
 // (the editor sends every field), clamped to sane ranges.
-export async function setQueueVitals(entryId: string, vitals: CheckinVitals) {
+export async function setQueueVitals(
+  entryId: string,
+  vitals: CheckinVitals,
+  revision?: number,
+) {
   await assertQueueAccess();
   if (!entryId) return;
+  if (liveClinicEnabled()) {
+    const safe = saneVitals(vitals);
+    if (
+      Object.entries(vitals).some(
+        ([key, value]) =>
+          value != null && safe[key as keyof typeof safe] === null,
+      )
+    )
+      return {
+        ok: false as const,
+        error: "Check the vital measurements before saving.",
+      };
+    try {
+      await db.$transaction(async (tx) => {
+        await lockClinic(tx);
+        const entry = await tx.queueEntry.findUnique({
+          where: { id: entryId },
+          select: {
+            status: true,
+            revision: true,
+            dayKey: true,
+            arrivedAt: true,
+          },
+        });
+        if (
+          entry?.status !== "waiting" ||
+          revision !== entry.revision ||
+          (entry.dayKey !== clinicDay() && entry.arrivedAt < clinicDayStart())
+        )
+          throw new Error("not_waiting");
+        await tx.queueEntry.update({
+          where: { id: entryId },
+          data: { ...safe, revision: { increment: 1 } },
+        });
+        await touchClinic(tx);
+      });
+      revalidatePath("/");
+      revalidatePath("/queue");
+      return { ok: true as const };
+    } catch {
+      return {
+        ok: false as const,
+        error:
+          "Could not save. Check that the patient is still waiting, then try again.",
+      };
+    }
+  }
   await db.queueEntry
     .update({ where: { id: entryId }, data: saneVitals(vitals) })
     .catch(() => {});
@@ -990,6 +1292,12 @@ export async function setQueueVitals(entryId: string, vitals: CheckinVitals) {
 
 export async function removeFromQueue(entryId: string) {
   await assertQueueAccess();
+  if (liveClinicEnabled())
+    throw new ClinicError(
+      409,
+      "refresh",
+      "Refresh the live queue before removing an arrival.",
+    );
   if (!entryId) return;
   await db.queueEntry.delete({ where: { id: entryId } }).catch(() => {});
   revalidatePath("/queue");
@@ -998,9 +1306,18 @@ export async function removeFromQueue(entryId: string) {
 
 export async function markQueueSeen(entryId: string) {
   await assertQueueAccess();
+  if (liveClinicEnabled())
+    throw new ClinicError(
+      409,
+      "refresh",
+      "Complete the consultation through the doctor visit form.",
+    );
   if (!entryId) return;
   await db.queueEntry
-    .update({ where: { id: entryId }, data: { status: "seen", seenAt: new Date() } })
+    .update({
+      where: { id: entryId },
+      data: { status: "seen", seenAt: new Date() },
+    })
     .catch(() => {});
   revalidatePath("/");
   revalidatePath("/queue");
@@ -1019,7 +1336,9 @@ export async function searchPatientsForQueue(q: string) {
   // when the value actually fits one.
   const asNumber = Number(query);
   const asFileNumber =
-    Number.isInteger(asNumber) && asNumber > 0 && asNumber <= 2147483647 ? asNumber : null;
+    Number.isInteger(asNumber) && asNumber > 0 && asNumber <= 2147483647
+      ? asNumber
+      : null;
   // Match phones on digits alone, so "+91 98765-43101" finds a stored 9876543101.
   const digits = phoneQuery(query);
   return db.patient.findMany({
@@ -1030,7 +1349,14 @@ export async function searchPatientsForQueue(q: string) {
         ...(asFileNumber !== null ? [{ fileNumber: asFileNumber }] : []),
       ],
     },
-    select: { id: true, name: true, fileNumber: true, phone: true, ageYears: true, sex: true },
+    select: {
+      id: true,
+      name: true,
+      fileNumber: true,
+      phone: true,
+      ageYears: true,
+      sex: true,
+    },
     take: 8,
     orderBy: { updatedAt: "desc" },
   });
@@ -1078,7 +1404,7 @@ export async function resetPatientLinks(patientId: string) {
 // Google URL for the client to navigate to (on the server signInWithOAuth does
 // not redirect, it hands back the URL). No plan token → a plain return-login.
 export async function startPatientGoogleAuth(
-  planToken?: string
+  planToken?: string,
 ): Promise<{ url: string } | { error: string }> {
   let bind: string | null = null;
   if (planToken) {
@@ -1088,7 +1414,8 @@ export async function startPatientGoogleAuth(
         where: { id: link.p },
         select: { linkVersion: true },
       });
-      if (p && p.linkVersion === link.v) bind = await createBindToken(link.p, link.v);
+      if (p && p.linkVersion === link.v)
+        bind = await createBindToken(link.p, link.v);
     }
     if (!bind) return { error: "expired" }; // fail closed on a stale link
   }
@@ -1123,9 +1450,13 @@ export async function startPatientGoogleAuth(
 // active binding — so a tampered form can't open an unrelated record.
 export async function selectPatientForSession(patientId: string) {
   const jar = await cookies();
-  const chooser = await readChooserToken(jar.get("medspace_choose")?.value ?? "");
-  if (!chooser || !chooser.ids.includes(patientId)) redirect("/welcome/patient?e=nolink");
-  if (!(await hasActiveAccess(chooser!.s, patientId))) redirect("/welcome/patient?e=nolink");
+  const chooser = await readChooserToken(
+    jar.get("medspace_choose")?.value ?? "",
+  );
+  if (!chooser || !chooser.ids.includes(patientId))
+    redirect("/welcome/patient?e=nolink");
+  if (!(await hasActiveAccess(chooser!.s, patientId)))
+    redirect("/welcome/patient?e=nolink");
 
   const patient = await db.patient.findUnique({
     where: { id: patientId },

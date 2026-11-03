@@ -21,6 +21,8 @@ import PlanLangToggle from "@/components/PlanLangToggle";
 import PatientHistorySubmission from "@/components/PatientHistorySubmission";
 import InitialAssessment from "@/components/InitialAssessment";
 import { assessmentEnabled, assessmentSelection } from "@/lib/assessment-server";
+import {liveClinicEnabled} from "@/lib/live-clinic-server";
+import LivePatient from "@/components/live/LivePatient";
 
 // The patient's plan, rendered identically whether they arrived by tapping
 // their WhatsApp link (/p/<token>) or by signing in with Google (/plan). The
@@ -119,6 +121,7 @@ export default async function PlanView({
       </header>
 
       {signedIn && <PatientSignOut />}
+      {liveClinicEnabled() ? <LivePatient key={patient.id} patientId={patient.id} planToken={planToken} /> : null}
       {assessmentEnabled() && <InitialAssessment assessments={assessments.map((assessment) => ({ ...assessment, createdAt: assessment.createdAt.toISOString() }))} planToken={planToken} lang={lang} />}
 
       <section className="mt-5">

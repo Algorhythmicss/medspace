@@ -1,4 +1,7 @@
 <!-- BEGIN:nextjs-agent-rules -->
+
+> **Current live-clinic contract, 3 November 2026:** `docs/LIVE_CLINIC.md` supersedes historical no-token/ETA wording below. New private tables require `scripts/check-live-clinic-schema.ts` before deployment. `/api/live` handlers self-authorize; `/q/<token>` is a 24-hour queue-only surface with a separate signed token kind. Never broaden that credential to clinical care. Live queue writes and visit completion are locked/idempotent; preserve new media during merging even when the live UI flag is off. Scanner hosting is deferred and document quarantine stays enabled.
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.

@@ -6,6 +6,9 @@ export type VisitItemInput = {
 };
 
 export type VisitInput = {
+  commandId?: string;
+  photoInstructions?: string;
+  requestProgressPhotos?: boolean;
   patientId: string;
   complaint?: string;
   diagnosis?: string;
@@ -23,6 +26,8 @@ export type VisitInput = {
 };
 
 export type NormalizedVisitInput = {
+  commandId?: string;
+  photoInstructions?: string;
   patientId: string;
   complaint: string | null;
   diagnosis: string | null;
@@ -33,20 +38,25 @@ export type NormalizedVisitInput = {
   labTasks: string[];
 };
 
-const clean = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
+const clean = (value: unknown, max: number) =>
+  String(value ?? "")
+    .trim()
+    .slice(0, max);
 
 function optionalMeasurement(
   value: unknown,
   min: number,
-  max: number
+  max: number,
 ): number | undefined | null {
   if (value == null || value === "") return undefined;
   const number = Number(value);
-  return Number.isFinite(number) && number >= min && number <= max ? number : null;
+  return Number.isFinite(number) && number >= min && number <= max
+    ? number
+    : null;
 }
 
 export function normalizeVisitInput(
-  input: VisitInput
+  input: VisitInput,
 ): { ok: true; value: NormalizedVisitInput } | { ok: false; error: string } {
   const patientId = clean(input?.patientId, 80);
   if (!patientId) return { ok: false, error: "Patient not found." };
@@ -87,11 +97,33 @@ export function normalizeVisitInput(
 
   const followUp = Number(input?.followUpInDays);
   const followUpInDays =
-    Number.isInteger(followUp) && followUp >= 1 && followUp <= 365 ? followUp : null;
+    Number.isInteger(followUp) && followUp >= 1 && followUp <= 365
+      ? followUp
+      : null;
+  const photoInstructions = clean(input.photoInstructions, 500);
+  if (input.requestProgressPhotos && !photoInstructions)
+    return {
+      ok: false,
+      error: "Add instructions for the requested progress photos.",
+    };
+  if (photoInstructions && !followUpInDays)
+    return {
+      ok: false,
+      error: "Choose a follow-up before requesting progress photos.",
+    };
+  if (
+    input.commandId &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      input.commandId,
+    )
+  )
+    return { ok: false, error: "Reload the visit form before saving." };
 
   return {
     ok: true,
     value: {
+      ...(input.commandId ? { commandId: input.commandId } : {}),
+      ...(photoInstructions ? { photoInstructions } : {}),
       patientId,
       complaint: clean(input?.complaint, 2000) || null,
       diagnosis: clean(input?.diagnosis, 2000) || null,

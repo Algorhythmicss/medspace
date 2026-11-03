@@ -21,6 +21,7 @@ model Clinic {
   degrees    String?
   phone      String?
   address    String?
+  liveSettings ClinicLiveSettings?
 }
 
 model Patient {
@@ -86,6 +87,8 @@ model Patient {
   documents    MedicalDocument[]
   initialAssessments InitialAssessment[]
   assessmentUploadLimit AssessmentUploadLimit?
+  progressPhotoRequests ProgressPhotoRequest[]
+  careMedia CareMedia[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -315,6 +318,7 @@ model CarePlanTask {
   status      String    @default("pending") // pending | done | cancelled
   completedAt DateTime?
   createdAt   DateTime  @default(now())
+  photoRequest ProgressPhotoRequest?
 
   @@index([patientId, status])
   @@index([status, dueDate])
@@ -374,10 +378,17 @@ model QueueEntry {
   id        String    @id @default(cuid())
   patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
   patientId String
-  status    String    @default("waiting") // waiting | seen
+  status    String    @default("waiting") // waiting | called | in_consultation | completed | cancelled | seen (legacy)
   arrivedAt DateTime  @default(now())
   seenAt    DateTime?
   note      String? // optional reason for visit, front-desk entered
+  dayKey    String?
+  number    Int?
+  queuedAt  DateTime @default(now())
+  calledAt  DateTime?
+  startedAt DateTime?
+  revision  Int @default(0)
+  careMedia CareMedia[]
 
   // Vitals the front desk / nurse takes at check-in, while the patient waits.
   // The doctor sees them on the chart the moment they open it, and the visit
@@ -393,6 +404,69 @@ model QueueEntry {
 
   @@index([status, arrivedAt])
   @@index([patientId, status])
+  @@index([dayKey, status, queuedAt])
+}
+
+model ClinicLiveSettings {
+  id String @id @default("clinic")
+  clinic Clinic @relation(fields: [id], references: [id], onDelete: Cascade)
+  averageMinutes Int?
+  paused Boolean @default(false)
+  revision Int @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model ClinicQueueDay {
+  dayKey String @id
+  nextNumber Int @default(1)
+}
+
+model LiveCommandReceipt {
+  id String @id
+  actor String
+  kind String
+  payloadHash String
+  result Json
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
+
+model ProgressPhotoRequest {
+  id String @id @default(cuid())
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String
+  task CarePlanTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskId String? @unique
+  instructions String
+  maximumPhotos Int @default(3)
+  status String @default("open")
+  createdAt DateTime @default(now())
+  closedAt DateTime?
+  files CareMedia[]
+  @@index([patientId, status])
+}
+
+model CareMedia {
+  id String @id @default(cuid())
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId String
+  request ProgressPhotoRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String?
+  queueEntry QueueEntry? @relation(fields: [queueEntryId], references: [id], onDelete: SetNull)
+  queueEntryId String?
+  kind String // progress_photo | doctor_audio
+  name String
+  mime String
+  size Int
+  sha256 String
+  data Bytes
+  durationMs Int?
+  sharedAt DateTime?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([patientId, kind, createdAt])
+  @@index([requestId, createdAt])
+  @@unique([requestId, sha256])
 }
 
 // Failed passcode attempts, for throttling /login. The clinic passcode is a

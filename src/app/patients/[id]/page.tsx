@@ -25,6 +25,8 @@ import Briefing from "@/components/Briefing";
 import { relDay, shortDate } from "@/lib/format";
 import HistoryReview from "@/components/HistoryReview";
 import AssessmentReview from "@/components/AssessmentReview";
+import DoctorLiveCare from "@/components/live/DoctorLiveCare";
+import {liveClinicEnabled} from "@/lib/live-clinic-server";
 import { assessmentEnabled, assessmentSelection } from "@/lib/assessment-server";
 import { assertClinicSession } from "@/lib/session";
 
@@ -231,6 +233,7 @@ export default async function PatientChart({
 
       <HistoryReview submissions={pendingHistory} />
       <AssessmentReview assessments={assessments.map((assessment) => ({ ...assessment, createdAt: assessment.createdAt.toISOString() }))} />
+      {liveClinicEnabled() ? <DoctorLiveCare key={patient.id} patientId={patient.id} patientName={patient.name} /> : null}
 
       {/* ── open items: what is owed, in one place ───────────── */}
       {(patient.tasks.length > 0 || patient.reports.length > 0) && (

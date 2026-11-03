@@ -3,7 +3,9 @@ import type { Metadata } from "next";
 import { Activity, Clock3, FolderInput, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { relDay, patientAgeSex } from "@/lib/format";
-import { hasStaffSession } from "@/lib/session";
+import { hasStaffSession, hasClinicSession } from "@/lib/session";
+import { liveClinicEnabled } from "@/lib/live-clinic-server";
+import LiveQueue from "@/components/live/LiveQueue";
 import { staffSignOut } from "@/app/actions";
 import QueueDesk from "@/components/QueueDesk";
 import QueueVitals from "@/components/QueueVitals";
@@ -19,6 +21,10 @@ export const metadata: Metadata = {
 // The front-desk queue. Staff add whoever walks in; the doctor sees the list on
 // their Today screen. Deliberately a walk-in list, not a booking calendar.
 export default async function QueueScreen() {
+  if (liveClinicEnabled()) {
+    const [clinic,doctor] = await Promise.all([db.clinic.findUnique({where:{id:"clinic"},select:{clinicName:true}}),hasClinicSession()]);
+    return <div className="py-5"><header className="mb-5 flex items-start justify-between gap-3"><div><p className="t-cap text-ink3">{clinic?.clinicName??"Clinic"}</p><h1 className="t-hero">Front desk</h1><p className="t-cap mt-1 text-ink3">Check patients in as they arrive. The doctor and patient see the queue update.</p></div>{!doctor?<form action={staffSignOut}><button className="t-cap min-h-11 px-2 text-ink3">Sign out</button></form>:null}</header><LiveQueue role={doctor?"doctor":"staff"}/>{doctor?<Link href="/" className="t-cap mt-5 inline-flex min-h-11 items-center text-peri">Back to the clinic</Link>:<p className="t-micro mt-5 text-center text-ink3">Staff view · clinical records stay with the doctor.</p>}</div>;
+  }
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 

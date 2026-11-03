@@ -42,7 +42,7 @@ async function sign(payload: string): Promise<string> {
     ENC.encode(secret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
-    ["sign"]
+    ["sign"],
   );
   const sig = await crypto.subtle.sign("HMAC", key, ENC.encode(payload));
   return b64url(new Uint8Array(sig));
@@ -54,7 +54,7 @@ async function sign(payload: string): Promise<string> {
 export async function createPatientToken(
   patientId: string,
   days = PATIENT_LINK_DAYS,
-  linkVersion = 1
+  linkVersion = 1,
 ): Promise<string> {
   const payload = JSON.stringify({
     p: patientId,
@@ -73,7 +73,7 @@ export async function createPatientToken(
  * loaded), which is where per-patient revocation actually bites.
  */
 export async function readPatientLink(
-  token: string
+  token: string,
 ): Promise<{ p: string; v: number } | null> {
   const dot = token.lastIndexOf(".");
   if (dot < 1) return null;
@@ -130,7 +130,8 @@ async function verify(token: string): Promise<Record<string, unknown> | null> {
   const expected = await sign(encoded);
   if (provided.length !== expected.length) return null;
   let diff = 0;
-  for (let i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+  for (let i = 0; i < expected.length; i++)
+    diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
   if (diff !== 0) return null;
   try {
     const obj = JSON.parse(fromB64url(encoded)) as Record<string, unknown>;
@@ -146,25 +147,65 @@ async function mint(payload: Record<string, unknown>): Promise<string> {
   return `${encoded}.${await sign(encoded)}`;
 }
 
+/** Reception may share an arrival ticket, never a credential for clinical records. */
+export async function createQueueToken(
+  p: string,
+  q: string,
+  v: number,
+): Promise<string> {
+  return mint({ k: "queue", p, q, v, e: Date.now() + 86400000 });
+}
+export async function readQueueToken(
+  token: string,
+): Promise<{ p: string; q: string; v: number } | null> {
+  if (token.length > 1600 || !/^[A-Za-z0-9_.-]+$/.test(token)) return null;
+  const value = await verify(token);
+  if (
+    value?.k !== "queue" ||
+    typeof value.p !== "string" ||
+    typeof value.q !== "string" ||
+    !/^[a-z0-9]{20,32}$/.test(value.p) ||
+    !/^[a-z0-9]{20,32}$/.test(value.q) ||
+    !Number.isSafeInteger(value.v) ||
+    Number(value.v) < 1
+  )
+    return null;
+  return { p: value.p, q: value.q, v: Number(value.v) };
+}
+
 /** Short-lived proof, set as an HttpOnly cookie when a link-holder starts the
  *  Google flow, that the bind about to happen is for patient `p` at version `v`. */
 export async function createBindToken(p: string, v: number): Promise<string> {
   return mint({ k: "bind", p, v, e: Date.now() + 10 * MIN });
 }
-export async function readBindToken(token: string): Promise<{ p: string; v: number } | null> {
+export async function readBindToken(
+  token: string,
+): Promise<{ p: string; v: number } | null> {
   const o = await verify(token);
-  if (!o || o.k !== "bind" || typeof o.p !== "string" || typeof o.v !== "number") return null;
+  if (
+    !o ||
+    o.k !== "bind" ||
+    typeof o.p !== "string" ||
+    typeof o.v !== "number"
+  )
+    return null;
   return { p: o.p, v: o.v };
 }
 
 /** Short-lived list of the patients a Google account resolves to, when it is
  *  more than one (a shared family account) — carried to the chooser screen. */
-export async function createChooserToken(ids: string[], sub: string): Promise<string> {
+export async function createChooserToken(
+  ids: string[],
+  sub: string,
+): Promise<string> {
   return mint({ k: "who", ids, s: sub, e: Date.now() + 10 * MIN });
 }
-export async function readChooserToken(token: string): Promise<{ ids: string[]; s: string } | null> {
+export async function readChooserToken(
+  token: string,
+): Promise<{ ids: string[]; s: string } | null> {
   const o = await verify(token);
-  if (!o || o.k !== "who" || !Array.isArray(o.ids) || typeof o.s !== "string") return null;
+  if (!o || o.k !== "who" || !Array.isArray(o.ids) || typeof o.s !== "string")
+    return null;
   if (!o.ids.every((x) => typeof x === "string")) return null;
   return { ids: o.ids as string[], s: o.s };
 }
@@ -173,13 +214,27 @@ export async function readChooserToken(token: string): Promise<{ ids: string[]; 
  *  60 days so returning is one tap; carries the link version so a doctor's
  *  "reset links" cuts it off like any other outstanding link. */
 export const PATIENT_SESSION_DAYS = 60;
-export async function createPatientSession(p: string, v: number): Promise<string> {
-  return mint({ k: "sess", p, v, e: Date.now() + PATIENT_SESSION_DAYS * 86400000 });
+export async function createPatientSession(
+  p: string,
+  v: number,
+): Promise<string> {
+  return mint({
+    k: "sess",
+    p,
+    v,
+    e: Date.now() + PATIENT_SESSION_DAYS * 86400000,
+  });
 }
 export async function readPatientSessionValue(
-  token: string
+  token: string,
 ): Promise<{ p: string; v: number } | null> {
   const o = await verify(token);
-  if (!o || o.k !== "sess" || typeof o.p !== "string" || typeof o.v !== "number") return null;
+  if (
+    !o ||
+    o.k !== "sess" ||
+    typeof o.p !== "string" ||
+    typeof o.v !== "number"
+  )
+    return null;
   return { p: o.p, v: o.v };
 }

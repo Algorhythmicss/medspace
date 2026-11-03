@@ -19,6 +19,8 @@ import { loadPracticePulse } from "@/lib/continuity";
 import PracticePulse from "@/components/PracticePulse";
 import { latestVisitPerPatient } from "@/lib/recentVisits";
 import { assessmentEnabled } from "@/lib/assessment-server";
+import { liveClinicEnabled } from "@/lib/live-clinic-server";
+import LiveQueue from "@/components/live/LiveQueue";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +33,7 @@ function greeting(hour: number): string {
 
 export default async function Home() {
   const assessmentsVisible = assessmentEnabled();
+  const liveEnabled = liveClinicEnabled();
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart.getTime() + 86400000);
@@ -88,7 +91,7 @@ export default async function Home() {
         },
       },
     }),
-    db.queueEntry.findMany({
+    liveEnabled ? Promise.resolve([]) : db.queueEntry.findMany({
       where: { status: "waiting", arrivedAt: { gte: todayStart } },
       orderBy: { arrivedAt: "asc" },
       select: {
@@ -169,6 +172,7 @@ export default async function Home() {
       <div className="lg:mt-6 lg:grid lg:grid-cols-12 lg:items-start lg:gap-6">
       <div className="lg:col-span-5 lg:space-y-6">
       {/* Who is physically here right now — front-desk queue, most immediate. */}
+      {liveEnabled ? <div className="mt-5 lg:mt-0"><LiveQueue role="doctor" /></div> : null}
       {inClinic.length > 0 && (
         <section className="mt-5 lg:mt-0">
           <div className="mb-2 flex items-baseline justify-between px-1">

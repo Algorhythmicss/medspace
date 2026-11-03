@@ -1,5 +1,7 @@
 # medSpace — Handoff & Context
 
+> **Live clinic implementation — 3 November 2026:** the original app now implements the founder-authorized single-doctor live queue, reception QR handoff, private patient number/position/conservative ETA, doctor average/pause controls, assigned progress photos and explicit short voice messages. Local acceptance includes 28 new database checks, 26 simultaneous three-role HTTP/browser checks, the existing regressions and trace-only worker packages. See [the contract](docs/LIVE_CLINIC.md) and [dated verification](docs/VERIFICATION-LIVE-CLINIC-2026-11-03.md) for current publication gates and proof limits. Earlier operational blocks below are historical snapshots; no physical-device or clinical acceptance follows from synthetic tests.
+
 > **Current direction — 3 November 2026:** hosted private scanning is deferred by the founder due to budget. Keep document quarantine; add no paid scanner infrastructure. Track it in [future work](docs/FUTURE_WORK.md) and continue the core visit flows.
 
 > **Operational follow-up — 3 November 2026:** Shared receipts record a working Git-triggered production deployment of `33fdeb0`. Later security changes at `0416993` are committed locally and are not pushed or deployed: legacy attachment inspection/private delivery, atomic history saves, a prepared mutual-TLS scanner gateway and monitoring controls. Their 63 focused checks passed; a fresh build, database concurrency, real scanner handshake, iOS Simulator and restore drill remain unverified because of access or infrastructure limits. The existing 27-check hosted result covers `e0db7ac`, not this new code. Read `docs/ASSESSMENT_OPERATIONS.md` for the current evidence and remaining work; use the already isolated synthetic target rather than provisioning another test database.
@@ -33,7 +35,7 @@ Three deliberate strategic bets — these are the product, not features:
 ### The anti-bloat firewall (do **NOT** build these)
 The competitor everyone points at (EkaCare) is the cautionary tale: it became a bloated everything-app. The user has repeatedly and explicitly refused the following. Treat this as a hard firewall:
 
-- **No booking calendar / appointment slots / token system.** The front-desk queue is a **walk-in live list only**, never a scheduler.
+- **No booking calendar / appointment slots.** The founder authorized numbered walk-in arrivals, private queue tickets and conservative ETAs on 3 November 2026; see `docs/LIVE_CLINIC.md`. This remains a single-doctor walk-in flow.
 - **No billing / GST / day-book / invoicing.**
 - **No automated reminder cron** (reminders are *manually sent* by the doctor from the follow-ups screen).
 - **No ABHA / health-locker / ABDM integration** (compliance-heavy; not for a single-clinic MVP).

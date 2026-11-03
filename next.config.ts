@@ -6,8 +6,15 @@ const nextConfig: NextConfig = {
   turbopack: { root: __dirname },
   outputFileTracingIncludes: {
     "/*": [
+      "./node_modules/file-type",
+      "./node_modules/sharp",
+      "./node_modules/music-metadata",
+      "./node_modules/.pnpm/{file-type@*,sharp@*,music-metadata@*,strtok3@*,token-types@*,uint8array-extras@*,@tokenizer+*,@borewit+*,debug@*,ms@*,@img+*,detect-libc@*,semver@*,ieee754@*,media-typer@*,content-type@*,link@*}/node_modules/*",
+      "./node_modules/.pnpm/{file-type@*,sharp@*,music-metadata@*,strtok3@*,token-types@*,uint8array-extras@*,@tokenizer+*,@borewit+*}/node_modules/@*/*",
       "./node_modules/file-type/**/*",
       "./node_modules/sharp/**/*",
+      "./node_modules/music-metadata/**/*",
+      "./node_modules/.pnpm/{music-metadata@*,media-typer@*,content-type@*,link@*,@borewit+*,@tokenizer+*,strtok3@*,token-types@*,uint8array-extras@*,debug@*,ms@*}/**/*",
       "./node_modules/.pnpm/{file-type@*,sharp@*,strtok3@*,token-types@*,uint8array-extras@*,@tokenizer+*,@borewit+*,ieee754@*,debug@4*,ms@2*,@img+*,detect-libc@*,semver@7*}/**/*",
     ],
   },
@@ -36,7 +43,8 @@ const nextConfig: NextConfig = {
       "object-src 'none'",
       "frame-ancestors 'none'",
       "frame-src 'none'",
-      "img-src 'self' data:",
+      "img-src 'self' data: blob:",
+      "media-src 'self' blob:",
       "font-src 'self'",
       "connect-src 'self'",
       "style-src 'self' 'unsafe-inline'",
@@ -50,10 +58,12 @@ const nextConfig: NextConfig = {
           // URL) to another origin via Referer.
           { key: "Referrer-Policy", value: "same-origin" },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          // Deny device capabilities this clinic app never uses, on a PHI origin.
+          // Recording is permission-gated in the doctor UI. Same-origin microphone
+          // capability must survive client navigation from login/home to a visit.
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+            value:
+              "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
           },
           { key: "Content-Security-Policy", value: csp },
           // Force HTTPS so a credential-bearing patient link can't be sent over
@@ -73,12 +83,23 @@ const nextConfig: NextConfig = {
         // A patient's whole record is keyed by a URL that IS the credential.
         // Keep it out of shared/CDN caches and off the disk of a shared phone.
         source: "/p/:token*",
-        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        ],
+      },
+      {
+        source: "/q/:token*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        ],
       },
       {
         source: "/api/assessment-files/:id",
         headers: [
-          { key: "Content-Security-Policy", value: "default-src 'none'; sandbox; frame-ancestors 'none'" },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; sandbox; frame-ancestors 'none'",
+          },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Cache-Control", value: "private, no-store, max-age=0" },
@@ -87,7 +108,22 @@ const nextConfig: NextConfig = {
       {
         source: "/api/reports/:id/file",
         headers: [
-          { key: "Content-Security-Policy", value: "default-src 'none'; sandbox; frame-ancestors 'none'" },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; sandbox; frame-ancestors 'none'",
+          },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        ],
+      },
+      {
+        source: "/api/live/media/:id",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; sandbox; frame-ancestors 'none'",
+          },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Cache-Control", value: "private, no-store, max-age=0" },
@@ -96,7 +132,9 @@ const nextConfig: NextConfig = {
       {
         // Same for the signed-in patient view.
         source: "/plan",
-        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+        ],
       },
     ];
   },

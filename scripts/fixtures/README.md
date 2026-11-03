@@ -1,0 +1,1 @@
+`synthetic-doctor-message.webm` is a short 440 Hz tone generated with Chrome Web Audio and MediaRecorder by `scripts/make-synthetic-audio.mjs`. It contains no microphone capture, human voice or patient information. The trace-only packaging checks use it to prove that the deployed audio worker can load its parser and inspect a real browser container.

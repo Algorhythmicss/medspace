@@ -9,7 +9,7 @@ import { createSessionValue } from "../src/lib/auth";
 
 const database = new URL(process.env.DATABASE_URL || "http://missing.invalid");
 const base = new URL(process.env.MEDSPACE_ASSESSMENT_TEST_URL || "http://127.0.0.1:3002");
-assert(["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) && database.pathname === "/medspace_assessment_test", "Only the dedicated local assessment database may be tested");
+assert(["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) && ["/medspace_assessment_test","/medspace_live_clinic_test"].includes(database.pathname), "Only the dedicated local assessment database may be tested");
 assert(["localhost", "127.0.0.1", "[::1]"].includes(base.hostname), "This suite never writes to a hosted app");
 const output = resolve(process.env.MEDSPACE_ASSESSMENT_TEST_OUTPUT || "../tmp/patient-assessment-20261102/browser");
 const patientIds: string[] = [];

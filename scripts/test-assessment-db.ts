@@ -9,7 +9,7 @@ import { mergePatients } from "../src/lib/merge";
 import { saveReport } from "../src/lib/reports";
 
 const target = new URL(process.env.DATABASE_URL || "http://missing.invalid");
-assert(["localhost", "127.0.0.1", "[::1]"].includes(target.hostname) && target.pathname === "/medspace_assessment_test", "Tests require the dedicated local medspace_assessment_test database");
+assert(["localhost", "127.0.0.1", "[::1]"].includes(target.hostname) && ["/medspace_assessment_test","/medspace_live_clinic_test"].includes(target.pathname), "Tests require the dedicated local medspace_assessment_test database");
 const answers = { concern: "Synthetic concern only", duration: "Two days, unchanged", context: "Patient reports a medicine and an allergy; neither is a verified clinical fact." };
 const patients: string[] = [];
 let nextNumber = 1;

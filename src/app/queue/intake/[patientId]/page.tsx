@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import { clinicDayStart } from "@/lib/live-clinic";
 import { db } from "@/lib/db";
 import { assertQueueAccess } from "@/lib/session";
 import PatientHistorySubmission from "@/components/PatientHistorySubmission";
@@ -14,12 +15,13 @@ export default async function FrontDeskHistory({
 }) {
   await assertQueueAccess();
   const { patientId } = await params;
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = clinicDayStart();
   const patient = await db.patient.findFirst({
     where: {
       id: patientId,
-      queueEntries: { some: { status: "waiting", arrivedAt: { gte: todayStart } } },
+      queueEntries: {
+        some: { status: "waiting", arrivedAt: { gte: todayStart } },
+      },
     },
     select: { id: true, name: true, fileNumber: true },
   });
@@ -28,16 +30,28 @@ export default async function FrontDeskHistory({
   return (
     <div className="pb-10 pt-4">
       <header className="mb-5 flex items-center gap-1">
-        <Link href="/queue" aria-label="Back to queue" className="-ml-2 p-1.5 text-peri active:opacity-60">
+        <Link
+          href="/queue"
+          aria-label="Back to queue"
+          className="-ml-2 p-1.5 text-peri active:opacity-60"
+        >
           <ChevronLeft size={26} />
         </Link>
         <div>
           <h1 className="t-title">Add older records</h1>
-          <p className="t-cap text-ink3">{patient.name} · #{patient.fileNumber}</p>
+          <p className="t-cap text-ink3">
+            {patient.name} · #{patient.fileNumber}
+          </p>
         </div>
       </header>
-      <PatientHistorySubmission audience="staff" patientId={patient.id} embedded />
-      <p className="t-micro mt-4 px-4 text-center text-ink3">The doctor reviews this next. Staff cannot open the chart.</p>
+      <PatientHistorySubmission
+        audience="staff"
+        patientId={patient.id}
+        embedded
+      />
+      <p className="t-micro mt-4 px-4 text-center text-ink3">
+        The doctor reviews this next. Staff cannot open the chart.
+      </p>
     </div>
   );
 }

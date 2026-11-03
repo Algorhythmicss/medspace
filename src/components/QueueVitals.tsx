@@ -23,7 +23,15 @@ const FIELDS = [
 // Staff (usually a nurse) records a waiting patient's vitals while they wait for
 // the doctor — the way it happens in a real clinic. Saved vitals show inline and
 // flow straight to the doctor's chart and the visit form.
-export default function QueueVitals({ entryId, vitals }: { entryId: string; vitals: V }) {
+export default function QueueVitals({
+  entryId,
+  vitals,
+  revision,
+}: {
+  entryId: string;
+  vitals: V;
+  revision?: number;
+}) {
   const has =
     vitals.bpSys != null ||
     vitals.bpDia != null ||
@@ -39,6 +47,8 @@ export default function QueueVitals({ entryId, vitals }: { entryId: string; vita
     tempF: vitals.tempF?.toString() ?? "",
   });
   const [pending, start] = useTransition();
+  const [baseRevision, setBaseRevision] = useState(revision);
+  const [error, setError] = useState("");
 
   const summary = [
     vitals.bpSys ? `BP ${vitals.bpSys}/${vitals.bpDia ?? "?"}` : null,
@@ -52,21 +62,48 @@ export default function QueueVitals({ entryId, vitals }: { entryId: string; vita
   function save() {
     const num = (s: string) => (s.trim() ? Number(s) : null);
     start(async () => {
-      await setQueueVitals(entryId, {
-        bpSys: num(form.bpSys),
-        bpDia: num(form.bpDia),
-        pulse: num(form.pulse),
-        weight: num(form.weight),
-        tempF: num(form.tempF),
-      });
-      setOpen(false);
+      setError("");
+      try {
+        const result = await setQueueVitals(
+          entryId,
+          {
+            bpSys: num(form.bpSys),
+            bpDia: num(form.bpDia),
+            pulse: num(form.pulse),
+            weight: num(form.weight),
+            tempF: num(form.tempF),
+          },
+          baseRevision,
+        );
+        if (result && !result.ok) {
+          setError(result.error);
+          return;
+        }
+        setOpen(false);
+      } catch {
+        setError(
+          "Could not confirm the measurements. Check the connection and try again.",
+        );
+      }
     });
   }
 
   if (!open) {
     return (
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setBaseRevision(revision);
+          setForm(
+            Object.fromEntries(
+              Object.entries(vitals).map(([key, value]) => [
+                key,
+                value?.toString() ?? "",
+              ]),
+            ),
+          );
+          setError("");
+          setOpen(true);
+        }}
         aria-expanded={open}
         className={`t-cap mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold active:opacity-70 ${
           has ? "bg-jadesoft text-jade" : "bg-buttersoft text-butter"
@@ -84,10 +121,16 @@ export default function QueueVitals({ entryId, vitals }: { entryId: string; vita
 
   return (
     <div className="mt-2.5">
+      {error ? (
+        <p role="alert" className="t-cap mb-2 text-coral">
+          {error}
+        </p>
+      ) : null}
       <div className="grid grid-cols-5 gap-1.5">
         {FIELDS.map(([key, ph]) => (
           <input
             key={key}
+            aria-label={ph}
             value={form[key]}
             onChange={(e) => setForm((s) => ({ ...s, [key]: e.target.value }))}
             placeholder={ph}
@@ -98,6 +141,7 @@ export default function QueueVitals({ entryId, vitals }: { entryId: string; vita
       </div>
       <div className="mt-2 flex gap-2">
         <button
+          disabled={pending}
           onClick={() => setOpen(false)}
           className="flex-1 rounded-xl bg-sunk py-2 text-[13px] font-semibold text-ink2 active:opacity-70"
         >

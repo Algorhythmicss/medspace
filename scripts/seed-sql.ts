@@ -11,7 +11,7 @@ const t = (d: Date | null | undefined) => (d == null ? "NULL" : `'${d.toISOStrin
 
 // wipe then rebuild
 out.push(
-  `DELETE FROM "MedicalDocument"; DELETE FROM "QueueEntry"; DELETE FROM "PatientAccess"; DELETE FROM "CarePlanTask"; DELETE FROM "Observation"; DELETE FROM "PrescriptionItem"; DELETE FROM "Prescription"; DELETE FROM "PrescriptionSetItem"; DELETE FROM "PrescriptionSet"; DELETE FROM "Report"; DELETE FROM "Visit"; DELETE FROM "Condition"; DELETE FROM "Allergy"; DELETE FROM "Patient"; DELETE FROM "Drug"; DELETE FROM "Clinic";`
+  `DELETE FROM "CareMedia"; DELETE FROM "ProgressPhotoRequest"; DELETE FROM "LiveCommandReceipt"; DELETE FROM "ClinicQueueDay"; DELETE FROM "ClinicLiveSettings"; DELETE FROM "MedicalDocument"; DELETE FROM "QueueEntry"; DELETE FROM "PatientAccess"; DELETE FROM "CarePlanTask"; DELETE FROM "Observation"; DELETE FROM "PrescriptionItem"; DELETE FROM "Prescription"; DELETE FROM "PrescriptionSetItem"; DELETE FROM "PrescriptionSet"; DELETE FROM "Report"; DELETE FROM "Visit"; DELETE FROM "Condition"; DELETE FROM "Allergy"; DELETE FROM "Patient"; DELETE FROM "Drug"; DELETE FROM "Clinic";`
 );
 
 out.push(

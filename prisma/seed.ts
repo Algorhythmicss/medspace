@@ -54,6 +54,11 @@ const FORMULARY: Array<{
 
 async function main() {
   // idempotent re-seed
+  await db.careMedia.deleteMany();
+  await db.progressPhotoRequest.deleteMany();
+  await db.liveCommandReceipt.deleteMany();
+  await db.clinicQueueDay.deleteMany();
+  await db.clinicLiveSettings.deleteMany();
   await db.medicalDocument.deleteMany();
   await db.queueEntry.deleteMany();
   await db.patientAccess.deleteMany();

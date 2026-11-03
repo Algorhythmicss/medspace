@@ -26,7 +26,17 @@ const FOLLOWUP_CHIPS: Array<{ label: string; days: number | null }> = [
   { label: "6 wk", days: 45 },
   { label: "3 mo", days: 90 },
 ];
-const LAB_CHIPS = ["HbA1c", "FBS + PPBS", "Lipid profile", "KFT", "LFT", "TSH", "CBC", "ECG", "Urine ACR"];
+const LAB_CHIPS = [
+  "HbA1c",
+  "FBS + PPBS",
+  "Lipid profile",
+  "KFT",
+  "LFT",
+  "TSH",
+  "CBC",
+  "ECG",
+  "Urine ACR",
+];
 
 type DrugSuggestion = {
   name: string;
@@ -35,9 +45,17 @@ type DrugSuggestion = {
   defaultInstructions: string | null;
 };
 
-type Vitals = { bpSys: string; bpDia: string; pulse: string; weight: string; tempF: string };
+type Vitals = {
+  bpSys: string;
+  bpDia: string;
+  pulse: string;
+  weight: string;
+  tempF: string;
+};
 
 type Draft = {
+  commandId?: string;
+  photoInstructions?: string;
   complaint: string;
   diagnosis: string;
   bpSys: string;
@@ -140,22 +158,30 @@ export default function VisitForm({
   lastRxItems,
   checkinVitals,
   initialSavedSets,
+  liveClinic = false,
 }: {
   patientId: string;
   lastRxItems: RxItemInput[];
   checkinVitals?: Vitals;
   initialSavedSets: SavedPrescriptionSet[];
+  liveClinic?: boolean;
 }) {
   const draftKey = `medspace:visit-draft:${patientId}`;
 
   // Seed the vitals from the front desk's check-in reading. checkinVitals is a
   // server prop (same on server and client), so it's safe in the initializer —
   // no hydration mismatch, and no fighting the localStorage-restore effect.
-  const [draft, setDraft] = useState<Draft>(() => ({ ...EMPTY, ...(checkinVitals ?? {}) }));
+  const [draft, setDraft] = useState<Draft>(() => ({
+    ...EMPTY,
+    ...(checkinVitals ?? {}),
+  }));
   const [restored, setRestored] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [drugQuery, setDrugQuery] = useState("");
   const [suggestions, setSuggestions] = useState<DrugSuggestion[]>([]);
+  const drugSequence = useRef(0);
+  const drugController = useRef<AbortController | null>(null);
+  useEffect(() => () => drugController.current?.abort(), []);
   const [pending, startTransition] = useTransition();
   const [setPending, startSetTransition] = useTransition();
   const [savedSets, setSavedSets] = useState(initialSavedSets);
@@ -208,17 +234,29 @@ export default function VisitForm({
   }, [draft, draftKey]);
 
   async function onDrugQuery(q: string) {
+    const sequence = ++drugSequence.current;
+    drugController.current?.abort();
     setDrugQuery(q);
+    setSuggestions([]);
     if (!q.trim()) {
       setSuggestions([]);
       return;
     }
+    const controller = new AbortController();
+    drugController.current = controller;
     try {
-      const res = await fetch(`/api/drugs?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/drugs?q=${encodeURIComponent(q)}`, {
+        signal: controller.signal,
+      });
       const data = await res.json();
-      setSuggestions(data.drugs);
+      if (
+        sequence === drugSequence.current &&
+        res.ok &&
+        Array.isArray(data.drugs)
+      )
+        setSuggestions(data.drugs);
     } catch {
-      setSuggestions([]);
+      if (sequence === drugSequence.current) setSuggestions([]);
     }
   }
 
@@ -227,7 +265,7 @@ export default function VisitForm({
     set("items", [
       ...draft.items,
       isCustom
-        ? { drugName: d, frequency: "1-0-1", duration: "30 days" }
+        ? { drugName: d, frequency: "" }
         : {
             drugName: d.name,
             frequency: d.defaultFrequency ?? "1-0-1",
@@ -242,7 +280,9 @@ export default function VisitForm({
   function updateItem(i: number, patch: Partial<RxItemInput>) {
     set(
       "items",
-      draft.items.map((item, idx) => (idx === i ? { ...item, ...patch } : item))
+      draft.items.map((item, idx) =>
+        idx === i ? { ...item, ...patch } : item,
+      ),
     );
   }
 
@@ -254,7 +294,9 @@ export default function VisitForm({
       draft.followUpInDays !== null;
     if (
       replacesWork &&
-      !window.confirm("Replace the current medicines, advice, tests and follow-up with this saved set?")
+      !window.confirm(
+        "Replace the current medicines, advice, tests and follow-up with this saved set?",
+      )
     ) {
       return;
     }
@@ -284,9 +326,10 @@ export default function VisitForm({
         return;
       }
       setSavedSets((current) =>
-        [...current.filter((item) => item.id !== result.set.id), result.set].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        )
+        [
+          ...current.filter((item) => item.id !== result.set.id),
+          result.set,
+        ].sort((a, b) => a.name.localeCompare(b.name)),
       );
       setSetName("");
       setSetNotice(`Saved “${result.set.name}” for future visits.`);
@@ -323,18 +366,31 @@ export default function VisitForm({
 
   function submit() {
     setSaveError(null);
+    const submittedDraft = {
+      ...draft,
+      commandId: draft.commandId || crypto.randomUUID(),
+    };
+    setDraft(submittedDraft);
     savingVisit.current = true;
     startTransition(async () => {
       // Drop the local copy optimistically; a successful save redirects away
       // and the draft must not linger. Restored below if the save fails.
       try {
-        localStorage.removeItem(draftKey);
+        localStorage.setItem(draftKey, JSON.stringify(submittedDraft));
       } catch {
         /* ignore */
       }
       try {
         const result = await createVisit({
           patientId,
+          ...(liveClinic
+            ? {
+                commandId: submittedDraft.commandId,
+                photoInstructions: submittedDraft.photoInstructions,
+                requestProgressPhotos:
+                  submittedDraft.photoInstructions !== undefined,
+              }
+            : {}),
           complaint: draft.complaint.trim() || undefined,
           diagnosis: draft.diagnosis.trim() || undefined,
           vitals: {
@@ -352,24 +408,39 @@ export default function VisitForm({
         if (result && !result.ok) {
           savingVisit.current = false;
           try {
-            localStorage.setItem(draftKey, JSON.stringify(draft));
+            localStorage.setItem(draftKey, JSON.stringify(submittedDraft));
           } catch {
             /* ignore */
           }
           setSaveError(result.error);
+        } else {
+          try {
+            localStorage.removeItem(draftKey);
+          } catch {
+            /* storage unavailable */
+          }
         }
       } catch (err) {
         // A successful action redirects, which surfaces here as a control-flow
         // signal — not a failure. Anything else means the save didn't land.
         const digest = (err as { digest?: string })?.digest ?? "";
-        if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) throw err;
+        if (typeof digest === "string" && digest.startsWith("NEXT_REDIRECT")) {
+          try {
+            localStorage.removeItem(draftKey);
+          } catch {
+            /* storage unavailable */
+          }
+          throw err;
+        }
         savingVisit.current = false;
         try {
-          localStorage.setItem(draftKey, JSON.stringify(draft));
+          localStorage.setItem(draftKey, JSON.stringify(submittedDraft));
         } catch {
           /* ignore */
         }
-        setSaveError("The visit could not be saved. Check the connection and try again.");
+        setSaveError(
+          "The save could not be confirmed. Keep this draft unchanged and retry; the same visit will not be created twice.",
+        );
       }
     });
   }
@@ -408,7 +479,8 @@ export default function VisitForm({
           <div className="mb-2 px-1">
             <h3 className="label">Saved prescriptions</h3>
             <p className="t-micro mt-0.5 text-ink3">
-              One tap fills medicines, advice, tests and follow-up. You still review everything.
+              One tap fills medicines, advice, tests and follow-up. You still
+              review everything.
             </p>
           </div>
           <div className="card rows overflow-hidden">
@@ -419,9 +491,12 @@ export default function VisitForm({
                   onClick={() => applySavedSet(saved)}
                   className="pressable min-w-0 flex-1 px-4 py-3 text-left"
                 >
-                  <span className="t-body block truncate font-semibold">{saved.name}</span>
+                  <span className="t-body block truncate font-semibold">
+                    {saved.name}
+                  </span>
                   <span className="t-micro text-ink3">
-                    {saved.items.length} medicine{saved.items.length === 1 ? "" : "s"}
+                    {saved.items.length} medicine
+                    {saved.items.length === 1 ? "" : "s"}
                   </span>
                 </button>
                 <button
@@ -455,9 +530,7 @@ export default function VisitForm({
       </div>
 
       <div>
-        <h3 className="label mb-2 px-1">
-          Vitals
-        </h3>
+        <h3 className="label mb-2 px-1">Vitals</h3>
         <div className="grid grid-cols-5 gap-2">
           {(
             [
@@ -481,24 +554,21 @@ export default function VisitForm({
       </div>
 
       <div>
-        <h3 className="label mb-2 px-1">
-          Prescription
-        </h3>
+        <h3 className="label mb-2 px-1">Prescription</h3>
         {draft.items.length > 0 && (
           <ul className="mb-2.5 space-y-2.5">
             {draft.items.map((item, i) => (
-              <li
-                key={i}
-                className="card p-3.5"
-              >
+              <li key={i} className="card p-3.5">
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-[17px] font-medium leading-snug">{item.drugName}</span>
+                  <span className="text-[17px] font-medium leading-snug">
+                    {item.drugName}
+                  </span>
                   <button
                     type="button"
                     onClick={() =>
                       set(
                         "items",
-                        draft.items.filter((_, idx) => idx !== i)
+                        draft.items.filter((_, idx) => idx !== i),
                       )
                     }
                     className="mt-0.5 shrink-0 rounded-full bg-sunk p-1 text-ink2 active:opacity-60"
@@ -508,7 +578,11 @@ export default function VisitForm({
                 </div>
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {FREQ_CHIPS.map((f) => (
-                    <Chip key={f} on={item.frequency === f} onClick={() => updateItem(i, { frequency: f })}>
+                    <Chip
+                      key={f}
+                      on={item.frequency === f}
+                      onClick={() => updateItem(i, { frequency: f })}
+                    >
                       {f}
                     </Chip>
                   ))}
@@ -525,9 +599,49 @@ export default function VisitForm({
                     </Chip>
                   ))}
                 </div>
-                {item.instructions && (
-                  <p className="mt-2 text-[13px] text-ink2">{item.instructions}</p>
-                )}
+                <details className="mt-3 border-t border-hairline pt-2">
+                  <summary className="t-cap cursor-pointer font-semibold text-ink2">
+                    Edit dose and instructions
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    <label className="t-cap block">
+                      Dose / frequency
+                      <input
+                        aria-label={`Dose / frequency for ${item.drugName}`}
+                        value={item.frequency}
+                        maxLength={80}
+                        onChange={(event) =>
+                          updateItem(i, { frequency: event.target.value })
+                        }
+                        className="field mt-1 w-full"
+                      />
+                    </label>
+                    <label className="t-cap block">
+                      Course duration (optional)
+                      <input
+                        aria-label={`Course duration for ${item.drugName}`}
+                        value={item.duration ?? ""}
+                        maxLength={80}
+                        onChange={(event) =>
+                          updateItem(i, { duration: event.target.value })
+                        }
+                        className="field mt-1 w-full"
+                      />
+                    </label>
+                    <label className="t-cap block">
+                      Medicine instructions (optional)
+                      <input
+                        aria-label={`Instructions for ${item.drugName}`}
+                        value={item.instructions ?? ""}
+                        maxLength={500}
+                        onChange={(event) =>
+                          updateItem(i, { instructions: event.target.value })
+                        }
+                        className="field mt-1 w-full"
+                      />
+                    </label>
+                  </div>
+                </details>
               </li>
             ))}
           </ul>
@@ -539,7 +653,7 @@ export default function VisitForm({
             placeholder="Add medicine…"
             className={fieldCls}
           />
-          {suggestions.length > 0 && (
+          {drugQuery.trim() && (
             <div className="rows absolute inset-x-0 top-full z-10 mt-1.5 overflow-hidden rounded-2xl bg-surface shadow-[var(--lift-lg)]">
               {suggestions.map((d) => (
                 <button
@@ -549,7 +663,9 @@ export default function VisitForm({
                   className="flex w-full items-center justify-between px-4 py-2.5 text-left text-[15px] active:bg-black/5"
                 >
                   <span>{d.name}</span>
-                  <span className="text-[12px] text-ink2">{d.defaultFrequency}</span>
+                  <span className="text-[12px] text-ink2">
+                    {d.defaultFrequency}
+                  </span>
                 </button>
               ))}
               {drugQuery.trim() && (
@@ -574,21 +690,57 @@ export default function VisitForm({
       />
 
       <div>
-        <h3 className="label mb-2 px-1">
-          Follow-up
-        </h3>
+        <h3 className="label mb-2 px-1">Follow-up</h3>
         <div className="flex flex-wrap gap-1.5">
           {FOLLOWUP_CHIPS.map((c) => (
             <Chip
               key={c.label}
               on={draft.followUpInDays === c.days}
-              onClick={() => set("followUpInDays", c.days)}
+              onClick={() => {
+                set("followUpInDays", c.days);
+                if (c.days === null) set("photoInstructions", undefined);
+              }}
             >
               {c.label}
             </Chip>
           ))}
         </div>
         <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {liveClinic && draft.followUpInDays ? (
+            <div className="mb-2 w-full rounded-xl border border-hairline p-3">
+              <label className="t-cap flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={draft.photoInstructions !== undefined}
+                  onChange={(event) =>
+                    set(
+                      "photoInstructions",
+                      event.target.checked ? "" : undefined,
+                    )
+                  }
+                />
+                <span>Request progress photos before this follow-up</span>
+              </label>
+              {draft.photoInstructions !== undefined ? (
+                <label className="t-cap mt-3 block">
+                  Photo instructions
+                  <textarea
+                    maxLength={500}
+                    value={draft.photoInstructions}
+                    onChange={(event) =>
+                      set("photoInstructions", event.target.value)
+                    }
+                    className="field mt-1 min-h-20 w-full"
+                    placeholder="Tell the patient what to photograph"
+                  />
+                </label>
+              ) : null}
+              <p className="t-micro mt-2 text-ink3">
+                Up to three still photos through the patient’s private care
+                plan.
+              </p>
+            </div>
+          ) : null}
           {LAB_CHIPS.map((lab) => {
             const on = draft.labTasks.includes(lab);
             return (
@@ -598,7 +750,9 @@ export default function VisitForm({
                 onClick={() =>
                   set(
                     "labTasks",
-                    on ? draft.labTasks.filter((l) => l !== lab) : [...draft.labTasks, lab]
+                    on
+                      ? draft.labTasks.filter((l) => l !== lab)
+                      : [...draft.labTasks, lab],
                   )
                 }
                 className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors active:opacity-70 ${
@@ -620,7 +774,8 @@ export default function VisitForm({
             <div className="min-w-0 flex-1">
               <p className="t-head">Use this combination again</p>
               <p className="t-cap mt-0.5 text-ink3">
-                Saves the medicines plus current advice, tests and follow-up — never this patient’s diagnosis.
+                Saves the medicines plus current advice, tests and follow-up —
+                never this patient’s diagnosis.
               </p>
             </div>
           </div>
@@ -657,7 +812,8 @@ export default function VisitForm({
             Couldn’t save
           </p>
           <p className="mt-1 text-[13px] text-ink2">
-            {saveError} Nothing is lost — everything above is kept on this device.
+            {saveError} Nothing is lost — everything above is kept on this
+            device.
           </p>
         </div>
       )}
@@ -668,7 +824,11 @@ export default function VisitForm({
         disabled={pending}
         className="btn w-full bg-peri py-3.5 text-[16px] text-white disabled:opacity-50"
       >
-        {pending ? "Saving…" : saveError ? "Try saving again" : "Save visit & prescription"}
+        {pending
+          ? "Saving…"
+          : saveError
+            ? "Try saving again"
+            : "Save visit & prescription"}
       </button>
     </div>
   );

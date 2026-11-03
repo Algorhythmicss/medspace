@@ -1,5 +1,10 @@
+import { clinicDayStart } from "@/lib/live-clinic";
 import { db } from "@/lib/db";
-import { differenceInDays, differenceInMonths, differenceInYears } from "date-fns";
+import {
+  differenceInDays,
+  differenceInMonths,
+  differenceInYears,
+} from "date-fns";
 
 // The memory card: the ≤5 lines a doctor absorbs in a 10-second glance
 // before (or as) the patient walks in. Deterministic v1 — rules, not LLM —
@@ -72,13 +77,23 @@ export const METRIC_LABELS: Record<
 > = {
   HBA1C: { label: "HbA1c", higherIsWorse: true, decimals: 1, minDelta: 0.2 },
   BP_SYS: { label: "BP", higherIsWorse: true, decimals: 0, minDelta: 6 },
-  CREATININE: { label: "Creatinine", higherIsWorse: true, decimals: 2, minDelta: 0.12 },
+  CREATININE: {
+    label: "Creatinine",
+    higherIsWorse: true,
+    decimals: 2,
+    minDelta: 0.12,
+  },
   TSH: { label: "TSH", higherIsWorse: true, decimals: 1, minDelta: 1.0 },
   WEIGHT: { label: "Weight", higherIsWorse: true, decimals: 1, minDelta: 2 },
   LDL: { label: "LDL", higherIsWorse: true, decimals: 0, minDelta: 15 },
   FBS: { label: "FBS", higherIsWorse: true, decimals: 0, minDelta: 15 },
   PPBS: { label: "PPBS", higherIsWorse: true, decimals: 0, minDelta: 20 },
-  TG: { label: "Triglycerides", higherIsWorse: true, decimals: 0, minDelta: 50 },
+  TG: {
+    label: "Triglycerides",
+    higherIsWorse: true,
+    decimals: 0,
+    minDelta: 50,
+  },
   HDL: { label: "HDL", higherIsWorse: false, decimals: 0, minDelta: 8 },
   HB: { label: "Hb", higherIsWorse: false, decimals: 1, minDelta: 1.2 },
   VITD: { label: "Vit D", higherIsWorse: false, decimals: 0, minDelta: 8 },
@@ -106,10 +121,11 @@ function conditionAbbrev(name: string): string {
   return name;
 }
 
-export async function buildMemoryCard(patientId: string): Promise<MemoryCard | null> {
+export async function buildMemoryCard(
+  patientId: string,
+): Promise<MemoryCard | null> {
   const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = clinicDayStart(now);
   const [patient, homeObs, checkinRow] = await Promise.all([
     db.patient.findUnique({
       where: { id: patientId },
@@ -120,7 +136,11 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
         visits: {
           orderBy: { visitDate: "desc" },
           take: 5,
-          include: { prescription: { include: { items: { orderBy: { sortOrder: "asc" } } } } },
+          include: {
+            prescription: {
+              include: { items: { orderBy: { sortOrder: "asc" } } },
+            },
+          },
         },
         // Clinic/lab-measured only. Patient home readings are fetched separately
         // (below) so a burst of home logging can never crowd real clinic history
@@ -159,7 +179,14 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
         ],
       },
       orderBy: { arrivedAt: "desc" },
-      select: { bpSys: true, bpDia: true, pulse: true, weight: true, tempF: true, arrivedAt: true },
+      select: {
+        bpSys: true,
+        bpDia: true,
+        pulse: true,
+        weight: true,
+        tempF: true,
+        arrivedAt: true,
+      },
     }),
   ]);
   if (!patient) return null;
@@ -167,7 +194,8 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   let checkin: Checkin | null = null;
   if (checkinRow) {
     const bits: string[] = [];
-    if (checkinRow.bpSys) bits.push(`BP ${checkinRow.bpSys}/${checkinRow.bpDia ?? "?"}`);
+    if (checkinRow.bpSys)
+      bits.push(`BP ${checkinRow.bpSys}/${checkinRow.bpDia ?? "?"}`);
     if (checkinRow.pulse) bits.push(`${checkinRow.pulse} bpm`);
     if (checkinRow.weight) bits.push(`${checkinRow.weight} kg`);
     if (checkinRow.tempF) bits.push(`${checkinRow.tempF}°F`);
@@ -181,12 +209,17 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   }
 
   // -------- headline --------
-  const age = patient.dob ? differenceInYears(now, patient.dob) : patient.ageYears;
+  const age = patient.dob
+    ? differenceInYears(now, patient.dob)
+    : patient.ageYears;
   const condBits = patient.conditions.map((c) => {
     const abbrev = conditionAbbrev(c.name);
     return c.since ? `${abbrev} ${differenceInYears(now, c.since)}y` : abbrev;
   });
-  const headline = [age != null ? `${age} ${patient.sex ?? ""}`.trim() : patient.sex, ...condBits]
+  const headline = [
+    age != null ? `${age} ${patient.sex ?? ""}`.trim() : patient.sex,
+    ...condBits,
+  ]
     .filter(Boolean)
     .join(" · ");
 
@@ -197,22 +230,29 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   // logged home readings are surfaced separately (below) and never fused into
   // the arrow that drives a clinical decision — a safety rule, not cosmetics.
   // patient.observations is already clinic/lab-only (query excludes source:"patient")
-  const byType = new Map<string, { value: number; unit: string | null; measuredAt: Date }[]>();
+  const byType = new Map<
+    string,
+    { value: number; unit: string | null; measuredAt: Date }[]
+  >();
   for (const o of patient.observations) {
     if (!byType.has(o.type)) byType.set(o.type, []);
-    byType.get(o.type)!.push({ value: o.value, unit: o.unit, measuredAt: o.measuredAt });
+    byType
+      .get(o.type)!
+      .push({ value: o.value, unit: o.unit, measuredAt: o.measuredAt });
   }
 
   // -------- home readings (patient-logged, tagged, kept off the trend) --------
-  const latestHome = (type: string) =>
-    homeObs.find((o) => o.type === type); // fetched newest-first
+  const latestHome = (type: string) => homeObs.find((o) => o.type === type); // fetched newest-first
   const countHome = (type: string) =>
     homeObs.reduce((n, o) => (o.type === type ? n + 1 : n), 0);
   const homeReadings: HomeReading[] = [];
   const homeBpSys = latestHome("BP_SYS");
   if (homeBpSys) {
     const dia = homeObs.find(
-      (o) => o.type === "BP_DIA" && Math.abs(o.measuredAt.getTime() - homeBpSys.measuredAt.getTime()) < 3600000
+      (o) =>
+        o.type === "BP_DIA" &&
+        Math.abs(o.measuredAt.getTime() - homeBpSys.measuredAt.getTime()) <
+          3600000,
     );
     homeReadings.push({
       label: "BP",
@@ -252,7 +292,10 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
     const prev = series[1];
     const oldest = series[series.length - 1];
     const comparator =
-      Math.abs(latest.value - oldest.value) > Math.abs(latest.value - prev.value) ? oldest : prev;
+      Math.abs(latest.value - oldest.value) >
+      Math.abs(latest.value - prev.value)
+        ? oldest
+        : prev;
     const delta = latest.value - comparator.value;
     if (Math.abs(delta) < meta.minDelta) continue;
     const worsening = meta.higherIsWorse ? delta > 0 : delta < 0;
@@ -265,7 +308,9 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       const diaSeries = byType.get("BP_DIA") ?? [];
       const latestDia = diaSeries[0]?.value;
       const compDia = diaSeries.find(
-        (d) => Math.abs(d.measuredAt.getTime() - comparator.measuredAt.getTime()) < 86400000
+        (d) =>
+          Math.abs(d.measuredAt.getTime() - comparator.measuredAt.getTime()) <
+          86400000,
       )?.value;
       valueText = `${comparator.value.toFixed(0)}/${compDia?.toFixed(0) ?? "?"} → ${latest.value.toFixed(0)}/${latestDia?.toFixed(0) ?? "?"}, ${when}`;
     } else {
@@ -289,7 +334,7 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   // One line, however many items. The chart lists them individually right
   // below; repeating each here verbatim doubled the reading for no gain.
   const overdue = patient.tasks.filter(
-    (t) => t.dueDate && differenceInDays(now, t.dueDate) > 0
+    (t) => t.dueDate && differenceInDays(now, t.dueDate) > 0,
   );
   if (overdue.length === 1) {
     const t = overdue[0];
@@ -322,7 +367,10 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
       tone: "warn",
       text: "Patient replied: can’t make the next visit — worth a call",
     });
-  } else if (patient.planReplyKind === "coming" || patient.planReplyKind === "booked") {
+  } else if (
+    patient.planReplyKind === "coming" ||
+    patient.planReplyKind === "booked"
+  ) {
     lines.push({
       kind: "note",
       tone: "ok",
@@ -336,7 +384,10 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   // -------- new information since the doctor last saw them --------
   const lastVisitDate = patient.visits[0]?.visitDate;
   const latestReport = patient.reports[0];
-  if (latestReport && (!lastVisitDate || latestReport.reportDate > lastVisitDate)) {
+  if (
+    latestReport &&
+    (!lastVisitDate || latestReport.reportDate > lastVisitDate)
+  ) {
     lines.push({
       kind: "report",
       tone: "info",
@@ -359,7 +410,16 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
   // foot of the briefing card, tappable to edit.
 
   // -------- metric chips (sparkline data) --------
-  const METRIC_ORDER = ["HBA1C", "BP_SYS", "CREATININE", "TSH", "LDL", "FBS", "PPBS", "WEIGHT"];
+  const METRIC_ORDER = [
+    "HBA1C",
+    "BP_SYS",
+    "CREATININE",
+    "TSH",
+    "LDL",
+    "FBS",
+    "PPBS",
+    "WEIGHT",
+  ];
   const metrics: MemoryMetric[] = [];
   for (const type of METRIC_ORDER) {
     const meta = METRIC_LABELS[type];
@@ -388,7 +448,9 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
     allergies: patient.allergies.map((a) => a.substance),
     lines: lines
       .map((line, i) => ({ line, i }))
-      .sort((a, b) => TONE_RANK[a.line.tone] - TONE_RANK[b.line.tone] || a.i - b.i)
+      .sort(
+        (a, b) => TONE_RANK[a.line.tone] - TONE_RANK[b.line.tone] || a.i - b.i,
+      )
       .map(({ line }) => line)
       .slice(0, 5),
     metrics: metrics.slice(0, 4),
@@ -397,10 +459,10 @@ export async function buildMemoryCard(patientId: string): Promise<MemoryCard | n
     // Active meds = the most recent prescription on record, not necessarily the
     // last visit's (a lab-review visit re-issues nothing). Same rule the patient
     // plan uses, so the two surfaces never disagree on what the patient is on.
-    activeMeds:
-      (patient.visits.find((v) => (v.prescription?.items.length ?? 0) > 0)?.prescription?.items ?? []).map(
-        (i) => ({ drugName: i.drugName, frequency: i.frequency })
-      ),
+    activeMeds: (
+      patient.visits.find((v) => (v.prescription?.items.length ?? 0) > 0)
+        ?.prescription?.items ?? []
+    ).map((i) => ({ drugName: i.drugName, frequency: i.frequency })),
     // Pre-MedSpace medicines are explicitly labelled as reported and only
     // shown when no native prescription exists. They reached this field after
     // doctor review; they are context for the first consult, not an Rx.
